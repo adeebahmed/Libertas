@@ -5,6 +5,7 @@ import Import from './pages/Import'
 import RealEstatePage from './pages/RealEstate'
 import Projections from './pages/Projections'
 import InsightsPage from './pages/Insights'
+import DebtPage from './pages/Debt'
 import Settings from './pages/Settings'
 
 const NAV = [
@@ -13,6 +14,7 @@ const NAV = [
   { to: '/import',     label: 'Import',      end: false },
   { to: '/real-estate',label: 'Real Estate', end: false },
   { to: '/projections',label: 'Projections', end: false },
+  { to: '/debt',        label: 'Debt',         end: false },
   { to: '/insights',   label: 'Insights',    end: false },
   { to: '/settings',   label: 'Settings',    end: false },
 ]
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/import"       element={<Import />} />
           <Route path="/real-estate"  element={<RealEstatePage />} />
           <Route path="/projections"  element={<Projections />} />
+          <Route path="/debt"          element={<DebtPage />} />
           <Route path="/insights"     element={<InsightsPage />} />
           <Route path="/settings"     element={<Settings />} />
         </Routes>

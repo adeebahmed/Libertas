@@ -117,6 +117,17 @@ class ImportLog(Base):
     account = relationship("Account")
 
 
+class DebtDetail(Base):
+    __tablename__ = "debt_details"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), unique=True, nullable=False)
+    interest_rate = Column(Float, default=0.0)   # APR as percent, e.g. 22.99
+    minimum_payment = Column(Float, default=0.0)
+
+    account = relationship("Account")
+
+
 class Setting(Base):
     __tablename__ = "settings"
 

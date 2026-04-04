@@ -5,7 +5,7 @@ from pathlib import Path
 import asyncio
 
 from .database import init_db, SessionLocal
-from .routers import accounts, imports, prices, real_estate, projections, snapshots, insights, settings, watcher
+from .routers import accounts, imports, prices, real_estate, projections, snapshots, insights, settings, watcher, debt
 from .routers.prices import refresh_prices
 from .routers.snapshots import record_snapshots
 from .watchers.folder_watcher import start_watcher
@@ -30,6 +30,7 @@ app.include_router(snapshots.router)
 app.include_router(insights.router)
 app.include_router(settings.router)
 app.include_router(watcher.router)
+app.include_router(debt.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
 

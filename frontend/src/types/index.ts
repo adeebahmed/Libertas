@@ -33,6 +33,10 @@ export type AccountType =
   | 'roth_ira'
   | '401k'
   | 'checking'
+  | 'credit_card'
+  | 'student_loan'
+  | 'auto_loan'
+  | 'personal_loan'
 
 export interface Holding {
   id: number
@@ -123,6 +127,30 @@ export interface ImportPreview {
   headers: string[]
   sample_rows: Record<string, string>[]
   suggested_mapping: Record<string, string>
+}
+
+export interface DebtAccount {
+  account_id: number
+  name: string
+  type: string
+  balance: number
+  interest_rate: number
+  minimum_payment: number
+  months_to_payoff: number | null
+  total_interest: number | null
+  last_updated: string | null
+}
+
+export interface DebtSummary {
+  total_balance: number
+  total_minimum_payment: number
+  highest_rate: number
+  total_interest_if_minimums: number
+}
+
+export interface DebtResponse {
+  debts: DebtAccount[]
+  summary: DebtSummary
 }
 
 export interface ImportLog {

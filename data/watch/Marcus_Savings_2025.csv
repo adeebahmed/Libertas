@@ -1,0 +1,14 @@
+Date,Description,Amount,Balance
+2024-10-01,Opening Deposit,5000.00,5000.00
+2024-10-31,Interest Credit,21.23,5021.23
+2024-11-15,Transfer from Chase Checking,500.00,5521.23
+2024-11-30,Interest Credit,23.44,5544.67
+2024-12-15,Transfer from Chase Checking,500.00,6044.67
+2024-12-31,Interest Credit,25.64,6070.31
+2025-01-15,Transfer from Chase Checking,500.00,6570.31
+2025-01-31,Interest Credit,27.88,6598.19
+2025-02-15,Transfer from Chase Checking,500.00,7098.19
+2025-02-28,Interest Credit,29.73,7127.92
+2025-03-15,Transfer from Chase Checking,500.00,7627.92
+2025-03-31,Interest Credit,32.36,7660.28
+2025-04-01,Transfer from Chase Checking,500.00,8160.28

@@ -243,7 +243,11 @@ hr {
 .tag-hsa        { color: var(--purple); border-color: #9b85c430; background: #9b85c40d; }
 .tag-roth_ira   { color: #e0906a; border-color: #e0906a30; background: #e0906a0d; }
 .tag-401k       { color: #9bc87a; border-color: #9bc87a30; background: #9bc87a0d; }
-.tag-checking   { color: var(--text-2); border-color: #9c907830; background: #9c90780d; }
+.tag-checking     { color: var(--text-2);  border-color: #9c907830; background: #9c90780d; }
+.tag-credit_card  { color: var(--red);    border-color: #c95f5230; background: #c95f520d; }
+.tag-student_loan { color: var(--blue);   border-color: #6a9fc030; background: #6a9fc00d; }
+.tag-auto_loan    { color: var(--gold);   border-color: #c9a96e30; background: #c9a96e0d; }
+.tag-personal_loan{ color: var(--purple); border-color: #9b85c430; background: #9b85c40d; }
 
 /* ── Buttons ── */
 .btn {
@@ -314,12 +318,17 @@ hr {
   border: 1px solid var(--border);
   border-left-width: 3px;
 }
-.insight-card.risk   { border-left-color: var(--red); }
-.insight-card.perf   { border-left-color: var(--green); }
-.insight-card.alloc  { border-left-color: var(--blue); }
-.insight-card.liquid { border-left-color: #5bbfbf; }
-.insight-card.trend  { border-left-color: var(--gold); }
-.insight-card.info   { border-left-color: var(--border); }
+.insight-card.risk       { border-left-color: var(--red); }
+.insight-card.perf       { border-left-color: var(--green); }
+.insight-card.alloc      { border-left-color: var(--blue); }
+.insight-card.liquid     { border-left-color: #5bbfbf; }
+.insight-card.trend      { border-left-color: var(--gold); }
+.insight-card.retirement { border-left-color: #9bc87a; }
+.insight-card.debt       { border-left-color: var(--red); }
+.insight-card.tax        { border-left-color: #e0c06a; }
+.insight-card.behavioral { border-left-color: var(--purple); }
+.insight-card.estate     { border-left-color: #e0906a; }
+.insight-card.info       { border-left-color: var(--border); }
 
 .insight-cat {
   font-size: 10.5px;
@@ -328,12 +337,17 @@ hr {
   letter-spacing: 1px;
   margin-bottom: 8px;
 }
-.insight-card.risk   .insight-cat { color: var(--red); }
-.insight-card.perf   .insight-cat { color: var(--green); }
-.insight-card.alloc  .insight-cat { color: var(--blue); }
-.insight-card.liquid .insight-cat { color: #5bbfbf; }
-.insight-card.trend  .insight-cat { color: var(--gold); }
-.insight-card.info   .insight-cat { color: var(--text-3); }
+.insight-card.risk       .insight-cat { color: var(--red); }
+.insight-card.perf       .insight-cat { color: var(--green); }
+.insight-card.alloc      .insight-cat { color: var(--blue); }
+.insight-card.liquid     .insight-cat { color: #5bbfbf; }
+.insight-card.trend      .insight-cat { color: var(--gold); }
+.insight-card.retirement .insight-cat { color: #9bc87a; }
+.insight-card.debt       .insight-cat { color: var(--red); }
+.insight-card.tax        .insight-cat { color: #e0c06a; }
+.insight-card.behavioral .insight-cat { color: var(--purple); }
+.insight-card.estate     .insight-cat { color: #e0906a; }
+.insight-card.info       .insight-cat { color: var(--text-3); }
 
 .insight-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
 .insight-desc  { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }

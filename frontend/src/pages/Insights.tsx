@@ -4,7 +4,9 @@ import type { Insight } from '../types'
 
 const CAT_CLASS: Record<string, string> = {
   Risk: 'risk', Performance: 'perf', Allocation: 'alloc',
-  Liquidity: 'liquid', Trends: 'trend', info: 'info',
+  Liquidity: 'liquid', Trends: 'trend', Retirement: 'retirement',
+  Debt: 'debt', Tax: 'tax', Behavioral: 'behavioral', Estate: 'estate',
+  info: 'info',
 }
 
 export default function InsightsPage() {
