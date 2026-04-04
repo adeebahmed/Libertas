@@ -1,191 +1,131 @@
 import { useState, useRef, useCallback } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Account, Institution, ImportPreview, PendingFile } from '../types'
+import type { ImportLog } from '../types'
+
+type Result = { status: string; institution: string; account_id: number; rows_imported: number; rows_skipped: number; error?: string }
 
 export default function Import() {
-  const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
-  const { data: institutions } = useApi<Institution[]>(() => api.get('/accounts/institutions'), [])
-  const { data: pending, refetch: refetchPending } = useApi<PendingFile[]>(() => api.get('/watcher/pending'), [])
-
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<ImportPreview | null>(null)
-  const [mapping, setMapping] = useState<Record<string, string>>({})
-  const [accountId, setAccountId] = useState<string>('')
-  const [institutionId, setInstitutionId] = useState<string>('')
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { data: logs, refetch } = useApi<ImportLog[]>(() => api.get('/watcher/log'), [])
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState<Result | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const FIELDS = ['date', 'symbol', 'quantity', 'price', 'amount', 'type', 'description', '(skip)']
-
   const handleFile = useCallback(async (f: File) => {
-    setFile(f)
+    setUploading(true)
     setResult(null)
-    const formData = new FormData()
-    formData.append('file', f)
-    const p = await api.upload<ImportPreview>('/imports/preview', formData)
-    setPreview(p)
-    setMapping(p.suggested_mapping)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    const f = e.dataTransfer.files[0]
-    if (f) handleFile(f)
-  }, [handleFile])
-
-  const handleConfirm = async () => {
-    if (!file || !accountId) return
-    setLoading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('account_id', accountId)
-    if (institutionId) formData.append('institution_id', institutionId)
-    formData.append('column_mapping', JSON.stringify(mapping))
-    const r = await api.upload<{ imported: number; skipped: number }>('/imports/confirm', formData)
-    setResult(r)
-    setLoading(false)
-    setFile(null)
-    setPreview(null)
-  }
+    const fd = new FormData()
+    fd.append('file', f)
+    try {
+      const r = await api.upload<Result>('/imports/upload', fd)
+      setResult(r)
+      refetch()
+    } catch (e: any) {
+      setResult({ status: 'error', institution: '', account_id: 0, rows_imported: 0, rows_skipped: 0, error: e.message })
+    } finally {
+      setUploading(false)
+    }
+  }, [refetch])
 
   return (
     <div>
       <h1 className="page-title">Import</h1>
 
-      {pending && pending.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, borderColor: 'var(--accent)' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Detected Files</h3>
-          {pending.map((p) => (
-            <div key={p.path} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-              <span style={{ fontWeight: 500 }}>{p.filename}</span>
-              {p.institution_name && (
-                <span className="badge badge-brokerage">{p.institution_name}</span>
-              )}
-              <button className="btn btn-primary" style={{ marginLeft: 'auto', padding: '4px 12px', fontSize: 13 }}
-                onClick={() => {
-                  // Load the pending file for import
-                  refetchPending()
-                }}
-              >
-                Import
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid-2 mb-32" style={{ gridTemplateColumns: '1fr 380px', alignItems: 'start' }}>
+        {/* Drop zone */}
+        <div>
+          <div
+            className={`dropzone${dragging ? ' over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]) }}
+            onClick={() => fileRef.current?.click()}
+          >
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }}
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+            <div className="dropzone-icon">{uploading ? '⟳' : '↑'}</div>
+            <div className="dropzone-title">{uploading ? 'Processing…' : 'Drop a file here'}</div>
+            <div className="dropzone-sub">CSV or Excel from any brokerage · or drop directly into data/watch/</div>
+          </div>
 
-      {/* Institution export links */}
-      {institutions && institutions.length > 0 && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Quick Export Links</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {institutions.filter(i => i.export_url).map((i) => (
-              <a key={i.id} href={i.export_url!} target="_blank" rel="noopener" className="btn">
-                {i.name}
-              </a>
+          {result && (
+            <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--red)' : 'var(--gold-dim)' }}>
+              {result.status === 'error' ? (
+                <div style={{ color: 'var(--red)', fontSize: 14 }}>Error: {result.error}</div>
+              ) : (
+                <div style={{ fontSize: 14 }}>
+                  <div style={{ fontWeight: 500, marginBottom: 8 }}>
+                    {result.status === 'success' ? '✓' : '·'} {result.institution || 'Unknown institution'}
+                  </div>
+                  <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                    {result.rows_imported} rows imported · {result.rows_skipped} skipped (duplicates)
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Instructions */}
+        <div className="card" style={{ padding: '24px 28px' }}>
+          <div className="section-label mb-16">How it works</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              ['Drop any file', 'CSV or Excel from any brokerage. No column mapping required.'],
+              ['Auto-detection', 'Libertas reads the data and figures out what each column is.'],
+              ['Filename matters', 'Name like "Fidelity_Roth_IRA.csv" — institution and account type are inferred from the filename.'],
+              ['Watch folder', 'Drop files into data/watch/ and they\'ll be auto-ingested on startup or when detected.'],
+            ].map(([title, desc]) => (
+              <div key={title}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.55 }}>{desc}</div>
+              </div>
             ))}
           </div>
         </div>
-      )}
+      </div>
 
-      {!preview ? (
-        <div
-          className="drop-zone"
-          onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('dragover') }}
-          onDragLeave={(e) => e.currentTarget.classList.remove('dragover')}
-          onDrop={handleDrop}
-          onClick={() => fileRef.current?.click()}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            style={{ display: 'none' }}
-            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-          />
-          <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Drop CSV/Excel file here</p>
-          <p>or click to browse</p>
-        </div>
-      ) : (
-        <div className="card">
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
-            Preview: {file?.name}
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div className="form-group">
-              <label>Account</label>
-              <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-                <option value="">Select account...</option>
-                {accounts?.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Institution (optional)</label>
-              <select value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
-                <option value="">None</option>
-                {institutions?.map((i) => (
-                  <option key={i.id} value={i.id}>{i.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Column Mapping</h4>
-          <table className="table" style={{ marginBottom: 16 }}>
+      {/* Import log */}
+      <div className="section-label mb-16">Import history</div>
+      {logs && logs.length > 0 ? (
+        <div className="card" style={{ padding: 0 }}>
+          <table className="tbl">
             <thead>
               <tr>
-                <th>File Column</th>
-                <th>Maps To</th>
+                <th>File</th>
+                <th>Institution</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Imported</th>
+                <th style={{ textAlign: 'right' }}>Skipped</th>
+                <th>When</th>
               </tr>
             </thead>
             <tbody>
-              {preview.headers.map((h) => (
-                <tr key={h}>
-                  <td>{h}</td>
+              {logs.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{l.filename}</td>
+                  <td style={{ color: 'var(--text-2)' }}>{l.institution_name ?? '—'}</td>
                   <td>
-                    <select
-                      value={mapping[h] || '(skip)'}
-                      onChange={(e) => setMapping({ ...mapping, [h]: e.target.value })}
-                    >
-                      {FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
-                    </select>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.4px',
+                      color: l.status === 'success' ? 'var(--green)' : l.status === 'error' ? 'var(--red)' : 'var(--text-3)',
+                    }}>{l.status}</span>
+                  </td>
+                  <td className="num" style={{ textAlign: 'right' }}>{l.rows_imported}</td>
+                  <td className="num" style={{ textAlign: 'right', color: 'var(--text-3)' }}>{l.rows_skipped}</td>
+                  <td className="num" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                    {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Sample Data</h4>
-          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-            <table className="table">
-              <thead>
-                <tr>{preview.headers.map((h) => <th key={h}>{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {preview.sample_rows.map((row, i) => (
-                  <tr key={i}>{preview.headers.map((h) => <td key={h}>{row[h]}</td>)}</tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" onClick={handleConfirm} disabled={!accountId || loading}>
-              {loading ? 'Importing...' : 'Confirm Import'}
-            </button>
-            <button className="btn" onClick={() => { setFile(null); setPreview(null) }}>Cancel</button>
-          </div>
         </div>
-      )}
-
-      {result && (
-        <div className="card" style={{ marginTop: 16, borderColor: 'var(--green)' }}>
-          <p>Imported <strong>{result.imported}</strong> transactions. Skipped <strong>{result.skipped}</strong> duplicates.</p>
+      ) : (
+        <div className="empty">
+          <div className="empty-title">No imports yet</div>
+          <div className="empty-sub">Drop a file above to get started</div>
         </div>
       )}
     </div>

@@ -91,6 +91,23 @@ def ingest_existing_files(watch_path: str):
 _observer = None
 
 
+def _trigger_price_refresh():
+    """POST to the local API to refresh prices — avoids event loop conflicts."""
+    try:
+        import urllib.request
+        urllib.request.urlopen(
+            urllib.request.Request("http://127.0.0.1:8000/api/prices/refresh", method="POST"),
+            timeout=30
+        )
+        urllib.request.urlopen(
+            urllib.request.Request("http://127.0.0.1:8000/api/snapshots/record", method="POST"),
+            timeout=10
+        )
+        logger.info("Price refresh and snapshot triggered via API")
+    except Exception as e:
+        logger.warning(f"Could not trigger price refresh: {e}")
+
+
 def start_watcher(watch_path: str):
     global _observer
     if _observer:
@@ -98,7 +115,7 @@ def start_watcher(watch_path: str):
 
     os.makedirs(watch_path, exist_ok=True)
 
-    # First, process any files already there
+    # Process any files already sitting in the watch folder
     ingest_existing_files(watch_path)
 
     # Then watch for new ones

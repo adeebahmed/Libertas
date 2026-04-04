@@ -9,23 +9,33 @@ from ..models import Holding
 router = APIRouter(prefix="/api/prices", tags=["prices"])
 
 
+_YF_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "Accept": "application/json",
+}
+
+
 async def fetch_stock_prices(symbols: list[str]) -> dict[str, float]:
-    """Fetch stock prices via yfinance."""
+    """Fetch stock prices directly from Yahoo Finance chart API."""
     if not symbols:
         return {}
-    try:
-        import yfinance as yf
-        tickers = yf.Tickers(" ".join(symbols))
-        prices = {}
+    prices = {}
+    async with httpx.AsyncClient(headers=_YF_HEADERS, timeout=15) as client:
         for sym in symbols:
             try:
-                info = tickers.tickers[sym].fast_info
-                prices[sym] = info.get("lastPrice") or info.get("regularMarketPrice", 0)
+                resp = await client.get(
+                    f"https://query2.finance.yahoo.com/v8/finance/chart/{sym}",
+                    params={"interval": "1d", "range": "1d"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    meta = data["chart"]["result"][0]["meta"]
+                    price = meta.get("regularMarketPrice") or meta.get("previousClose")
+                    if price:
+                        prices[sym] = float(price)
             except Exception:
                 continue
-        return prices
-    except Exception:
-        return {}
+    return prices
 
 
 async def fetch_crypto_prices(coin_ids: list[str]) -> dict[str, float]:

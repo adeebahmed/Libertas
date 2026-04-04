@@ -16,7 +16,21 @@ def record_snapshots(db: Session = Depends(get_db)):
     recorded = 0
 
     for a in accounts:
-        balance = sum((h.last_price or 0) * (h.quantity or 0) for h in a.holdings)
+        if a.holdings:
+            balance = sum(
+                (h.last_price * h.quantity) if h.last_price and h.quantity else (h.cost_basis or 0)
+                for h in a.holdings
+            )
+        else:
+            # Cash account — use most recent snapshot balance
+            last_snap = (
+                db.query(BalanceSnapshot)
+                .filter(BalanceSnapshot.account_id == a.id)
+                .order_by(BalanceSnapshot.date.desc())
+                .first()
+            )
+            balance = last_snap.balance if last_snap else 0
+
         # Add real estate equity
         for re in a.real_estate:
             value = re.effective_value or 0
@@ -29,7 +43,9 @@ def record_snapshots(db: Session = Depends(get_db)):
             .first()
         )
         if existing:
-            existing.balance = balance
+            # Never overwrite a good snapshot with $0
+            if balance > 0 or existing.balance == 0:
+                existing.balance = balance
         else:
             db.add(BalanceSnapshot(account_id=a.id, date=today, balance=balance))
         recorded += 1
@@ -61,24 +77,40 @@ def current_net_worth(db: Session = Depends(get_db)):
     total = 0
     by_type: dict[str, float] = {}
 
+    today = date.today()
     for a in accounts:
-        account_balance = sum((h.last_price or 0) * (h.quantity or 0) for h in a.holdings)
+        if a.holdings:
+            account_balance = sum(
+                (h.last_price * h.quantity) if h.last_price and h.quantity else (h.cost_basis or 0)
+                for h in a.holdings
+            )
+        else:
+            # Cash account — use most recent snapshot balance
+            last_snap = (
+                db.query(BalanceSnapshot)
+                .filter(BalanceSnapshot.account_id == a.id)
+                .order_by(BalanceSnapshot.date.desc())
+                .first()
+            )
+            account_balance = last_snap.balance if last_snap else 0
+
         for re in a.real_estate:
             account_balance += (re.effective_value or 0) - (re.mortgage_balance or 0)
         total += account_balance
         by_type[a.type] = by_type.get(a.type, 0) + account_balance
 
-    # Get previous snapshot for delta
-    latest = (
+    # Delta: compare against most recent snapshot from a PRIOR date (not today)
+    prior_snap = (
         db.query(BalanceSnapshot)
+        .filter(BalanceSnapshot.date < today)
         .order_by(BalanceSnapshot.date.desc())
         .first()
     )
     previous_total = 0
-    if latest:
+    if prior_snap:
         snaps = (
             db.query(BalanceSnapshot)
-            .filter(BalanceSnapshot.date == latest.date)
+            .filter(BalanceSnapshot.date == prior_snap.date)
             .all()
         )
         previous_total = sum(s.balance for s in snaps)

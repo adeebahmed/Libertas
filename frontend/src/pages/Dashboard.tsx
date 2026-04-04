@@ -2,130 +2,183 @@ import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { NetWorth, BalanceSnapshot, Account } from '../types'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts'
 
-const COLORS = ['#6366f1', '#f59e0b', '#22c55e', '#06b6d4', '#a855f7', '#ec4899', '#14b8a6', '#64748b']
+const PIE_COLORS = ['#c9a96e', '#5cad7a', '#6a9fc0', '#c95f52', '#9b85c4', '#e0906a', '#5bbfbf', '#9bc87a']
 
-function formatUsd(n: number) {
+function usd(n: number, compact = false) {
+  if (compact && Math.abs(n) >= 1_000_000)
+    return `$${(n / 1_000_000).toFixed(2)}M`
+  if (compact && Math.abs(n) >= 1_000)
+    return `$${(n / 1_000).toFixed(1)}k`
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
-function staleness(dateStr: string | null): string {
-  if (!dateStr) return 'staleness-red'
-  const days = (Date.now() - new Date(dateStr).getTime()) / 86400000
-  if (days < 3) return 'staleness-green'
-  if (days < 7) return 'staleness-yellow'
-  return 'staleness-red'
+function pct(n: number, total: number) {
+  return total ? ((n / total) * 100).toFixed(1) + '%' : '—'
+}
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{
+      background: '#1c1a14', border: '1px solid #26231b', borderRadius: 8,
+      padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12,
+    }}>
+      <div style={{ color: '#5c5444', marginBottom: 4 }}>{label}</div>
+      <div style={{ color: '#f0ebe2' }}>{usd(payload[0].value)}</div>
+    </div>
+  )
 }
 
 export default function Dashboard() {
-  const { data: nw } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
-  const { data: history } = useApi<BalanceSnapshot[]>(() => api.get('/snapshots/net-worth'), [])
+  const { data: nw }       = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
+  const { data: history }  = useApi<BalanceSnapshot[]>(() => api.get('/snapshots/net-worth'), [])
   const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
 
   const allocationData = nw
-    ? Object.entries(nw.by_type).map(([name, value]) => ({ name, value }))
+    ? Object.entries(nw.by_type)
+        .filter(([, v]) => v > 0)
+        .map(([name, value]) => ({ name: name.replace('_', ' '), value }))
+        .sort((a, b) => b.value - a.value)
     : []
+
+  const totalBalance = accounts?.reduce((s, a) => s + a.balance, 0) ?? 0
+  const deltaSign = (nw?.delta ?? 0) >= 0
 
   return (
     <div>
-      <h1 className="page-title">Dashboard</h1>
+      {/* Hero net worth */}
+      <div className="mb-32" style={{ paddingBottom: 32, borderBottom: '1px solid var(--border)' }}>
+        <div className="section-label mb-8">Total net worth</div>
+        <div className="num-hero mb-8">
+          {nw ? usd(nw.net_worth) : '$—'}
+        </div>
+        {nw && nw.delta !== 0 && (
+          <div className={deltaSign ? 'delta-up' : 'delta-down'}>
+            {deltaSign ? '↑' : '↓'} {usd(Math.abs(nw.delta))} since last snapshot
+          </div>
+        )}
+      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <div className="stat-card">
-          <div className="label">Net Worth</div>
-          <div className="value">{nw ? formatUsd(nw.net_worth) : '$--'}</div>
-          {nw && (
-            <div className={`delta ${nw.delta >= 0 ? 'positive' : 'negative'}`}>
-              {nw.delta >= 0 ? '+' : ''}{formatUsd(nw.delta)}
+      {/* Charts row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 32 }}>
+        {/* Net worth timeline */}
+        <div className="card">
+          <div className="section-label mb-16">Portfolio growth</div>
+          {history && history.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={history} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"   stopColor="#c9a96e" stopOpacity={0.25} />
+                    <stop offset="95%"  stopColor="#c9a96e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fill: '#5c5444', fontSize: 11 }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={(v) => usd(v, true)}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone" dataKey="net_worth"
+                  stroke="#c9a96e" strokeWidth={1.5}
+                  fill="url(#goldGrad)" dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="empty">
+              <div className="empty-icon">◌</div>
+              <div className="empty-title">No history yet</div>
+              <div className="empty-sub">Import data to track growth over time</div>
             </div>
           )}
         </div>
-        <div className="stat-card">
-          <div className="label">Accounts</div>
-          <div className="value">{accounts?.length ?? '--'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Asset Classes</div>
-          <div className="value">{allocationData.length || '--'}</div>
-        </div>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 24 }}>
+        {/* Allocation donut */}
         <div className="card">
-          <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>Net Worth Over Time</h3>
-          {history && history.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={history}>
-                <XAxis dataKey="date" tick={{ fill: '#8888a0', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#8888a0', fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip
-                  contentStyle={{ background: '#1a1a26', border: '1px solid #1f1f2e', borderRadius: 8 }}
-                  formatter={(v: number) => [formatUsd(v), 'Net Worth']}
-                />
-                <Line type="monotone" dataKey="net_worth" stroke="#6366f1" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state">Import data to see your net worth trend</div>
-          )}
-        </div>
-
-        <div className="card">
-          <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>Asset Allocation</h3>
+          <div className="section-label mb-16">Allocation</div>
           {allocationData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={allocationData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  dataKey="value"
-                  nameKey="name"
-                >
-                  {allocationData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#1a1a26', border: '1px solid #1f1f2e', borderRadius: 8 }}
-                  formatter={(v: number) => [formatUsd(v)]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie
+                    data={allocationData}
+                    cx="50%" cy="50%"
+                    innerRadius={50} outerRadius={75}
+                    dataKey="value" strokeWidth={0}
+                    paddingAngle={2}
+                  >
+                    {allocationData.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) =>
+                      active && payload?.[0] ? (
+                        <div style={{ background: '#1c1a14', border: '1px solid #26231b', borderRadius: 6, padding: '8px 12px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#f0ebe2' }}>
+                          {payload[0].name}<br />{usd(payload[0].value as number)}
+                        </div>
+                      ) : null
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {allocationData.map((d, i) => (
+                  <div key={d.name} className="flex-between" style={{ fontSize: 12 }}>
+                    <div className="flex-center" style={{ gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
+                      <span style={{ color: 'var(--text-2)', textTransform: 'capitalize' }}>{d.name}</span>
+                    </div>
+                    <span className="num" style={{ color: 'var(--text-3)', fontSize: 11 }}>
+                      {pct(d.value, totalBalance)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
-            <div className="empty-state">No allocation data yet</div>
+            <div className="empty" style={{ padding: '32px 16px' }}>
+              <div className="empty-sub">Import data to see allocation</div>
+            </div>
           )}
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Accounts</h3>
+      {/* Accounts */}
+      <div className="section-label mb-16">Accounts</div>
       {accounts && accounts.length > 0 ? (
-        <div className="card-grid">
+        <div className="grid-auto">
           {accounts.map((a) => (
-            <div key={a.id} className="card" style={{ cursor: 'pointer' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600 }}>{a.name}</span>
-                <span className={`badge badge-${a.type}`}>{a.type.replace('_', ' ')}</span>
+            <div key={a.id} className="card card-hover" style={{ padding: '20px 24px' }}>
+              <div className="flex-between mb-12">
+                <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)' }}>{a.name}</span>
+                <span className={`tag tag-${a.type}`}>{a.type.replace('_', ' ')}</span>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>{formatUsd(a.balance)}</div>
-              {a.institution_name && (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{a.institution_name}</div>
-              )}
-              <div style={{ fontSize: 12, marginTop: 8 }}>
-                <span className={staleness(a.last_updated)}>
-                  {a.last_updated ? `Updated ${a.last_updated}` : 'No data yet'}
-                </span>
+              <div className="num-mid mb-8" style={{ color: 'var(--text)' }}>
+                {usd(a.balance)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+                {a.institution_name ?? '—'}
+                {a.last_updated && (
+                  <span style={{ marginLeft: 8 }}>· {a.last_updated}</span>
+                )}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="empty-state">No accounts yet. Go to Settings to add one.</div>
+        <div className="empty">
+          <div className="empty-icon">◻</div>
+          <div className="empty-title">No accounts</div>
+          <div className="empty-sub">Go to Settings to add your first account, or drop a CSV into data/watch/</div>
+        </div>
       )}
     </div>
   )

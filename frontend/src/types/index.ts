@@ -124,3 +124,15 @@ export interface ImportPreview {
   sample_rows: Record<string, string>[]
   suggested_mapping: Record<string, string>
 }
+
+export interface ImportLog {
+  id: number
+  filename: string
+  institution_name: string | null
+  account_id: number | null
+  rows_imported: number
+  rows_skipped: number
+  status: string
+  error_message: string | null
+  created_at: string | null
+}

@@ -160,20 +160,86 @@ def _rebuild_holdings(account_id: int, db: Session):
 
 
 def _take_snapshot(account_id: int, db: Session):
-    """Snapshot current balance using cost basis (prices update later)."""
+    """Snapshot current + historical balances from transaction history."""
     holdings = db.query(Holding).filter(Holding.account_id == account_id).all()
-    balance = sum(h.cost_basis or 0 for h in holdings)
+    txns = (
+        db.query(Transaction)
+        .filter(Transaction.account_id == account_id)
+        .order_by(Transaction.date)
+        .all()
+    )
+
+    # --- Current balance ---
+    current_balance = sum(h.cost_basis or 0 for h in holdings)
+
+    if not holdings and txns:
+        # Cash account: find most recent Balance column value
+        for tx in reversed(txns):
+            raw = tx.raw_row or {}
+            for k, v in raw.items():
+                if "balance" in k.lower():
+                    from .analyzer import try_parse_number
+                    parsed = try_parse_number(str(v))
+                    if parsed is not None:
+                        current_balance = parsed
+                        break
+            if current_balance:
+                break
 
     today = date.today()
     existing = db.query(BalanceSnapshot).filter(
         BalanceSnapshot.account_id == account_id,
         BalanceSnapshot.date == today,
     ).first()
-
     if existing:
-        existing.balance = balance
+        existing.balance = current_balance
     else:
-        db.add(BalanceSnapshot(account_id=account_id, date=today, balance=balance))
+        db.add(BalanceSnapshot(account_id=account_id, date=today, balance=current_balance))
+
+    # --- Historical monthly snapshots from transaction dates ---
+    # Build cumulative cost basis at each transaction date so the chart has history
+    if not txns:
+        db.flush()
+        return
+
+    running: dict[str, float] = {}  # symbol -> quantity * avg_price
+    cumulative_cost = 0.0
+    cash_balance = 0.0
+
+    seen_months: set[str] = set()
+    for tx in txns:
+        sym = (tx.symbol or "").upper().strip()
+        qty = abs(tx.quantity or 0)
+        price = abs(tx.price or 0)
+        amount = tx.amount or 0
+
+        if sym and qty:
+            if tx.type == "buy":
+                running[sym] = running.get(sym, 0) + qty * price
+            elif tx.type == "sell":
+                running[sym] = max(0, running.get(sym, 0) - qty * price)
+            cumulative_cost = sum(running.values())
+        else:
+            # Cash transaction
+            cash_balance += amount
+
+        month_key = tx.date.strftime("%Y-%m")
+        if month_key in seen_months:
+            continue
+        seen_months.add(month_key)
+
+        snap_date = tx.date
+        balance_at = cumulative_cost if cumulative_cost > 0 else abs(cash_balance)
+        if balance_at <= 0:
+            continue
+
+        existing_hist = db.query(BalanceSnapshot).filter(
+            BalanceSnapshot.account_id == account_id,
+            BalanceSnapshot.date == snap_date,
+        ).first()
+        if not existing_hist:
+            db.add(BalanceSnapshot(account_id=account_id, date=snap_date, balance=round(balance_at, 2)))
+
     db.flush()
 
 

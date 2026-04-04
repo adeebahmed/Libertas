@@ -95,15 +95,24 @@ def list_accounts(db: Session = Depends(get_db)):
     accounts = db.query(Account).all()
     result = []
     for a in accounts:
-        balance = sum(
-            (h.last_price or 0) * (h.quantity or 0) for h in a.holdings
-        )
         last_snap = (
             db.query(BalanceSnapshot)
             .filter(BalanceSnapshot.account_id == a.id)
             .order_by(BalanceSnapshot.date.desc())
             .first()
         )
+
+        def holding_value(h):
+            qty = h.quantity or 0
+            if h.last_price:
+                return h.last_price * qty
+            return h.cost_basis or 0
+
+        if a.holdings:
+            balance = sum(holding_value(h) for h in a.holdings)
+        else:
+            # Cash/checking account — use last snapshot balance
+            balance = last_snap.balance if last_snap else 0
         result.append({
             "id": a.id,
             "name": a.name,
@@ -140,7 +149,7 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
             "cost_basis": h.cost_basis,
             "last_price": h.last_price,
             "last_updated": h.last_updated.isoformat() if h.last_updated else None,
-            "market_value": (h.last_price or 0) * (h.quantity or 0),
+            "market_value": (h.last_price * h.quantity) if h.last_price and h.quantity else (h.cost_basis or 0),
         }
         for h in account.holdings
     ]
