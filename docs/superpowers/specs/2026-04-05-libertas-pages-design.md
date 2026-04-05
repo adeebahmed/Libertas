@@ -1,6 +1,6 @@
 # Libertas Pages Design Spec
 **Date:** 2026-04-05
-**Scope:** All 9 pages — Dashboard, Accounts, Import, Real Estate, Projections, Insights, Debt, Taxes, Settings
+**Scope:** All 9 pages — Dashboard, Accounts, Import, Real Estate, Retirement, Insights, Debt, Taxes, Settings
 
 ---
 
@@ -97,7 +97,7 @@ The first thing seen each morning — a motivational, high-signal overview.
 
 ---
 
-## 5. Projections
+## 5. Retirement
 
 ### North Star
 The user sets a target retirement date. The page answers: **"What do I need to retire by then, and am I on track?"**
@@ -231,7 +231,7 @@ Powered by user profile (income, business activity, location):
 - Both stored in `.env`, never committed to git
 - Settings page shows masked value + "configured / not configured" status
 
-**Projections**
+**Retirement**
 - Per-account-type return rates (conservative / moderate / aggressive)
 
 **Data & Backups**
