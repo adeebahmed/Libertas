@@ -58,15 +58,15 @@ PAYWALL_DOMAINS = {
     "theinformation.com",
 }
 SOURCE_PRIORITY = {
-    "Morning Brew": 0,
-    "Yahoo Finance": 1,
-    "Reuters": 2,
-    "Financial Times": 3,
-    "MarketWatch": 4,
-    "CNBC": 5,
-    "AI News": 6,
-    "AI Chips": 7,
-    "AI Policy": 8,
+    "AI News": 0,
+    "AI Chips": 1,
+    "AI Policy": 2,
+    "Morning Brew": 3,
+    "Yahoo Finance": 4,
+    "Reuters": 5,
+    "Financial Times": 6,
+    "MarketWatch": 7,
+    "CNBC": 8,
     "Portfolio Briefing": 99,
 }
 BLOCKED_SOURCES = {"The Economist", "Bloomberg"}
@@ -94,32 +94,17 @@ def get_news(limit: int = 20, refresh: bool = False, db: Session = Depends(get_d
     if refresh or not latest or latest.fetched_at < cutoff or has_only_demo_news:
         _trigger_async_refresh()
 
-    articles = (
-        db.query(NewsCache)
-        .filter(~NewsCache.source.in_(BLOCKED_SOURCES))
-        .order_by(NewsCache.published_at.desc().nullslast())
-        .limit(limit * 3)
-        .all()
-    )
-    payload = [
-        {
-            "id": a.id,
-            "source": a.source,
-            "title": a.title,
-            "url": a.url,
-            "published_at": a.published_at.isoformat() if a.published_at else None,
-            "summary": a.summary,
-            "category": a.category,
-        }
-        for a in articles
-    ]
-    payload.sort(key=lambda a: a["published_at"] or "", reverse=True)
-    payload.sort(key=lambda a: SOURCE_PRIORITY.get(a["source"], 99))
-    filtered_payload = [
-        p for p in payload
-        if p["source"] == "Financial Times" or not _is_paywalled_url(p.get("url") or "")
-    ]
-    boosted_payload = _enforce_ai_mix(filtered_payload, top_n=min(2, limit), min_ai=min(2, limit))
+    boosted_payload = _build_ranked_payload(db, limit)
+    required_ai = min(2, limit)
+
+    # If we still don't have enough AI articles near the top, do a quick
+    # synchronous AI-only fetch and re-rank once so users immediately see AI.
+    if _count_ai_articles(boosted_payload[:required_ai]) < required_ai:
+        _fetch_ai_only(db)
+        _purge_invalid_news_links(db)
+        _ensure_minimum_news_entries(db, min_count=MIN_NEWS_ITEMS)
+        boosted_payload = _build_ranked_payload(db, limit)
+
     return boosted_payload[:limit]
 
 
@@ -297,6 +282,90 @@ def _is_relevant(text: str, context: dict) -> bool:
     if not context["has_portfolio"]:
         return True
     return any(keyword in text for keyword in context["keywords"]) or any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
+
+
+def _build_ranked_payload(db: Session, limit: int) -> list[dict]:
+    articles = (
+        db.query(NewsCache)
+        .filter(~NewsCache.source.in_(BLOCKED_SOURCES))
+        .order_by(NewsCache.published_at.desc().nullslast())
+        .limit(max(limit * 4, 24))
+        .all()
+    )
+    payload = [
+        {
+            "id": a.id,
+            "source": a.source,
+            "title": a.title,
+            "url": a.url,
+            "published_at": a.published_at.isoformat() if a.published_at else None,
+            "summary": a.summary,
+            "category": a.category,
+        }
+        for a in articles
+    ]
+    payload.sort(key=lambda a: a["published_at"] or "", reverse=True)
+    payload.sort(key=lambda a: SOURCE_PRIORITY.get(a["source"], 99))
+    filtered_payload = [
+        p for p in payload
+        if p["source"] == "Financial Times" or not _is_paywalled_url(p.get("url") or "")
+    ]
+    return _enforce_ai_mix(filtered_payload, top_n=min(2, limit), min_ai=min(2, limit))
+
+
+def _count_ai_articles(articles: list[dict]) -> int:
+    return sum(1 for item in articles if _is_ai_article(item))
+
+
+def _fetch_ai_only(db: Session) -> int:
+    """Quickly fetch only AI feeds to improve top-card relevance."""
+    try:
+        import feedparser
+    except ImportError:
+        logger.warning("feedparser not installed — skipping AI-only fetch")
+        return 0
+
+    added = 0
+    existing_titles = {r.title for r in db.query(NewsCache.title).all()}
+    for source, query in AI_NEWS_FEEDS:
+        url = _google_news_rss_url(query)
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:16]:
+                title = (entry.get("title") or "").strip()
+                if not title or title in existing_titles:
+                    continue
+                summary = (entry.get("summary") or entry.get("description") or "").strip()
+                text = f"{title} {summary}".lower()
+                if not any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS):
+                    continue
+
+                raw_url = (entry.get("link") or "").strip()
+                if not raw_url or _is_paywalled_url(raw_url):
+                    continue
+                if not _is_direct_article_url(raw_url):
+                    continue
+
+                published = _parse_entry_datetime(entry)
+                if len(summary) > 400:
+                    summary = summary[:397] + "…"
+
+                db.add(NewsCache(
+                    source=source,
+                    title=title,
+                    url=raw_url,
+                    published_at=published,
+                    summary=summary or None,
+                    category="ai",
+                ))
+                existing_titles.add(title)
+                added += 1
+        except Exception as e:
+            logger.warning(f"AI-only news fetch failed for {source}: {e}")
+
+    if added > 0:
+        db.commit()
+    return added
 
 
 def _is_ai_article(article: dict) -> bool:
