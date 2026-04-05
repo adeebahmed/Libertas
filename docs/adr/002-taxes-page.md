@@ -7,7 +7,7 @@
 
 ## Context
 
-The user has multiple income types (W-2, 1099, self-employment, rental, crypto) and no current business entity. They want to understand their tax position, reduce liability legally, and get jurisdiction-aware recommendations on business structure. This is not covered in ADR-001.
+Users may have multiple income types (W-2, 1099/self-employment, rental, crypto) and varying business entity structures. They need to understand their tax position, reduce liability legally, and get jurisdiction-aware recommendations on business structure. This is not covered in ADR-001.
 
 ## Decision
 

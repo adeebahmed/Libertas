@@ -6,7 +6,7 @@
 
 ## Context
 
-Libertas is a locally-hosted personal finance dashboard for a 30-year-old with a target of retiring at 45. The user has W-2 income, 1099/self-employment income, rental real estate, crypto trading activity, and is evaluating business entity structures (LLC, S-Corp). All data stays local. No cloud. No account linking.
+Libertas is a locally-hosted personal finance dashboard. All data stays local. No cloud. No account linking.
 
 ---
 
@@ -100,11 +100,11 @@ The first thing seen each morning — a motivational, high-signal overview.
 ## 5. Projections
 
 ### North Star
-**Retire by 45** (user is 30 — 15 years). Page is anchored to this goal.
+The page is anchored to the user's configured retirement target age (set in Settings > User Profile).
 
 ### Target Display (3 views)
 All three shown simultaneously:
-1. **Fixed number target** — user sets a number (e.g. $2M), shows if current trajectory hits it by 45
+1. **Fixed number target** — user sets a number (e.g. $2M), shows if current trajectory hits it by the target age
 2. **Monthly income target** — user sets desired monthly passive income, back-calculates required portfolio size
 3. **4% rule** — auto-calculates 25× annual expenses (pulled from Settings > monthly expenses × 12)
 
@@ -113,7 +113,7 @@ On-track / off-track indicator for each view.
 ### Projection Curves
 - Three scenarios: Conservative, Moderate, Aggressive
 - Default return rates configurable per account type (stocks, crypto, real estate, cash/savings, retirement accounts)
-- Chart shows projected total value year by year to age 45 (and beyond to age 65 for context)
+- Chart shows projected total value year by year to the target retirement age (and 20 years beyond for context)
 
 ### Contributions
 - Per-account monthly contribution input
@@ -256,7 +256,7 @@ The following fields are needed beyond ADR-001:
 - `business_entity` — none / sole_prop / llc / s_corp / other
 - `monthly_expenses` — already in ADR-001
 - `risk_profile` — already in ADR-001
-- `retirement_target_age` — default 45
+- `retirement_target_age` — user-configured target retirement age
 - `retirement_target_amount` — optional fixed number target
 - `retirement_monthly_income_target` — optional monthly income target
 
