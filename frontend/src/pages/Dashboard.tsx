@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { NetWorth, BalanceSnapshot, Account, NewsArticle } from '../types'
@@ -54,11 +54,19 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const accountsColRef = useRef<HTMLDivElement | null>(null)
   const [accountsColHeight, setAccountsColHeight] = useState<number | null>(null)
+  const newsPath = useMemo(() => {
+    let shouldRefresh = false
+    try {
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+      shouldRefresh = nav?.type === 'reload'
+    } catch {}
+    return `/news?limit=8${shouldRefresh ? '&refresh=1' : ''}`
+  }, [])
 
   const { data: nw }       = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history }  = useApi<BalanceSnapshot[]>(() => api.get('/snapshots/net-worth'), [])
   const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
-  const { data: news }     = useApi<NewsArticle[]>(() => api.get('/news?limit=8'), [])
+  const { data: news, loading: newsLoading } = useApi<NewsArticle[]>(() => api.get(newsPath), [newsPath])
 
   const allocationData = nw
     ? Object.entries(nw.by_type)
@@ -288,7 +296,10 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="card">
-              <div style={{ fontSize: 13, color: 'var(--text-3)' }}>News will load automatically. Requires internet access.</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-3)' }}>
+                <span className="spinner" />
+                <span>{newsLoading ? 'Loading market and AI news…' : 'Fetching market and AI news in background…'}</span>
+              </div>
             </div>
           )}
         </div>

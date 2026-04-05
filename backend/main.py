@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import asyncio
+import logging
 
 try:
     from dotenv import load_dotenv
@@ -11,6 +12,8 @@ except ImportError:
     pass
 
 from .database import init_db, SessionLocal
+from .importers.ingest import ingest_file
+from .models import Account
 from .routers import accounts, imports, prices, real_estate, snapshots, insights, settings, watcher, debt
 from .routers import retirement, taxes, news, backups
 from .routers.prices import refresh_prices
@@ -49,6 +52,18 @@ app.include_router(news.router)
 app.include_router(backups.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
+DEMO_FILENAMES = [
+    "Chase_Checking_Activity_2025.csv",
+    "Chase_Sapphire_CreditCard_2025.csv",
+    "Coinbase_crypto_2025.csv",
+    "Fidelity_Brokerage_2025.csv",
+    "Fidelity_Roth_IRA_2025.csv",
+    "Marcus_Savings_2025.csv",
+    "Navient_StudentLoan_2025.csv",
+    "ToyotaFinancial_AutoLoan_2025.csv",
+    "Vanguard_401k_2025.csv",
+]
+logger = logging.getLogger(__name__)
 
 
 @app.get("/api/health")
@@ -59,7 +74,11 @@ def health():
 @app.on_event("startup")
 async def on_startup():
     init_db()
-    start_watcher(str(WATCH_FOLDER))
+    try:
+        start_watcher(str(WATCH_FOLDER))
+    except Exception as e:
+        logger.warning(f"File watcher disabled due to startup error: {e}")
+    _bootstrap_demo_data_if_empty()
     # Mount built frontend AFTER all API routes are registered
     frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():
@@ -82,5 +101,44 @@ async def _post_startup_refresh():
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Startup price refresh failed: {e}")
+    finally:
+        db.close()
+
+
+def _bootstrap_demo_data_if_empty():
+    """
+    If the DB has no accounts, import bundled fake fixtures from watch/ or
+    watch/processed/ so first-run dashboards are not blank.
+    """
+    db = SessionLocal()
+    try:
+        if db.query(Account).count() > 0:
+            return
+
+        root = Path(__file__).parent.parent
+        search_dirs = [
+            root / "data" / "watch",
+            root / "data" / "watch" / "processed",
+        ]
+        imported_rows = 0
+        found_files = 0
+
+        for filename in DEMO_FILENAMES:
+            for folder in search_dirs:
+                candidate = folder / filename
+                if candidate.is_file():
+                    found_files += 1
+                    log = ingest_file(str(candidate), db)
+                    imported_rows += log.rows_imported or 0
+                    break
+
+        if found_files:
+            logger.info(
+                "Bootstrapped fake demo data on empty DB: files=%s imported_rows=%s",
+                found_files,
+                imported_rows,
+            )
+    except Exception as e:
+        logger.warning(f"Demo bootstrap failed: {e}")
     finally:
         db.close()

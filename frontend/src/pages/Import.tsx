@@ -91,6 +91,13 @@ export default function Import() {
     }
   }
 
+  const latestLogs = logs
+    ? logs.reduce<ImportLog[]>((acc, log) => {
+        if (!acc.some(x => x.filename === log.filename)) acc.push(log)
+        return acc
+      }, [])
+    : []
+
   return (
     <div>
       <h1 className="page-title">Import</h1>
@@ -159,7 +166,7 @@ export default function Import() {
 
       {/* Import log */}
       <div className="section-label mb-16">Import history</div>
-      {logs && logs.length > 0 ? (
+      {latestLogs.length > 0 ? (
         <div className="card" style={{ padding: 0 }}>
           <table className="tbl">
             <thead>
@@ -174,15 +181,29 @@ export default function Import() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((l) => (
+              {latestLogs.map((l) => {
+                const isDuplicateOnly = l.status === 'success' && l.rows_imported === 0 && l.rows_skipped > 0
+                const statusLabel = isDuplicateOnly ? 'duplicate' : (l.status === 'rolled_back' ? 'rolled back' : l.status)
+                const statusColor =
+                  l.status === 'error' ? 'var(--red)'
+                  : isDuplicateOnly ? 'var(--text-2)'
+                  : l.status === 'success' ? 'var(--green)'
+                  : 'var(--text-3)'
+
+                return (
                 <tr key={l.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{l.filename}</td>
                   <td style={{ color: 'var(--text-2)' }}>{l.institution_name ?? '—'}</td>
                   <td>
                     <span style={{
                       fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.4px',
-                      color: l.status === 'success' ? 'var(--green)' : l.status === 'rolled_back' ? 'var(--text-3)' : l.status === 'error' ? 'var(--red)' : 'var(--text-3)',
-                    }}>{l.status === 'rolled_back' ? 'rolled back' : l.status}</span>
+                      color: statusColor,
+                    }}>{statusLabel}</span>
+                    {l.status === 'error' && l.error_message && (
+                      <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-3)', maxWidth: 280, lineHeight: 1.35 }}>
+                        {l.error_message}
+                      </div>
+                    )}
                   </td>
                   <td className="num" style={{ textAlign: 'right' }}>{l.rows_imported}</td>
                   <td className="num" style={{ textAlign: 'right', color: 'var(--text-3)' }}>{l.rows_skipped}</td>
@@ -201,7 +222,7 @@ export default function Import() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

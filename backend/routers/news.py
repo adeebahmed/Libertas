@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import logging
 import time
+import threading
 from urllib.parse import quote_plus
 from urllib.parse import urlparse
 from typing import Optional
 import httpx
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models import NewsCache, Holding, Account
 
 router = APIRouter(prefix="/api/news", tags=["news"])
@@ -21,6 +22,11 @@ GENERIC_FINANCE_FEEDS = [
     ("Financial Times", "https://www.ft.com/rss/home"),
     ("MarketWatch", "https://feeds.marketwatch.com/marketwatch/topstories/"),
     ("CNBC", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
+]
+AI_NEWS_FEEDS = [
+    ("AI News", "artificial intelligence OR generative ai OR llm OR model release"),
+    ("AI Chips", "nvidia OR amd OR tsmc OR ai chips OR gpu demand"),
+    ("AI Policy", "ai regulation OR openai OR anthropic OR google deepmind"),
 ]
 
 CACHE_TTL_HOURS = 2
@@ -58,14 +64,24 @@ SOURCE_PRIORITY = {
     "Financial Times": 3,
     "MarketWatch": 4,
     "CNBC": 5,
+    "AI News": 6,
+    "AI Chips": 7,
+    "AI Policy": 8,
     "Portfolio Briefing": 99,
 }
 BLOCKED_SOURCES = {"The Economist", "Bloomberg"}
+AI_RELEVANCE_KEYWORDS = {
+    "ai", "artificial intelligence", "generative", "llm", "model",
+    "openai", "anthropic", "deepmind", "inference", "training",
+    "gpu", "nvidia", "amd", "semiconductor", "datacenter", "chip",
+}
+_refresh_lock = threading.Lock()
+_refresh_inflight = False
 
 
 @router.get("")
-def get_news(limit: int = 20, db: Session = Depends(get_db)):
-    """Return cached news, auto-refreshing if stale."""
+def get_news(limit: int = 20, refresh: bool = False, db: Session = Depends(get_db)):
+    """Return cached news quickly. Optionally trigger async refresh."""
     cutoff = datetime.utcnow() - timedelta(hours=CACHE_TTL_HOURS)
     latest = db.query(NewsCache).order_by(NewsCache.fetched_at.desc()).first()
     has_only_demo_news = (
@@ -75,13 +91,8 @@ def get_news(limit: int = 20, db: Session = Depends(get_db)):
         and db.query(NewsCache).filter(~NewsCache.source.in_(DEMO_NEWS_SOURCES)).count() == 0
     )
 
-    if not latest or latest.fetched_at < cutoff or has_only_demo_news:
-        _fetch_and_cache(db)
-        _purge_invalid_news_links(db)
-        _ensure_minimum_news_entries(db, min_count=MIN_NEWS_ITEMS)
-    else:
-        _purge_invalid_news_links(db)
-        _ensure_minimum_news_entries(db, min_count=MIN_NEWS_ITEMS)
+    if refresh or not latest or latest.fetched_at < cutoff or has_only_demo_news:
+        _trigger_async_refresh()
 
     articles = (
         db.query(NewsCache)
@@ -108,16 +119,47 @@ def get_news(limit: int = 20, db: Session = Depends(get_db)):
         p for p in payload
         if p["source"] == "Financial Times" or not _is_paywalled_url(p.get("url") or "")
     ]
-    return filtered_payload[:limit]
+    boosted_payload = _enforce_ai_mix(filtered_payload, top_n=min(2, limit), min_ai=min(2, limit))
+    return boosted_payload[:limit]
 
 
 @router.post("/refresh")
 def refresh_news(db: Session = Depends(get_db)):
-    """Force a news refresh."""
-    count = _fetch_and_cache(db)
-    _purge_invalid_news_links(db)
-    _ensure_minimum_news_entries(db, min_count=MIN_NEWS_ITEMS)
-    return {"fetched": count}
+    """Trigger non-blocking refresh."""
+    started = _trigger_async_refresh(force=True)
+    return {"started": started, "inflight": _is_refresh_inflight()}
+
+
+def _is_refresh_inflight() -> bool:
+    with _refresh_lock:
+        return _refresh_inflight
+
+
+def _trigger_async_refresh(force: bool = False) -> bool:
+    global _refresh_inflight
+    with _refresh_lock:
+        if _refresh_inflight:
+            return False
+        _refresh_inflight = True
+
+    t = threading.Thread(target=_refresh_worker, daemon=True)
+    t.start()
+    return True
+
+
+def _refresh_worker():
+    global _refresh_inflight
+    db = SessionLocal()
+    try:
+        _fetch_and_cache(db)
+        _purge_invalid_news_links(db)
+        _ensure_minimum_news_entries(db, min_count=MIN_NEWS_ITEMS)
+    except Exception as e:
+        logger.warning(f"Background news refresh failed: {e}")
+    finally:
+        db.close()
+        with _refresh_lock:
+            _refresh_inflight = False
 
 
 def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
@@ -152,6 +194,7 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
 
                 summary = (entry.get("summary") or entry.get("description") or "").strip()
                 text = f"{title} {summary}".lower()
+                ai_hit = any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
                 if strict_relevance and not _is_relevant(text, context):
                     continue
 
@@ -178,7 +221,7 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
                     url=url,
                     published_at=published,
                     summary=summary or None,
-                    category=category,
+                    category="ai" if ai_hit else category,
                 ))
                 existing_titles.add(title)
                 added += 1
@@ -243,6 +286,8 @@ def _portfolio_context(db: Session) -> dict:
 
 def _build_feeds(context: dict) -> list[tuple[str, str, str]]:
     feeds: list[tuple[str, str, str]] = [(name, url, "markets") for name, url in GENERIC_FINANCE_FEEDS]
+    for source, query in AI_NEWS_FEEDS:
+        feeds.append((source, _google_news_rss_url(query), "ai"))
 
     return feeds
 
@@ -251,7 +296,60 @@ def _is_relevant(text: str, context: dict) -> bool:
     # If no portfolio context exists, keep broad market coverage.
     if not context["has_portfolio"]:
         return True
-    return any(keyword in text for keyword in context["keywords"])
+    return any(keyword in text for keyword in context["keywords"]) or any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
+
+
+def _is_ai_article(article: dict) -> bool:
+    if article.get("category") == "ai":
+        return True
+    source = (article.get("source") or "").strip()
+    if source in {"AI News", "AI Chips", "AI Policy"}:
+        return True
+    text = f"{article.get('title') or ''} {article.get('summary') or ''}".lower()
+    return any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
+
+
+def _enforce_ai_mix(payload: list[dict], top_n: int = 6, min_ai: int = 2) -> list[dict]:
+    if len(payload) <= top_n:
+        return payload
+
+    top = payload[:top_n]
+    ai_in_top = sum(1 for item in top if _is_ai_article(item))
+    if ai_in_top >= min_ai:
+        return payload
+
+    needed = min_ai - ai_in_top
+    ai_candidates = [item for item in payload[top_n:] if _is_ai_article(item)]
+    if not ai_candidates:
+        return payload
+
+    selected = ai_candidates[:needed]
+    # Replace from the bottom of top_n, preferring non-AI slots.
+    replace_positions = [i for i in range(top_n - 1, -1, -1) if not _is_ai_article(top[i])]
+    if not replace_positions:
+        return payload
+
+    new_top = top[:]
+    used_ids = set()
+    for candidate in selected:
+        if not replace_positions:
+            break
+        pos = replace_positions.pop(0)
+        new_top[pos] = candidate
+        if candidate.get("id") is not None:
+            used_ids.add(candidate["id"])
+
+    remainder = []
+    for item in payload[top_n:]:
+        item_id = item.get("id")
+        if item_id is not None and item_id in used_ids:
+            continue
+        # fallback compare by object for rows without ids
+        if item_id is None and item in selected:
+            continue
+        remainder.append(item)
+
+    return new_top + remainder
 
 
 def _parse_entry_datetime(entry) -> Optional[datetime]:
@@ -302,7 +400,8 @@ def _is_direct_article_url(url: str) -> bool:
     query = (parsed.query or "").lower()
 
     if "news.google.com" in host:
-        return False
+        # Google News article redirect URLs are still article-specific.
+        return "/articles/" in path.lower() or "/rss/articles/" in path.lower()
     if path in {"", "/"}:
         return False
     if "/search" in path.lower():
@@ -329,7 +428,8 @@ def _url_is_live(url: str) -> bool:
             g = client.get(url)
             return g.status_code != 404 and g.status_code < 500
     except Exception:
-        return False
+        # Network hiccups should not nuke cached rows.
+        return True
 
 
 def _purge_invalid_news_links(db: Session):
@@ -352,6 +452,7 @@ def _purge_invalid_news_links(db: Session):
             db.delete(row)
             removed += 1
             continue
+        # Only remove if it's clearly dead; keep rows on transient network failures.
         if not _url_is_live(url):
             db.delete(row)
             removed += 1
