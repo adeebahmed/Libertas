@@ -38,10 +38,15 @@ Aim for modern, clean, non-generic UI — not the flat-SaaS look of 2016–2024.
 
 ## Running locally
 ```bash
-./start.sh          # backend + frontend
+./start.sh          # backend (port 8000) + frontend dev server (port 5173/5174)
 ./start-docs.sh     # VitePress docs dev server
 ```
-After `npm run build --prefix frontend`, FastAPI serves the compiled frontend at `localhost:8000`.
+
+### Which port to use
+- **`:5174` (Vite dev server)** — use this while developing. Hot reload; no rebuild needed after frontend changes. API calls are proxied to `:8000` automatically.
+- **`:8000` (FastAPI)** — serves the compiled frontend after `npm run build --prefix frontend`. Use this to test the production build.
+
+Day-to-day: open `:5174` in your browser. The backend must still be running at `:8000` (both start via `./start.sh`), but you never need to open `:8000` directly.
 
 ## API routing convention
 All backend routers are mounted under `/api`. Frontend `api.get('/accounts')` → `/api/accounts`.

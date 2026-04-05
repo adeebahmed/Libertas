@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import logging
+import re
 import time
 import threading
-from urllib.parse import quote_plus
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 from typing import Optional
 import httpx
 
@@ -79,6 +79,28 @@ _refresh_lock = threading.Lock()
 _refresh_inflight = False
 
 
+def _strip_html(text: str) -> str:
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&lt;', '<', text)
+    text = re.sub(r'&gt;', '>', text)
+    text = re.sub(r'&quot;', '"', text)
+    text = re.sub(r'&#\d+;', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def _clean_html_summaries(db: Session):
+    """Strip HTML from any cached summaries that weren't cleaned at ingest time."""
+    dirty = False
+    for row in db.query(NewsCache).filter(NewsCache.summary.isnot(None)).all():
+        if '<' in (row.summary or ''):
+            row.summary = _strip_html(row.summary)
+            dirty = True
+    if dirty:
+        db.commit()
+
+
 @router.get("")
 def get_news(limit: int = 20, refresh: bool = False, db: Session = Depends(get_db)):
     """Return cached news quickly. Optionally trigger async refresh."""
@@ -110,7 +132,8 @@ def get_news(limit: int = 20, refresh: bool = False, db: Session = Depends(get_d
 
 @router.post("/refresh")
 def refresh_news(db: Session = Depends(get_db)):
-    """Trigger non-blocking refresh."""
+    """Immediately strip any HTML from cached summaries, then trigger a background refresh."""
+    _clean_html_summaries(db)
     started = _trigger_async_refresh(force=True)
     return {"started": started, "inflight": _is_refresh_inflight()}
 
@@ -162,6 +185,8 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
     # Clean out locally inserted fake/demo rows before adding live data.
     db.query(NewsCache).filter(NewsCache.source.in_(DEMO_NEWS_SOURCES)).delete()
 
+    _clean_html_summaries(db)
+
     context = _portfolio_context(db)
     feeds = _build_feeds(context)
     existing_titles = {r.title for r in db.query(NewsCache.title).all()}
@@ -177,23 +202,22 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
                 if not title or title in existing_titles:
                     continue
 
-                summary = (entry.get("summary") or entry.get("description") or "").strip()
+                summary = _strip_html((entry.get("summary") or entry.get("description") or "").strip())
                 text = f"{title} {summary}".lower()
                 ai_hit = any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
                 if strict_relevance and not _is_relevant(text, context):
                     continue
 
-                raw_url = entry.get("link") or ""
-                url = raw_url.strip()
-                if _is_paywalled_url(url):
+                article_url = (entry.get("link") or "").strip()
+                if _is_paywalled_url(article_url):
                     # Keep FT headlines/summaries even when full article is paywalled.
                     if source == "Financial Times":
-                        url = ""
+                        article_url = ""
                     else:
                         continue
-                if url and not _is_direct_article_url(url):
+                if article_url and not _is_direct_article_url(article_url):
                     continue
-                if url and not _url_is_live(url):
+                if article_url and not _url_is_live(article_url):
                     continue
 
                 published = _parse_entry_datetime(entry)
@@ -203,7 +227,7 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
                 db.add(NewsCache(
                     source=source,
                     title=title,
-                    url=url,
+                    url=article_url,
                     published_at=published,
                     summary=summary or None,
                     category="ai" if ai_hit else category,
@@ -335,7 +359,7 @@ def _fetch_ai_only(db: Session) -> int:
                 title = (entry.get("title") or "").strip()
                 if not title or title in existing_titles:
                     continue
-                summary = (entry.get("summary") or entry.get("description") or "").strip()
+                summary = _strip_html((entry.get("summary") or entry.get("description") or "").strip())
                 text = f"{title} {summary}".lower()
                 if not any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS):
                     continue
@@ -434,10 +458,6 @@ def _parse_entry_datetime(entry) -> Optional[datetime]:
 
 def _google_news_rss_url(query: str) -> str:
     return f"https://news.google.com/rss/search?q={quote_plus(query + ' when:7d')}&hl=en-US&gl=US&ceid=US:en"
-
-
-def _google_news_search_url(query: str) -> str:
-    return f"https://news.google.com/search?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en"
 
 
 def _is_paywalled_url(url: str) -> bool:
