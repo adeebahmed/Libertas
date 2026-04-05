@@ -13,11 +13,12 @@ router = APIRouter(prefix="/api/real-estate", tags=["real_estate"])
 
 
 class PropertyCreate(BaseModel):
-    account_id: int
+    account_id: Optional[int] = None
     address: str
     purchase_price: Optional[float] = None
     purchase_date: Optional[date] = None
     mortgage_balance: Optional[float] = None
+    mortgage_rate: Optional[float] = None
     manual_override: Optional[float] = None
 
 
@@ -26,6 +27,7 @@ class PropertyUpdate(BaseModel):
     purchase_price: Optional[float] = None
     purchase_date: Optional[date] = None
     mortgage_balance: Optional[float] = None
+    mortgage_rate: Optional[float] = None
     manual_override: Optional[float] = None
     zillow_estimate: Optional[float] = None
 
@@ -44,6 +46,7 @@ def list_properties(db: Session = Depends(get_db)):
             "manual_override": p.manual_override,
             "effective_value": p.effective_value,
             "mortgage_balance": p.mortgage_balance,
+            "mortgage_rate": p.mortgage_rate,
             "equity": (p.effective_value or 0) - (p.mortgage_balance or 0),
             "ltv": (p.mortgage_balance or 0) / p.effective_value * 100 if p.effective_value else None,
             "last_updated": p.last_updated.isoformat() if p.last_updated else None,
@@ -54,10 +57,28 @@ def list_properties(db: Session = Depends(get_db)):
 
 @router.post("")
 def create_property(data: PropertyCreate, db: Session = Depends(get_db)):
-    account = db.query(Account).get(data.account_id)
-    if not account:
-        raise HTTPException(404, "Account not found")
-    prop = RealEstate(**data.model_dump())
+    account_id = data.account_id
+    if account_id:
+        account = db.query(Account).get(account_id)
+        if not account:
+            raise HTTPException(404, "Account not found")
+    else:
+        # Auto-manage a hidden/internal account so users don't need to create/select one.
+        account = (
+            db.query(Account)
+            .filter(Account.type == "real_estate")
+            .order_by(Account.id.asc())
+            .first()
+        )
+        if not account:
+            account = Account(name="Real Estate Assets", type="real_estate")
+            db.add(account)
+            db.flush()
+        account_id = account.id
+
+    payload = data.model_dump()
+    payload["account_id"] = account_id
+    prop = RealEstate(**payload)
     db.add(prop)
     db.commit()
     db.refresh(prop)
@@ -79,6 +100,7 @@ def get_property(property_id: int, db: Session = Depends(get_db)):
         "manual_override": prop.manual_override,
         "effective_value": prop.effective_value,
         "mortgage_balance": prop.mortgage_balance,
+        "mortgage_rate": prop.mortgage_rate,
         "equity": (prop.effective_value or 0) - (prop.mortgage_balance or 0),
         "ltv": (prop.mortgage_balance or 0) / prop.effective_value * 100 if prop.effective_value else None,
         "last_updated": prop.last_updated.isoformat() if prop.last_updated else None,

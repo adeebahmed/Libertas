@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Property, Account } from '../types'
+import type { Property } from '../types'
 
 function usd(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -24,20 +24,18 @@ function LTVBar({ ltv }: { ltv: number }) {
 
 export default function RealEstatePage() {
   const { data: properties, refetch } = useApi<Property[]>(() => api.get('/real-estate'), [])
-  const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ account_id: '', address: '', purchase_price: '', purchase_date: '', mortgage_balance: '', manual_override: '' })
+  const [form, setForm] = useState({ address: '', purchase_price: '', purchase_date: '', mortgage_balance: '', mortgage_rate: '', manual_override: '' })
 
-  const reAccounts = accounts?.filter(a => a.type === 'real_estate') ?? []
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }))
 
   const handleAdd = async () => {
     await api.post('/real-estate', {
-      account_id: Number(form.account_id),
       address: form.address,
       purchase_price: form.purchase_price ? Number(form.purchase_price) : null,
       purchase_date: form.purchase_date || null,
       mortgage_balance: form.mortgage_balance ? Number(form.mortgage_balance) : null,
+      mortgage_rate: form.mortgage_rate ? Number(form.mortgage_rate) : null,
       manual_override: form.manual_override ? Number(form.manual_override) : null,
     })
     setShowForm(false)
@@ -66,13 +64,6 @@ export default function RealEstatePage() {
         <div className="card mb-24">
           <div className="grid-2">
             <div className="field">
-              <label>Account</label>
-              <select value={form.account_id} onChange={f('account_id')}>
-                <option value="">Select account…</option>
-                {reAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </div>
-            <div className="field">
               <label>Address</label>
               <input value={form.address} onChange={f('address')} placeholder="123 Main St, City, ST" />
             </div>
@@ -89,11 +80,15 @@ export default function RealEstatePage() {
               <input type="number" value={form.mortgage_balance} onChange={f('mortgage_balance')} />
             </div>
             <div className="field">
+              <label>Mortgage Rate (%)</label>
+              <input type="number" step="0.01" value={form.mortgage_rate} onChange={f('mortgage_rate')} placeholder="e.g. 6.75" />
+            </div>
+            <div className="field">
               <label>Manual Value Override</label>
               <input type="number" value={form.manual_override} onChange={f('manual_override')} placeholder="Leave blank to use Zillow" />
             </div>
           </div>
-          <button className="btn btn-primary" onClick={handleAdd} disabled={!form.account_id || !form.address}>
+          <button className="btn btn-primary" onClick={handleAdd} disabled={!form.address}>
             Add Property
           </button>
         </div>
@@ -112,6 +107,10 @@ export default function RealEstatePage() {
                 <div>
                   <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Mortgage</div>
                   <div className="num" style={{ fontWeight: 500 }}>{p.mortgage_balance ? usd(p.mortgage_balance) : '—'}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Rate</div>
+                  <div className="num" style={{ fontWeight: 500 }}>{p.mortgage_rate != null ? `${p.mortgage_rate.toFixed(2)}%` : '—'}</div>
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Equity</div>

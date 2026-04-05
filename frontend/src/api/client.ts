@@ -1,4 +1,26 @@
-const BASE = '/api'
+function resolveBase() {
+  const envBase = import.meta.env.VITE_API_BASE as string | undefined
+  if (envBase && envBase.trim()) {
+    return envBase.replace(/\/+$/, '')
+  }
+
+  if (typeof window === 'undefined') {
+    return '/api'
+  }
+
+  const { protocol, hostname, port } = window.location
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1'
+
+  // If UI is served locally on any port except 8000 (e.g. 5173/5174/8080),
+  // call the backend directly so we don't depend on a dev proxy.
+  if (isLocalHost && port && port !== '8000') {
+    return `${protocol}//${hostname}:8000/api`
+  }
+
+  return '/api'
+}
+
+const BASE = resolveBase()
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

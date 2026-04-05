@@ -3,6 +3,13 @@ import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, Institution } from '../types'
 
+type SeedDemoResponse = {
+  ok: boolean
+  rows_imported: number
+  rows_skipped: number
+  errors: { file: string; error: string }[]
+}
+
 export default function Settings() {
   const { data: accounts, refetch: refetchAccounts } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: institutions, refetch: refetchInst } = useApi<Institution[]>(() => api.get('/accounts/institutions'), [])
@@ -63,7 +70,23 @@ export default function Settings() {
     showToast('Institution added')
   }
 
-  const ACCOUNT_TYPES = ['brokerage', 'crypto', 'real_estate', 'savings', 'hsa', 'roth_ira', '401k', 'checking', 'credit_card', 'student_loan', 'auto_loan', 'personal_loan']
+  const seedDemoData = async () => {
+    const result = await api.post<SeedDemoResponse>('/settings/seed-demo')
+    refetchAccounts()
+    refetchInst()
+
+    if (result.errors?.length) {
+      showToast(`Demo load finished with ${result.errors.length} file error(s)`)
+      return
+    }
+    if (result.rows_imported > 0) {
+      showToast(`Loaded fake demo data (${result.rows_imported} rows imported)`)
+      return
+    }
+    showToast('Fake demo data already loaded')
+  }
+
+  const ACCOUNT_TYPES = ['brokerage', 'crypto', 'savings', 'hsa', 'roth_ira', '401k', 'checking', 'credit_card', 'student_loan', 'auto_loan', 'personal_loan']
 
   return (
     <div>
@@ -229,6 +252,9 @@ export default function Settings() {
       {/* ── Data ── */}
       <div className="section-label mb-16">Data</div>
       <div className="flex gap-8">
+        <button className="btn" onClick={seedDemoData}>
+          Load fake demo data
+        </button>
         <button className="btn btn-primary" onClick={async () => { await api.post('/prices/refresh'); showToast('Prices refreshed') }}>
           Refresh prices
         </button>

@@ -91,6 +91,7 @@ class RealEstate(Base):
     zillow_estimate = Column(Float)
     manual_override = Column(Float)
     mortgage_balance = Column(Float)
+    mortgage_rate = Column(Float)  # APR percentage, e.g. 6.75
     last_updated = Column(DateTime)
 
     account = relationship("Account", back_populates="real_estate")

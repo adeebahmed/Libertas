@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { NetWorth, BalanceSnapshot, Account, NewsArticle } from '../types'
@@ -7,6 +8,14 @@ import {
 } from 'recharts'
 
 const PIE_COLORS = ['#c9a96e', '#5cad7a', '#6a9fc0', '#c95f52', '#9b85c4', '#e0906a', '#5bbfbf', '#9bc87a']
+const NEWS_GLASS_TINTS = [
+  'rgba(201, 169, 110, 0.10)',
+  'rgba(106, 159, 192, 0.11)',
+  'rgba(92, 173, 122, 0.10)',
+  'rgba(155, 133, 196, 0.11)',
+  'rgba(224, 144, 106, 0.11)',
+  'rgba(91, 191, 191, 0.10)',
+]
 
 function usd(n: number, compact = false) {
   if (compact && Math.abs(n) >= 1_000_000)
@@ -43,6 +52,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function Dashboard() {
+  const accountsColRef = useRef<HTMLDivElement | null>(null)
+  const [accountsColHeight, setAccountsColHeight] = useState<number | null>(null)
+
   const { data: nw }       = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history }  = useApi<BalanceSnapshot[]>(() => api.get('/snapshots/net-worth'), [])
   const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
@@ -57,6 +69,22 @@ export default function Dashboard() {
 
   const totalBalance = accounts?.reduce((s, a) => s + a.balance, 0) ?? 0
   const deltaSign = (nw?.delta ?? 0) >= 0
+
+  useEffect(() => {
+    const el = accountsColRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+
+    const update = () => setAccountsColHeight(Math.round(el.getBoundingClientRect().height))
+    update()
+
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [accounts?.length])
 
   return (
     <div>
@@ -164,14 +192,14 @@ export default function Dashboard() {
       {/* Accounts + News row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
         {/* Accounts */}
-        <div>
+        <div ref={accountsColRef}>
           <div className="section-label mb-16">Accounts</div>
           {accounts && accounts.length > 0 ? (
             <div className="grid-auto">
               {accounts.map((a) => (
                 <div key={a.id} className="card card-hover" style={{ padding: '20px 24px' }}>
-                  <div className="flex-between mb-12">
-                    <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)' }}>{a.name}</span>
+                  <div className="mb-12" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, alignItems: 'start' }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', lineHeight: 1.25, overflowWrap: 'anywhere' }}>{a.name}</span>
                     <span className={`tag tag-${a.type}`}>{a.type.replace('_', ' ')}</span>
                   </div>
                   <div className="num-mid mb-8" style={{ color: 'var(--text)' }}>
@@ -196,33 +224,67 @@ export default function Dashboard() {
         </div>
 
         {/* News */}
-        <div>
+        <div style={{
+          height: accountsColHeight ?? undefined,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}>
           <div className="section-label mb-16">Market News</div>
           {news && news.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {news.map(article => (
-                <a
-                  key={article.id}
-                  href={article.url ?? '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'block', padding: '12px 16px',
-                    background: 'var(--bg-card)', borderRadius: 6, marginBottom: 4,
-                    textDecoration: 'none', border: '1px solid var(--border-soft)',
-                    transition: 'border-color 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-soft)')}
-                >
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
-                    {article.source} · {timeAgo(article.published_at)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, overflowY: 'auto', paddingRight: 2 }}>
+              {news.map((article, i) => {
+                const hasLink = Boolean(article.url && article.url.trim())
+                const cardStyle = {
+                  display: 'block',
+                  padding: '12px 16px',
+                  background: `linear-gradient(135deg, ${NEWS_GLASS_TINTS[i % NEWS_GLASS_TINTS.length]}, rgba(12, 10, 8, 0.72))`,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border-soft)',
+                } as const
+
+                if (hasLink) {
+                  return (
+                    <a
+                      key={article.id}
+                      href={article.url!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ ...cardStyle, textDecoration: 'none', transition: 'border-color 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-soft)')}
+                    >
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                        {article.source} · {timeAgo(article.published_at)}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4, fontWeight: 500, marginBottom: article.summary ? 4 : 0 }}>
+                        {article.title}
+                      </div>
+                      {article.summary && (
+                        <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.35 }}>
+                          {article.summary}
+                        </div>
+                      )}
+                    </a>
+                  )
+                }
+
+                return (
+                  <div key={article.id} style={cardStyle}>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                      {article.source} · {timeAgo(article.published_at)}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4, fontWeight: 500, marginBottom: 4 }}>
+                      {article.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.35 }}>
+                      {article.summary ?? 'Headline available. Full article may be paywalled.'}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4, fontWeight: 500 }}>
-                    {article.title}
-                  </div>
-                </a>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="card">

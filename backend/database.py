@@ -34,3 +34,13 @@ def get_db():
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    _apply_sqlite_migrations()
+
+
+def _apply_sqlite_migrations():
+    """Best-effort lightweight migrations for existing local SQLite DBs."""
+    with engine.begin() as conn:
+        columns = conn.exec_driver_sql("PRAGMA table_info(real_estate)").fetchall()
+        column_names = {row[1] for row in columns}
+        if "mortgage_rate" not in column_names:
+            conn.exec_driver_sql("ALTER TABLE real_estate ADD COLUMN mortgage_rate FLOAT")

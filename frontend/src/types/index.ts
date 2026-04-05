@@ -27,7 +27,6 @@ export interface AccountDetail extends Account {
 export type AccountType =
   | 'brokerage'
   | 'crypto'
-  | 'real_estate'
   | 'savings'
   | 'hsa'
   | 'roth_ira'
@@ -75,6 +74,7 @@ export interface Property {
   manual_override: number | null
   effective_value: number | null
   mortgage_balance: number | null
+  mortgage_rate: number | null
   equity: number
   ltv: number | null
   last_updated: string | null

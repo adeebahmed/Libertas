@@ -170,7 +170,9 @@ button { font-family: var(--font-sans); cursor: pointer; }
 
 /* ── Cards ── */
 .card {
-  background: var(--bg-card);
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.08), rgba(19, 17, 9, 0.88));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: var(--r);
   padding: 24px;
@@ -183,6 +185,21 @@ button { font-family: var(--font-sans); cursor: pointer; }
   cursor: pointer;
 }
 .card-hover:hover { border-color: var(--gold-dim); }
+
+/* Shared subtle scrollbar treatment (news-style) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3428 transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: #3a3428;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: #5a513f; }
 
 /* ── Stat Cells ── */
 .stat-cell { padding: 20px 24px; }
