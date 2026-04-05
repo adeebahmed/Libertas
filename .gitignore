@@ -23,3 +23,6 @@ data/watch/processed/
 
 # Secrets
 .env
+
+# Git worktrees
+.worktrees/
