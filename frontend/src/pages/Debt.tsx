@@ -39,7 +39,7 @@ interface EditState {
 }
 
 export default function DebtPage() {
-  const { data, loading, refetch } = useApi<DebtResponse>(() => api.get('/debt'), null)
+  const { data, loading, refetch } = useApi<DebtResponse>(() => api.get('/debt'), [])
   const [editing, setEditing] = useState<Record<number, EditState>>({})
   const [saving, setSaving] = useState<number | null>(null)
 
