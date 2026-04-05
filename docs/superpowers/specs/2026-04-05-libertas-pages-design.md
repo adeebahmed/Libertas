@@ -100,20 +100,24 @@ The first thing seen each morning — a motivational, high-signal overview.
 ## 5. Projections
 
 ### North Star
-The page is anchored to the user's configured retirement target age (set in Settings > User Profile).
+The user sets a target retirement date. The page answers: **"What do I need to retire by then, and am I on track?"**
+
+### Retirement Target Setup
+- User inputs a target retirement date (or age) in Settings > User Profile
+- App calculates years remaining and required portfolio size using three methods shown simultaneously
 
 ### Target Display (3 views)
-All three shown simultaneously:
-1. **Fixed number target** — user sets a number (e.g. $2M), shows if current trajectory hits it by the target age
-2. **Monthly income target** — user sets desired monthly passive income, back-calculates required portfolio size
-3. **4% rule** — auto-calculates 25× annual expenses (pulled from Settings > monthly expenses × 12)
+All three shown simultaneously so the user can understand their goal from multiple angles:
+1. **Fixed number** — user sets a target portfolio value; app shows if current trajectory hits it in time
+2. **Monthly income** — user sets desired monthly passive income in retirement; app back-calculates the required portfolio size and whether they're on track
+3. **4% rule** — app auto-calculates the required portfolio as 25× annual expenses (from Settings); shows on-track / off-track status
 
-On-track / off-track indicator for each view.
+Each view shows: required amount, projected amount at target date, gap (if any), and an on-track / off-track indicator.
 
 ### Projection Curves
 - Three scenarios: Conservative, Moderate, Aggressive
 - Default return rates configurable per account type (stocks, crypto, real estate, cash/savings, retirement accounts)
-- Chart shows projected total value year by year to the target retirement age (and 20 years beyond for context)
+- Chart shows projected total value year by year through the target retirement date and 20 years beyond (to illustrate post-retirement sustainability)
 
 ### Contributions
 - Per-account monthly contribution input
