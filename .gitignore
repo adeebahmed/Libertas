@@ -26,3 +26,9 @@ data/watch/processed/
 
 # Git worktrees
 .worktrees/
+
+# Claude Code auto-memory (personal notes, not project code)
+memory/
+
+# Superpowers plan scratch files
+docs/superpowers/plans/

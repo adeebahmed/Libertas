@@ -55,6 +55,7 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
+    import_log_id = Column(Integer, ForeignKey("import_log.id"), nullable=True)
     date = Column(Date, nullable=False)
     type = Column(Text, nullable=False)
     symbol = Column(Text)
@@ -133,3 +134,25 @@ class Setting(Base):
 
     key = Column(Text, primary_key=True)
     value = Column(Text)
+
+
+class Backup(Base):
+    __tablename__ = "backups"
+
+    id = Column(Integer, primary_key=True)
+    filename = Column(Text, nullable=False)
+    size_bytes = Column(Integer)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class NewsCache(Base):
+    __tablename__ = "news_cache"
+
+    id = Column(Integer, primary_key=True)
+    source = Column(Text, nullable=False)
+    title = Column(Text, nullable=False)
+    url = Column(Text)
+    published_at = Column(DateTime)
+    fetched_at = Column(DateTime, server_default=func.now())
+    summary = Column(Text)
+    category = Column(Text)

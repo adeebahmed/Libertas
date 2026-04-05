@@ -91,6 +91,8 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": f"High Concentration: {h['symbol']}",
                     "category": "Risk",
+                    "priority": "high",
+                    "action": f"Consider trimming {h['symbol']} and reinvesting proceeds into diversified funds.",
                     "description": f"{h['symbol']} is {pct:.1f}% of your portfolio in {h['account_name']}.",
                     "why": "Single-stock concentration above 20% increases unsystematic risk. Consider diversifying.",
                 })
@@ -107,10 +109,18 @@ def _generate_insights(db: Session) -> list[dict]:
         deviation = actual_pct - target_pct
         if abs(deviation) > 10:
             direction = "overweight" if deviation > 0 else "underweight"
+            label = atype.replace('_', ' ').title()
+            action = (
+                f"Reduce {label} exposure by rebalancing into underweight categories."
+                if direction == "overweight"
+                else f"Increase {label} allocation toward your {target_pct}% target."
+            )
             insights.append({
-                "title": f"{atype.replace('_', ' ').title()} {direction.title()}",
+                "title": f"{label} {direction.title()}",
                 "category": "Allocation",
-                "description": f"{atype.replace('_', ' ').title()} is {actual_pct:.1f}% (target: {target_pct}% for {risk_profile} profile).",
+                "priority": "medium",
+                "action": action,
+                "description": f"{label} is {actual_pct:.1f}% (target: {target_pct}% for {risk_profile} profile).",
                 "why": f"Your {risk_profile} risk profile targets {target_pct}% in this category.",
             })
 
@@ -121,6 +131,8 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "Low Liquidity",
             "category": "Liquidity",
+            "priority": "high",
+            "action": f"Build cash reserves to ${monthly_expenses * 6:,.0f} (6 months of expenses) before investing more.",
             "description": f"You have {months_runway:.1f} months of expenses in liquid accounts (${liquid:,.0f}).",
             "why": "Financial advisors recommend 3–6 months of expenses in easily accessible accounts.",
         })
@@ -128,6 +140,8 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "Excess Cash",
             "category": "Liquidity",
+            "priority": "low",
+            "action": "Consider investing the excess cash above 6 months of expenses into a diversified portfolio.",
             "description": f"You have {months_runway:.1f} months of expenses sitting in cash (${liquid:,.0f}).",
             "why": "Cash above 12 months of expenses may be better deployed in investments.",
         })
@@ -140,6 +154,8 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": f"High LTV: {p.address[:30]}",
                     "category": "Risk",
+                    "priority": "medium",
+                    "action": "Make extra principal payments to get below 80% LTV and eliminate PMI.",
                     "description": f"Loan-to-value is {ltv:.1f}% on this property.",
                     "why": "LTV above 80% typically requires PMI and increases risk in a downturn.",
                 })
@@ -147,6 +163,8 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": f"Refinance Opportunity: {p.address[:30]}",
                     "category": "Performance",
+                    "priority": "low",
+                    "action": "Contact lenders to compare current rates — your LTV qualifies you for the best pricing.",
                     "description": f"LTV is only {ltv:.1f}%. You may qualify for better rates.",
                     "why": "Low LTV properties often qualify for the best mortgage rates.",
                 })
@@ -167,6 +185,8 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": "Net Worth Trend",
                     "category": "Trends",
+                    "priority": "low",
+                    "action": "Keep importing data regularly to maintain an accurate growth picture.",
                     "description": f"Net worth has {'grown' if growth > 0 else 'declined'} {abs(growth):.1f}% since tracking began.",
                     "why": f"From ${first:,.0f} to ${last:,.0f} over {len(dates)} data points.",
                 })
@@ -178,6 +198,8 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": "Net Worth Declining 3+ Months",
                     "category": "Behavioral",
+                    "priority": "high",
+                    "action": "Review your monthly spending and investment contributions for the past quarter.",
                     "description": "Your net worth has declined for at least three consecutive months.",
                     "why": "A sustained downward trend warrants a review of spending, contributions, and asset performance.",
                 })
@@ -190,13 +212,17 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "No 401k Detected",
             "category": "Retirement",
+            "priority": "high",
+            "action": "Enroll in your employer's 401k and contribute at least enough to capture any match.",
             "description": "You have no 401k account tracked. The 2024 contribution limit is $23,000 ($30,500 if 50+).",
             "why": "401k contributions reduce taxable income and grow tax-deferred. Employer match is free money.",
         })
-    elif k401_balance / total_assets < 0.05 and total_assets > 50_000:
+    elif k401_accounts and k401_balance / total_assets < 0.05 and total_assets > 50_000:
         insights.append({
             "title": "401k Appears Underutilized",
             "category": "Retirement",
+            "priority": "high",
+            "action": "Increase your 401k contribution rate — aim for $23,000/yr or at minimum the full employer match.",
             "description": f"Your 401k is ${k401_balance:,.0f} — only {k401_balance / total_assets * 100:.1f}% of total assets.",
             "why": "Maximizing 401k contributions (up to $23,000/yr) is one of the highest-impact tax moves available.",
         })
@@ -210,13 +236,14 @@ def _generate_insights(db: Session) -> list[dict]:
             insights.append({
                 "title": f"Retirement Readiness: {pct_to_fire:.0f}%",
                 "category": "Retirement",
+                "priority": "medium",
+                "action": f"Increase monthly contributions and check the Retirement page for a personalized plan.",
                 "description": f"At ${monthly_expenses:,.0f}/mo expenses, your FIRE number is ${fire_target:,.0f}. You're at ${investable:,.0f} ({pct_to_fire:.0f}%).",
                 "why": "The 4% rule: you need 25× annual expenses invested to retire safely with a 4% withdrawal rate.",
             })
 
     # ── DEBT ─────────────────────────────────────────────────────────────────
     if total_debt > 0:
-        # High-interest debt
         from ..models import DebtDetail
         debt_accounts = [a for a in accounts if a.type in DEBT_TYPES]
         for da in debt_accounts:
@@ -233,33 +260,36 @@ def _generate_insights(db: Session) -> list[dict]:
                     insights.append({
                         "title": f"High-Interest Debt: {da.name}",
                         "category": "Debt",
+                        "priority": "high",
+                        "action": f"Pay more than the minimum on {da.name} — every extra dollar saves {detail.interest_rate:.0f}¢ in interest.",
                         "description": f"{da.name} carries {detail.interest_rate:.1f}% APR with ${bal:,.0f} balance.",
                         "why": "High-interest debt (>15%) costs more than most investments earn. Pay this down before investing further.",
                     })
 
-        # Debt-to-income
         if annual_income and annual_income > 0:
             dti = total_debt / annual_income * 100
             if dti > 36:
                 insights.append({
                     "title": f"High Debt-to-Income: {dti:.0f}%",
                     "category": "Debt",
+                    "priority": "high",
+                    "action": "Focus extra income on debt payoff before taking on new credit or large purchases.",
                     "description": f"Total debt of ${total_debt:,.0f} is {dti:.0f}% of your annual income.",
                     "why": "Lenders use 36% DTI as a threshold. Above this, borrowing becomes harder and financial flexibility shrinks.",
                 })
 
-        # Real estate net worth > 50% illiquidity
         re_pct = by_type.get("real_estate", 0) / total_assets * 100 if total_assets else 0
         if re_pct > 50:
             insights.append({
                 "title": "Real Estate Illiquidity Risk",
                 "category": "Risk",
+                "priority": "medium",
+                "action": "Build liquid savings and diversify into financial assets to reduce concentration in real estate.",
                 "description": f"Real estate is {re_pct:.0f}% of your assets (${by_type.get('real_estate', 0):,.0f}).",
                 "why": "Heavy real estate concentration creates liquidity risk — property can't be sold quickly in a downturn.",
             })
 
     # ── TAX ──────────────────────────────────────────────────────────────────
-    # Tax-loss harvesting
     tlh_candidates = []
     for h in all_holdings:
         if h["cost_basis"] > 0 and h["market_value"] > 0:
@@ -271,13 +301,14 @@ def _generate_insights(db: Session) -> list[dict]:
         worst = min(tlh_candidates, key=lambda x: x[1])
         total_loss = sum(x[2] for x in tlh_candidates)
         insights.append({
-            "title": f"Tax-Loss Harvesting Opportunity",
+            "title": "Tax-Loss Harvesting Opportunity",
             "category": "Tax",
+            "priority": "medium",
+            "action": f"Sell {worst[0]} to realize the loss, then repurchase a similar (not identical) fund after 30 days.",
             "description": f"{len(tlh_candidates)} position(s) are down 20%+. {worst[0]} is down {abs(worst[1]):.0f}% (${abs(total_loss):,.0f} in unrealized losses).",
             "why": "Selling losing positions to offset capital gains can reduce your tax bill. Repurchase after 30 days to maintain exposure.",
         })
 
-    # Asset location (taxable brokerage holding bond-like symbols)
     bond_keywords = {"BND", "AGG", "TLT", "IEF", "SHY", "BOND", "VBTLX", "FXNAX", "LQD", "HYG", "TIPS"}
     misplaced = [
         h for h in all_holdings
@@ -289,12 +320,13 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "Asset Location: Bonds in Taxable Account",
             "category": "Tax",
+            "priority": "medium",
+            "action": f"Move {symbols} into your IRA or 401k, and hold equities in the taxable account instead.",
             "description": f"{symbols} appear to be bond funds held in a taxable brokerage account.",
             "why": "Bonds generate ordinary-income dividends. Holding them in a tax-deferred account (IRA, 401k) shields that income from annual taxes.",
         })
 
     # ── BEHAVIORAL ───────────────────────────────────────────────────────────
-    # Stale accounts (no snapshot in 30+ days)
     today = date.today()
     for a in accounts:
         if a.type in DEBT_TYPES:
@@ -311,16 +343,19 @@ def _generate_insights(db: Session) -> list[dict]:
                 insights.append({
                     "title": f"Stale Data: {a.name}",
                     "category": "Behavioral",
+                    "priority": "low",
+                    "action": f"Download a fresh CSV from your {a.name} institution and drop it into Import.",
                     "description": f"{a.name} hasn't been updated in {days_old} days.",
                     "why": "Stale data leads to inaccurate net worth calculations. Import a fresh CSV to stay current.",
                 })
 
-    # Crypto > 20% of portfolio (volatility warning)
     crypto_pct = by_type.get("crypto", 0) / total_assets * 100 if total_assets else 0
     if crypto_pct > 20:
         insights.append({
             "title": f"High Crypto Allocation: {crypto_pct:.0f}%",
             "category": "Risk",
+            "priority": "medium",
+            "action": "Consider gradually rebalancing crypto gains into less volatile assets.",
             "description": f"Crypto is {crypto_pct:.0f}% of your portfolio (${by_type.get('crypto', 0):,.0f}).",
             "why": "Crypto is highly volatile. Most advisors suggest limiting it to 5–10% of a portfolio unless you have high risk tolerance.",
         })
@@ -330,6 +365,8 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "Estate Plan Review",
             "category": "Estate",
+            "priority": "medium",
+            "action": "Review or create a will and update beneficiary designations on all accounts.",
             "description": f"With a net worth of ${total_net_worth:,.0f}, an outdated or missing estate plan creates risk.",
             "why": "Above $500k, a will and updated beneficiary designations become critical. Dying intestate can delay distribution and increase taxes.",
         })
@@ -337,6 +374,8 @@ def _generate_insights(db: Session) -> list[dict]:
         insights.append({
             "title": "Consider a Trust",
             "category": "Estate",
+            "priority": "low",
+            "action": "Consult an estate attorney about a revocable living trust to streamline asset transfer.",
             "description": f"At ${total_net_worth:,.0f}, a revocable living trust may help avoid probate.",
             "why": "Trusts allow assets to pass directly to heirs, bypass probate court, and offer more control than a will alone.",
         })
@@ -363,3 +402,66 @@ def _generate_insights(db: Session) -> list[dict]:
 @router.get("")
 def get_insights(db: Session = Depends(get_db)):
     return _generate_insights(db)
+
+
+@router.post("/chat")
+async def insights_chat(body: dict, db: Session = Depends(get_db)):
+    """Ask Claude a question about your portfolio. Requires Claude API key in Settings."""
+    from .. import ai
+    if not ai.is_configured():
+        from fastapi import HTTPException
+        raise HTTPException(400, "Claude API key not configured. Add it in Settings.")
+
+    question = (body.get("message") or "").strip()
+    if not question:
+        from fastapi import HTTPException
+        raise HTTPException(400, "message is required")
+
+    # Build context from current portfolio state
+    insights = _generate_insights(db)
+
+    from ..models import Account, BalanceSnapshot
+    accounts = db.query(Account).all()
+    total_assets = 0.0
+    by_type: dict[str, float] = {}
+    for a in accounts:
+        for h in a.holdings:
+            mv = (h.last_price or 0) * (h.quantity or 0)
+            total_assets += mv
+            by_type[a.type] = by_type.get(a.type, 0) + mv
+        if not a.holdings:
+            snap = (
+                db.query(BalanceSnapshot)
+                .filter(BalanceSnapshot.account_id == a.id)
+                .order_by(BalanceSnapshot.date.desc())
+                .first()
+            )
+            bal = snap.balance if snap else 0.0
+            total_assets += bal
+            by_type[a.type] = by_type.get(a.type, 0) + bal
+
+    monthly_expenses = _get_setting(db, "monthly_expenses", 5000)
+
+    allocation_summary = ", ".join(
+        f"{k.replace('_',' ')}: {v/total_assets*100:.1f}%"
+        for k, v in sorted(by_type.items(), key=lambda x: -x[1])
+        if v > 0 and total_assets > 0
+    )
+
+    active_insights = [
+        f"[{ins['priority'].upper()}] {ins['title']}: {ins['description']}"
+        for ins in insights
+        if ins.get("priority") in ("high", "medium")
+    ][:8]
+
+    system = f"""You are a personal finance advisor for a locally-hosted finance app called Libertas.
+The user's portfolio summary:
+- Total assets: ${total_assets:,.0f}
+- Monthly expenses: ${monthly_expenses:,.0f}
+- Allocation: {allocation_summary or 'no data'}
+- Active insights: {'; '.join(active_insights) if active_insights else 'none'}
+
+Give concise, actionable advice. Be direct. No disclaimers about not being a licensed advisor — the user knows this is an AI tool. Max 3 paragraphs."""
+
+    reply = await ai.chat([{"role": "user", "content": question}], system=system)
+    return {"reply": reply}

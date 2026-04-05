@@ -104,8 +104,75 @@ export interface ProjectionPoint {
 export interface Insight {
   title: string
   category: string
+  priority: 'high' | 'medium' | 'low'
+  action: string
   description: string
   why: string
+}
+
+export interface RetirementPlan {
+  current_balance: number
+  target: number
+  monthly_contribution: number
+  years_to_target: number | null
+  needed_monthly_contribution: number | null
+  on_track: {
+    projected_at_retirement: number
+    target: number
+    on_track: boolean
+    shortfall: number
+    surplus: number
+    years_to_retire: number
+  } | null
+  scenarios: {
+    conservative: { year: number; value: number }[]
+    moderate: { year: number; value: number }[]
+    aggressive: { year: number; value: number }[]
+  }
+  settings: {
+    birth_year: number | null
+    retirement_age: number
+    monthly_expenses: number
+  }
+}
+
+export interface TaxEstimate {
+  income_w2: number
+  income_1099: number
+  total_income: number
+  filing_status: string
+  agi: number
+  standard_deduction: number
+  taxable_income: number
+  ordinary_tax: number
+  self_employment_tax: number
+  net_capital_gains: number
+  ltcg_tax: number
+  total_estimated_tax: number
+  effective_rate: number
+  quarterly_payment: number
+}
+
+export interface TaxHarvestOpportunity {
+  symbol: string
+  account: string
+  quantity: number
+  avg_cost: number
+  current_price: number
+  market_value: number
+  cost_basis: number
+  unrealized_loss: number
+  loss_pct: number
+}
+
+export interface NewsArticle {
+  id: number
+  source: string
+  title: string
+  url: string | null
+  published_at: string | null
+  summary: string | null
+  category: string | null
 }
 
 export interface NetWorth {

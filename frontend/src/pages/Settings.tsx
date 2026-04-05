@@ -10,17 +10,33 @@ export default function Settings() {
 
   const [newAcct, setNewAcct] = useState({ name: '', type: 'brokerage', institution_id: '' })
   const [newInst, setNewInst] = useState({ name: '', export_url: '', file_pattern: '' })
+
+  // Preference fields
   const [expenses, setExpenses] = useState('')
   const [risk, setRisk] = useState('moderate')
   const [claudeKey, setClaudeKey] = useState('')
+  const [incomeW2, setIncomeW2] = useState('')
+  const [income1099, setIncome1099] = useState('')
+  const [filingStatus, setFilingStatus] = useState('single')
+  const [birthYear, setBirthYear] = useState('')
+  const [retirementAge, setRetirementAge] = useState('65')
+  const [monthlyContribution, setMonthlyContribution] = useState('')
+  const [retirementTarget, setRetirementTarget] = useState('')
+
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    if (settings) {
-      setExpenses(String(settings.monthly_expenses ?? ''))
-      setRisk(String(settings.risk_profile ?? 'moderate'))
-      setClaudeKey(String(settings.claude_api_key ?? ''))
-    }
+    if (!settings) return
+    setExpenses(String(settings.monthly_expenses ?? ''))
+    setRisk(String(settings.risk_profile ?? 'moderate'))
+    setClaudeKey(String(settings.claude_api_key ?? ''))
+    setIncomeW2(String(settings.income_w2 ?? ''))
+    setIncome1099(String(settings.income_1099 ?? ''))
+    setFilingStatus(String(settings.tax_filing_status ?? 'single'))
+    setBirthYear(String(settings.birth_year ?? ''))
+    setRetirementAge(String(settings.retirement_age ?? '65'))
+    setMonthlyContribution(String(settings.monthly_contribution ?? ''))
+    setRetirementTarget(String(settings.retirement_target_amount ?? ''))
   }, [settings])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
@@ -28,6 +44,7 @@ export default function Settings() {
   const saveSetting = async (key: string, value: unknown) => {
     await api.put(`/settings/${key}`, { value })
     refetchSettings()
+    showToast('Saved')
   }
 
   const addAccount = async () => {
@@ -46,20 +63,20 @@ export default function Settings() {
     showToast('Institution added')
   }
 
-  const ACCOUNT_TYPES = ['brokerage', 'crypto', 'real_estate', 'savings', 'hsa', 'roth_ira', '401k', 'checking']
+  const ACCOUNT_TYPES = ['brokerage', 'crypto', 'real_estate', 'savings', 'hsa', 'roth_ira', '401k', 'checking', 'credit_card', 'student_loan', 'auto_loan', 'personal_loan']
 
   return (
     <div>
       <h1 className="page-title">Settings</h1>
 
-      {/* Preferences */}
-      <div className="section-label mb-16">Preferences</div>
+      {/* ── General ── */}
+      <div className="section-label mb-16">General</div>
       <div className="card mb-32">
         <div className="grid-3">
           <div className="field">
             <label>Monthly expenses ($)</label>
             <input type="number" value={expenses} onChange={e => setExpenses(e.target.value)}
-              onBlur={() => expenses && saveSetting('monthly_expenses', Number(expenses))} />
+              onBlur={() => expenses !== '' && saveSetting('monthly_expenses', Number(expenses))} />
           </div>
           <div className="field">
             <label>Risk profile</label>
@@ -72,12 +89,65 @@ export default function Settings() {
           <div className="field">
             <label>Claude API key (optional)</label>
             <input type="password" value={claudeKey} onChange={e => setClaudeKey(e.target.value)}
-              onBlur={() => claudeKey && saveSetting('claude_api_key', claudeKey)} placeholder="sk-ant-…" />
+              onBlur={() => saveSetting('claude_api_key', claudeKey)} placeholder="sk-ant-…" />
           </div>
         </div>
       </div>
 
-      {/* Institutions */}
+      {/* ── Income & Tax ── */}
+      <div className="section-label mb-16">Income &amp; Tax</div>
+      <div className="card mb-32">
+        <div className="grid-3">
+          <div className="field">
+            <label>W-2 income ($/yr)</label>
+            <input type="number" value={incomeW2} onChange={e => setIncomeW2(e.target.value)}
+              onBlur={() => incomeW2 !== '' && saveSetting('income_w2', Number(incomeW2))} placeholder="e.g. 120000" />
+          </div>
+          <div className="field">
+            <label>1099 / freelance income ($/yr)</label>
+            <input type="number" value={income1099} onChange={e => setIncome1099(e.target.value)}
+              onBlur={() => income1099 !== '' && saveSetting('income_1099', Number(income1099))} placeholder="e.g. 30000" />
+          </div>
+          <div className="field">
+            <label>Filing status</label>
+            <select value={filingStatus} onChange={e => { setFilingStatus(e.target.value); saveSetting('tax_filing_status', e.target.value) }}>
+              <option value="single">Single</option>
+              <option value="married_filing_jointly">Married Filing Jointly</option>
+              <option value="married_filing_separately">Married Filing Separately</option>
+              <option value="head_of_household">Head of Household</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Retirement ── */}
+      <div className="section-label mb-16">Retirement</div>
+      <div className="card mb-32">
+        <div className="grid-4">
+          <div className="field">
+            <label>Birth year</label>
+            <input type="number" value={birthYear} onChange={e => setBirthYear(e.target.value)}
+              onBlur={() => birthYear !== '' && saveSetting('birth_year', Number(birthYear))} placeholder="e.g. 1988" />
+          </div>
+          <div className="field">
+            <label>Target retirement age</label>
+            <input type="number" value={retirementAge} onChange={e => setRetirementAge(e.target.value)}
+              onBlur={() => retirementAge !== '' && saveSetting('retirement_age', Number(retirementAge))} placeholder="65" />
+          </div>
+          <div className="field">
+            <label>Monthly contribution ($)</label>
+            <input type="number" value={monthlyContribution} onChange={e => setMonthlyContribution(e.target.value)}
+              onBlur={() => monthlyContribution !== '' && saveSetting('monthly_contribution', Number(monthlyContribution))} placeholder="e.g. 2000" />
+          </div>
+          <div className="field">
+            <label>Retirement target ($, optional)</label>
+            <input type="number" value={retirementTarget} onChange={e => setRetirementTarget(e.target.value)}
+              onBlur={() => retirementTarget !== '' && saveSetting('retirement_target_amount', Number(retirementTarget))} placeholder="auto (25× expenses)" />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Institutions ── */}
       <div className="section-label mb-16">Institutions</div>
       <div className="card mb-32" style={{ padding: 0 }}>
         {institutions && institutions.length > 0 && (
@@ -114,7 +184,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Accounts */}
+      {/* ── Accounts ── */}
       <div className="section-label mb-16">Accounts</div>
       <div className="card mb-32" style={{ padding: 0 }}>
         {accounts && accounts.length > 0 && (
@@ -142,7 +212,7 @@ export default function Settings() {
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Type</label>
             <select value={newAcct.type} onChange={e => setNewAcct(p => ({ ...p, type: e.target.value }))}>
-              {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+              {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
             </select>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -156,20 +226,17 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Data actions */}
+      {/* ── Data ── */}
       <div className="section-label mb-16">Data</div>
       <div className="flex gap-8">
         <button className="btn btn-primary" onClick={async () => { await api.post('/prices/refresh'); showToast('Prices refreshed') }}>
           Refresh prices
         </button>
         <button className="btn" onClick={async () => {
-          const data = { accounts, institutions, settings }
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          Object.assign(document.createElement('a'), { href: url, download: `libertas-${new Date().toISOString().split('T')[0]}.json` }).click()
-          URL.revokeObjectURL(url)
+          const r = await api.post<{ id: number; filename: string }>('/backups')
+          showToast(`Backup saved: ${r.filename}`)
         }}>
-          Export backup
+          Create backup
         </button>
       </div>
 

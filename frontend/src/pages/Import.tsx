@@ -1,15 +1,65 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { ImportLog } from '../types'
 
-type Result = { status: string; institution: string; account_id: number; rows_imported: number; rows_skipped: number; error?: string }
+type Result = { id?: number; status: string; institution: string; account_id: number; rows_imported: number; rows_skipped: number; error?: string }
+
+// ── Watch notification banner ──────────────────────────────────────────────
+function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
+  const [banner, setBanner] = useState<{ id: number; filename: string; rows: number } | null>(null)
+  const lastSeenId = useRef<number | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const poll = async () => {
+      if (!mounted) return
+      try {
+        const latest = await api.get<{ id: number; filename: string; rows_imported: number; status: string } | null>('/watcher/latest')
+        if (latest && latest.status === 'success') {
+          if (lastSeenId.current === null) {
+            lastSeenId.current = latest.id
+          } else if (latest.id > lastSeenId.current) {
+            lastSeenId.current = latest.id
+            setBanner({ id: latest.id, filename: latest.filename, rows: latest.rows_imported })
+            onNewImport()
+            setTimeout(() => setBanner(null), 8000)
+          }
+        }
+      } catch {}
+    }
+    poll()
+    const interval = setInterval(poll, 5000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [onNewImport])
+
+  if (!banner) return null
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 100,
+      background: 'var(--bg-elevated)', border: '1px solid var(--gold-dim)',
+      borderRadius: 8, padding: '12px 18px', boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', gap: 12, fontSize: 13,
+    }}>
+      <span style={{ color: 'var(--green)', fontSize: 16 }}>✓</span>
+      <div>
+        <div style={{ fontWeight: 500, color: 'var(--text)' }}>File auto-ingested</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{banner.filename} · {banner.rows} rows</div>
+      </div>
+      <button
+        onClick={() => setBanner(null)}
+        style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+      >×</button>
+    </div>
+  )
+}
 
 export default function Import() {
   const { data: logs, refetch } = useApi<ImportLog[]>(() => api.get('/watcher/log'), [])
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
+  const [rollingBack, setRollingBack] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(async (f: File) => {
@@ -28,9 +78,24 @@ export default function Import() {
     }
   }, [refetch])
 
+  const handleRollback = async (logId: number) => {
+    if (!confirm('Roll back this import? This will delete all transactions from this import and rebuild the account.')) return
+    setRollingBack(logId)
+    try {
+      await api.post(`/imports/${logId}/rollback`)
+      refetch()
+    } catch (e: any) {
+      alert(`Rollback failed: ${e.message}`)
+    } finally {
+      setRollingBack(null)
+    }
+  }
+
   return (
     <div>
       <h1 className="page-title">Import</h1>
+
+      <WatchNotification onNewImport={refetch} />
 
       <div className="grid-2 mb-32" style={{ gridTemplateColumns: '1fr 380px', alignItems: 'start' }}>
         {/* Drop zone */}
@@ -61,6 +126,11 @@ export default function Import() {
                   <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
                     {result.rows_imported} rows imported · {result.rows_skipped} skipped (duplicates)
                   </div>
+                  {result.id && (
+                    <button className="btn btn-sm mt-12" onClick={() => handleRollback(result.id!)}>
+                      Undo this import
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -75,7 +145,8 @@ export default function Import() {
               ['Drop any file', 'CSV or Excel from any brokerage. No column mapping required.'],
               ['Auto-detection', 'Libertas reads the data and figures out what each column is.'],
               ['Filename matters', 'Name like "Fidelity_Roth_IRA.csv" — institution and account type are inferred from the filename.'],
-              ['Watch folder', 'Drop files into data/watch/ and they\'ll be auto-ingested on startup or when detected.'],
+              ['Watch folder', 'Drop files into data/watch/ and they\'ll be auto-ingested. A notification will appear here.'],
+              ['Rollback', 'Made a mistake? Click "Rollback" on any import to undo it.'],
             ].map(([title, desc]) => (
               <div key={title}>
                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{title}</div>
@@ -99,6 +170,7 @@ export default function Import() {
                 <th style={{ textAlign: 'right' }}>Imported</th>
                 <th style={{ textAlign: 'right' }}>Skipped</th>
                 <th>When</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -109,13 +181,24 @@ export default function Import() {
                   <td>
                     <span style={{
                       fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.4px',
-                      color: l.status === 'success' ? 'var(--green)' : l.status === 'error' ? 'var(--red)' : 'var(--text-3)',
-                    }}>{l.status}</span>
+                      color: l.status === 'success' ? 'var(--green)' : l.status === 'rolled_back' ? 'var(--text-3)' : l.status === 'error' ? 'var(--red)' : 'var(--text-3)',
+                    }}>{l.status === 'rolled_back' ? 'rolled back' : l.status}</span>
                   </td>
                   <td className="num" style={{ textAlign: 'right' }}>{l.rows_imported}</td>
                   <td className="num" style={{ textAlign: 'right', color: 'var(--text-3)' }}>{l.rows_skipped}</td>
                   <td className="num" style={{ fontSize: 12, color: 'var(--text-3)' }}>
                     {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
+                  </td>
+                  <td>
+                    {l.status === 'success' && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => handleRollback(l.id)}
+                        disabled={rollingBack === l.id}
+                      >
+                        {rollingBack === l.id ? '…' : 'Rollback'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

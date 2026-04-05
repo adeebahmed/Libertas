@@ -4,8 +4,15 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import asyncio
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
+
 from .database import init_db, SessionLocal
-from .routers import accounts, imports, prices, real_estate, projections, snapshots, insights, settings, watcher, debt
+from .routers import accounts, imports, prices, real_estate, snapshots, insights, settings, watcher, debt
+from .routers import retirement, taxes, news, backups
 from .routers.prices import refresh_prices
 from .routers.snapshots import record_snapshots
 from .watchers.folder_watcher import start_watcher
@@ -25,12 +32,15 @@ app.include_router(accounts.router)
 app.include_router(imports.router)
 app.include_router(prices.router)
 app.include_router(real_estate.router)
-app.include_router(projections.router)
+app.include_router(retirement.router)
 app.include_router(snapshots.router)
 app.include_router(insights.router)
 app.include_router(settings.router)
 app.include_router(watcher.router)
 app.include_router(debt.router)
+app.include_router(taxes.router)
+app.include_router(news.router)
+app.include_router(backups.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
 

@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 
 from ..database import get_db
-from ..models import Account, Institution, Holding, BalanceSnapshot
+from ..models import Account, Institution, Holding, BalanceSnapshot, Transaction
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -186,3 +186,58 @@ def delete_account(account_id: int, db: Session = Depends(get_db)):
     db.delete(account)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{account_id}/transactions")
+def get_account_transactions(account_id: int, limit: int = 200, db: Session = Depends(get_db)):
+    account = db.query(Account).get(account_id)
+    if not account:
+        raise HTTPException(404, "Account not found")
+    txns = (
+        db.query(Transaction)
+        .filter(Transaction.account_id == account_id)
+        .order_by(Transaction.date.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": t.id,
+            "date": t.date.isoformat(),
+            "type": t.type,
+            "symbol": t.symbol,
+            "quantity": t.quantity,
+            "price": t.price,
+            "amount": t.amount,
+            "description": t.description,
+            "import_log_id": t.import_log_id,
+        }
+        for t in txns
+    ]
+
+
+@router.get("/{account_id}/performance")
+def get_account_performance(account_id: int, db: Session = Depends(get_db)):
+    """Balance history snapshots for charting."""
+    account = db.query(Account).get(account_id)
+    if not account:
+        raise HTTPException(404, "Account not found")
+    snaps = (
+        db.query(BalanceSnapshot)
+        .filter(BalanceSnapshot.account_id == account_id)
+        .order_by(BalanceSnapshot.date)
+        .all()
+    )
+    if len(snaps) < 2:
+        return {"snapshots": [{"date": s.date.isoformat(), "balance": s.balance} for s in snaps], "gain_pct": None}
+
+    first = snaps[0].balance
+    last = snaps[-1].balance
+    gain_pct = (last - first) / first * 100 if first > 0 else None
+
+    return {
+        "snapshots": [{"date": s.date.isoformat(), "balance": s.balance} for s in snaps],
+        "gain_pct": round(gain_pct, 2) if gain_pct is not None else None,
+        "first_balance": first,
+        "last_balance": last,
+    }

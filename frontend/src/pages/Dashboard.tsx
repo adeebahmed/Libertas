@@ -1,9 +1,9 @@
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { NetWorth, BalanceSnapshot, Account } from '../types'
+import type { NetWorth, BalanceSnapshot, Account, NewsArticle } from '../types'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts'
 
 const PIE_COLORS = ['#c9a96e', '#5cad7a', '#6a9fc0', '#c95f52', '#9b85c4', '#e0906a', '#5bbfbf', '#9bc87a']
@@ -18,6 +18,15 @@ function usd(n: number, compact = false) {
 
 function pct(n: number, total: number) {
   return total ? ((n / total) * 100).toFixed(1) + '%' : '—'
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const h = Math.floor(diff / 3_600_000)
+  if (h < 1) return 'just now'
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -37,6 +46,7 @@ export default function Dashboard() {
   const { data: nw }       = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history }  = useApi<BalanceSnapshot[]>(() => api.get('/snapshots/net-worth'), [])
   const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
+  const { data: news }     = useApi<NewsArticle[]>(() => api.get('/news?limit=8'), [])
 
   const allocationData = nw
     ? Object.entries(nw.by_type)
@@ -151,35 +161,76 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Accounts */}
-      <div className="section-label mb-16">Accounts</div>
-      {accounts && accounts.length > 0 ? (
-        <div className="grid-auto">
-          {accounts.map((a) => (
-            <div key={a.id} className="card card-hover" style={{ padding: '20px 24px' }}>
-              <div className="flex-between mb-12">
-                <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)' }}>{a.name}</span>
-                <span className={`tag tag-${a.type}`}>{a.type.replace('_', ' ')}</span>
-              </div>
-              <div className="num-mid mb-8" style={{ color: 'var(--text)' }}>
-                {usd(a.balance)}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
-                {a.institution_name ?? '—'}
-                {a.last_updated && (
-                  <span style={{ marginLeft: 8 }}>· {a.last_updated}</span>
-                )}
-              </div>
+      {/* Accounts + News row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
+        {/* Accounts */}
+        <div>
+          <div className="section-label mb-16">Accounts</div>
+          {accounts && accounts.length > 0 ? (
+            <div className="grid-auto">
+              {accounts.map((a) => (
+                <div key={a.id} className="card card-hover" style={{ padding: '20px 24px' }}>
+                  <div className="flex-between mb-12">
+                    <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)' }}>{a.name}</span>
+                    <span className={`tag tag-${a.type}`}>{a.type.replace('_', ' ')}</span>
+                  </div>
+                  <div className="num-mid mb-8" style={{ color: 'var(--text)' }}>
+                    {usd(a.balance)}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+                    {a.institution_name ?? '—'}
+                    {a.last_updated && (
+                      <span style={{ marginLeft: 8 }}>· {a.last_updated}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="empty">
+              <div className="empty-icon">◻</div>
+              <div className="empty-title">No accounts</div>
+              <div className="empty-sub">Go to Settings to add your first account, or drop a CSV into data/watch/</div>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="empty">
-          <div className="empty-icon">◻</div>
-          <div className="empty-title">No accounts</div>
-          <div className="empty-sub">Go to Settings to add your first account, or drop a CSV into data/watch/</div>
+
+        {/* News */}
+        <div>
+          <div className="section-label mb-16">Market News</div>
+          {news && news.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {news.map(article => (
+                <a
+                  key={article.id}
+                  href={article.url ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block', padding: '12px 16px',
+                    background: 'var(--bg-card)', borderRadius: 6, marginBottom: 4,
+                    textDecoration: 'none', border: '1px solid var(--border-soft)',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-soft)')}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                    {article.source} · {timeAgo(article.published_at)}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4, fontWeight: 500 }}>
+                    {article.title}
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="card">
+              <div style={{ fontSize: 13, color: 'var(--text-3)' }}>News will load automatically. Requires internet access.</div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

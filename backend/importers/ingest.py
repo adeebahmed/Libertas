@@ -283,6 +283,10 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
         log.institution_name = institution.name
         log.account_id = account.id
 
+        # Flush log early so we get its id for tagging transactions
+        db.add(log)
+        db.flush()
+
         # Build reverse map: role -> header
         role_to_header: dict[str, str] = {role: header for header, role in column_map.items()}
 
@@ -343,6 +347,7 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
 
             tx = Transaction(
                 account_id=account.id,
+                import_log_id=log.id,
                 date=date_val or date.today(),
                 type=type_val,
                 symbol=symbol_val,
