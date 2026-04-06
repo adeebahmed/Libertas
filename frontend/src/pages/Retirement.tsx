@@ -17,8 +17,8 @@ function usdFull(n: number) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: '#1c1a14', border: '1px solid #26231b', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-      <div style={{ color: '#5c5444', marginBottom: 6 }}>Year {label}</div>
+    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+      <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
           {p.name}: {usdFull(p.value)}
@@ -154,12 +154,12 @@ export default function RetirementPage() {
             <div className="section-label mb-16">Growth to target</div>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={planChartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                <XAxis dataKey="year" tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
+                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                 <Tooltip content={<CustomTooltip />} />
                 <ReferenceLine y={plan.target} stroke="var(--gold)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--gold)', fontSize: 11 }} />
                 <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="Moderate"     stroke="#c9a96e" strokeWidth={2}   dot={false} />
+                <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
                 <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
@@ -190,7 +190,7 @@ export default function RetirementPage() {
             <div className="grid-3 mb-24">
               {([
                 ['Conservative', finals.conservative, '#5cad7a', conservative],
-                ['Moderate',     finals.moderate,     '#c9a96e', moderate],
+                ['Moderate',     finals.moderate,     '#d4a840', moderate],
                 ['Aggressive',   finals.aggressive,   '#c95f52', aggressive],
               ] as const).map(([name, val, color, rate]) => (
                 <div key={name} className="card" style={{ borderTop: `3px solid ${color}`, paddingTop: 18 }}>
@@ -211,11 +211,11 @@ export default function RetirementPage() {
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={360}>
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                  <XAxis dataKey="year" tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
+                  <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                   <Tooltip content={<CustomTooltip />} />
                   <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                  <Line type="monotone" dataKey="Moderate"     stroke="#c9a96e" strokeWidth={2}   dot={false} />
+                  <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
                   <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                 </LineChart>
               </ResponsiveContainer>

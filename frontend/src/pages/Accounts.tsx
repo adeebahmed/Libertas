@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, AccountDetail } from '../types'
+import { IconChevronLeft } from '../components/Icons'
 
 function usd(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n)
@@ -29,8 +30,9 @@ export default function Accounts() {
   if (selected && detail) {
     return (
       <div>
-        <button className="btn btn-sm mb-24" onClick={() => setSelected(null)}>
-          ← Back
+        <button className="back-link" onClick={() => setSelected(null)}>
+          <IconChevronLeft size={14} />
+          Accounts
         </button>
 
         <div className="flex-between mb-32" style={{ paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>

@@ -17,7 +17,7 @@ const TYPE_LABEL: Record<string, string> = {
 const TYPE_COLOR: Record<string, string> = {
   credit_card: '#c95f52',
   student_loan: '#6a9fc0',
-  auto_loan: '#c9a96e',
+  auto_loan: '#d4a840',
   personal_loan: '#9b85c4',
 }
 
@@ -73,15 +73,12 @@ export default function DebtPage() {
   const barData = debts.map(d => ({
     name: d.name.length > 16 ? d.name.slice(0, 14) + '…' : d.name,
     balance: d.balance,
-    fill: TYPE_COLOR[d.type] ?? '#5c5444',
+    fill: TYPE_COLOR[d.type] ?? 'var(--text-3)',
   }))
 
   return (
     <div>
-      <div className="flex-between mb-32">
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Debt</h1>
-        <button className="btn" onClick={refetch}>Refresh</button>
-      </div>
+      <h1 className="page-title">Debt</h1>
 
       {loading ? (
         <div className="empty"><div className="empty-sub">Loading…</div></div>
@@ -127,8 +124,8 @@ export default function DebtPage() {
                   <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
                   <Tooltip
                     formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}
-                    labelStyle={{ color: 'var(--text-2)' }}
+                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}
+                    labelStyle={{ color: 'var(--text-3)' }}
                   />
                   <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
                     {barData.map((entry, i) => (
@@ -191,7 +188,7 @@ export default function DebtPage() {
                     <tr key={d.account_id}>
                       <td>{d.name}</td>
                       <td>
-                        <span className="tag" style={{ color: TYPE_COLOR[d.type] ?? 'var(--text-2)', borderColor: `${TYPE_COLOR[d.type] ?? '#5c5444'}30`, background: `${TYPE_COLOR[d.type] ?? '#5c5444'}0d` }}>
+                        <span className="tag" style={{ color: TYPE_COLOR[d.type] ?? 'var(--text-2)', borderColor: `${TYPE_COLOR[d.type] ?? '#7898b8'}30`, background: `${TYPE_COLOR[d.type] ?? '#7898b8'}0d` }}>
                           {TYPE_LABEL[d.type] ?? d.type}
                         </span>
                       </td>
@@ -201,7 +198,7 @@ export default function DebtPage() {
                           <input
                             value={e.interest_rate}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], interest_rate: ev.target.value } }))}
-                            style={{ width: 60, textAlign: 'right', padding: '3px 6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 13 }}
+                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--red)' : 'var(--text)' }}>
@@ -214,7 +211,7 @@ export default function DebtPage() {
                           <input
                             value={e.minimum_payment}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], minimum_payment: ev.target.value } }))}
-                            style={{ width: 80, textAlign: 'right', padding: '3px 6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 13 }}
+                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num">{d.minimum_payment > 0 ? fmt(d.minimum_payment) : '—'}</span>
