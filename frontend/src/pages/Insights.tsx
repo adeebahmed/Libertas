@@ -58,18 +58,13 @@ export default function InsightsPage() {
 
   return (
     <div>
-      <div className="flex-between mb-24">
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Insights</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {tab === 'insights' && <button className="btn" onClick={refetch}>Refresh</button>}
-        </div>
-      </div>
+      <h1 className="page-title">Insights</h1>
 
       <div className="tabs mb-24">
-        <button className={`tab${tab === 'insights' ? ' active' : ''}`} onClick={() => setTab('insights')}>
+        <button className={`tab-btn${tab === 'insights' ? ' active' : ''}`} onClick={() => setTab('insights')}>
           Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--red)', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{highCount}</span>}
         </button>
-        <button className={`tab${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>Ask Claude</button>
+        <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>Ask Claude</button>
       </div>
 
       {tab === 'insights' && (
@@ -121,7 +116,7 @@ export default function InsightsPage() {
                       {ins.action && (
                         <div style={{
                           marginTop: 10, padding: '8px 10px',
-                          background: 'rgba(201,169,110,0.07)', borderLeft: '2px solid var(--gold-dim)',
+                          background: 'rgba(59,130,246,0.06)', borderLeft: '2px solid var(--blue)',
                           borderRadius: '0 4px 4px 0', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5,
                         }}>
                           {ins.action}
@@ -177,7 +172,7 @@ export default function InsightsPage() {
                 maxWidth: '80%',
                 padding: '10px 14px',
                 borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                background: m.role === 'user' ? 'var(--gold-dim)' : 'var(--bg-elevated)',
+                background: m.role === 'user' ? 'rgba(59,130,246,0.18)' : 'var(--bg-elevated)',
                 border: '1px solid var(--border-soft)',
                 fontSize: 13,
                 lineHeight: 1.6,

@@ -7,14 +7,14 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 
-const PIE_COLORS = ['#c9a96e', '#5cad7a', '#6a9fc0', '#c95f52', '#9b85c4', '#e0906a', '#5bbfbf', '#9bc87a']
+const PIE_COLORS = ['#d4a840', '#34d399', '#3b82f6', '#f87171', '#a78bfa', '#e0906a', '#22d3ee', '#60a5fa']
 const NEWS_GLASS_TINTS = [
-  'rgba(201, 169, 110, 0.10)',
-  'rgba(106, 159, 192, 0.11)',
-  'rgba(92, 173, 122, 0.10)',
-  'rgba(155, 133, 196, 0.11)',
-  'rgba(224, 144, 106, 0.11)',
-  'rgba(91, 191, 191, 0.10)',
+  'rgba(59, 130, 246, 0.09)',
+  'rgba(52, 211, 153, 0.08)',
+  'rgba(212, 168, 64, 0.09)',
+  'rgba(167, 139, 250, 0.08)',
+  'rgba(34, 211, 238, 0.08)',
+  'rgba(248, 113, 113, 0.07)',
 ]
 
 function usd(n: number, compact = false) {
@@ -42,11 +42,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{
-      background: '#1c1a14', border: '1px solid #26231b', borderRadius: 8,
+      background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8,
       padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12,
     }}>
-      <div style={{ color: '#5c5444', marginBottom: 4 }}>{label}</div>
-      <div style={{ color: '#f0ebe2' }}>{usd(payload[0].value)}</div>
+      <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>{label}</div>
+      <div style={{ color: 'var(--text)' }}>{usd(payload[0].value)}</div>
     </div>
   )
 }
@@ -119,20 +119,20 @@ export default function Dashboard() {
               <AreaChart data={history} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"   stopColor="#c9a96e" stopOpacity={0.25} />
-                    <stop offset="95%"  stopColor="#c9a96e" stopOpacity={0} />
+                    <stop offset="5%"   stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%"  stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" tick={{ fill: '#5c5444', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis
-                  tick={{ fill: '#5c5444', fontSize: 11 }}
+                  tick={{ fill: 'var(--text-3)', fontSize: 11 }}
                   axisLine={false} tickLine={false}
                   tickFormatter={(v) => usd(v, true)}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone" dataKey="net_worth"
-                  stroke="#c9a96e" strokeWidth={1.5}
+                  stroke="#3b82f6" strokeWidth={1.5}
                   fill="url(#goldGrad)" dot={false}
                 />
               </AreaChart>
@@ -167,7 +167,7 @@ export default function Dashboard() {
                   <Tooltip
                     content={({ active, payload }) =>
                       active && payload?.[0] ? (
-                        <div style={{ background: '#1c1a14', border: '1px solid #26231b', borderRadius: 6, padding: '8px 12px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#f0ebe2' }}>
+                        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text)' }}>
                           {payload[0].name}<br />{usd(payload[0].value as number)}
                         </div>
                       ) : null
@@ -261,7 +261,7 @@ export default function Dashboard() {
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ ...cardStyle, textDecoration: 'none', transition: 'border-color 0.15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--blue)')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-soft)')}
                     >
                       <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>

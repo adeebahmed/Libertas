@@ -4,6 +4,18 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_LOG="${TMPDIR:-/tmp}/libertas-backend.log"
 
+# Optional: switch to a branch before starting
+if [ "${1:-}" != "" ]; then
+  BRANCH="$1"
+  CURRENT_BRANCH="$(git -C "$DIR" rev-parse --abbrev-ref HEAD)"
+  if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    echo "Switching to branch: $BRANCH"
+    git -C "$DIR" checkout "$BRANCH"
+  else
+    echo "Already on branch: $BRANCH"
+  fi
+fi
+
 ensure_backend_env() {
   if [ ! -x "$DIR/.venv/bin/python" ]; then
     if ! command -v uv >/dev/null 2>&1; then

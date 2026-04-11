@@ -8,17 +8,19 @@ import InsightsPage from './pages/Insights'
 import DebtPage from './pages/Debt'
 import TaxesPage from './pages/Taxes'
 import Settings from './pages/Settings'
+import {
+  IconGrid, IconWallet, IconTrendDown, IconBarChart,
+  IconHouse, IconReceipt, IconSpark, IconUpload, IconGear,
+} from './components/Icons'
 
 const NAV = [
-  { to: '/',             label: 'Overview',    end: true },
-  { to: '/accounts',    label: 'Accounts',    end: false },
-  { to: '/import',      label: 'Import',      end: false },
-  { to: '/real-estate', label: 'Real Estate', end: false },
-  { to: '/retirement',  label: 'Retirement',  end: false },
-  { to: '/debt',        label: 'Debt',        end: false },
-  { to: '/taxes',       label: 'Taxes',       end: false },
-  { to: '/insights',    label: 'Insights',    end: false },
-  { to: '/settings',    label: 'Settings',    end: false },
+  { to: '/',             label: 'Overview',    end: true,  icon: <IconGrid /> },
+  { to: '/accounts',    label: 'Accounts',    end: false, icon: <IconWallet /> },
+  { to: '/debt',        label: 'Debt',        end: false, icon: <IconTrendDown /> },
+  { to: '/retirement',  label: 'Retirement',  end: false, icon: <IconBarChart /> },
+  { to: '/real-estate', label: 'Real Estate', end: false, icon: <IconHouse /> },
+  { to: '/taxes',       label: 'Taxes',       end: false, icon: <IconReceipt /> },
+  { to: '/insights',    label: 'Insights',    end: false, icon: <IconSpark /> },
 ]
 
 export default function App() {
@@ -26,7 +28,7 @@ export default function App() {
     <div className="app">
       <nav className="sidebar">
         <div className="sidebar-logo">
-          <span>L</span>ibertas
+          <span className="logo-mark">L</span>ibertas
         </div>
         <div className="sidebar-section">
           {NAV.map((n) => (
@@ -36,12 +38,19 @@ export default function App() {
               end={n.end}
               className={({ isActive }) => (isActive ? 'active' : '')}
             >
+              {n.icon}
               {n.label}
             </NavLink>
           ))}
         </div>
         <div className="sidebar-footer">
-          v0.1 · local
+          <NavLink to="/import" className="sidebar-import-btn">
+            <IconUpload size={13} />
+            Import
+          </NavLink>
+          <NavLink to="/settings" className="sidebar-icon-btn" title="Settings">
+            <IconGear size={14} />
+          </NavLink>
         </div>
       </nav>
       <main className="main">
