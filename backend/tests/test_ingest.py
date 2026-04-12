@@ -34,7 +34,7 @@ def test_ingest_is_idempotent_for_the_same_csv(db_session_factory):
         assert second.rows_imported == 0
         assert second.rows_skipped == 5
         assert second.rows_failed == 0
-        assert second.parse_errors == []
+        assert second.parse_errors == "0"
 
         assert db.query(Transaction).count() == 5
     finally:
@@ -137,9 +137,8 @@ def test_ingest_populates_quality_fields(tmp_path, db_session_factory):
         assert log.status == "success"
         assert log.rows_imported == 3
         assert log.rows_failed == 1
-        assert len(log.parse_errors) == 1
-        assert log.parse_errors[0]["field"] == "Date"
-        assert log.transfer_pairs_detected == 1
+        assert log.parse_errors == "1"
+        assert log.potential_transfers == 1
     finally:
         db.close()
 

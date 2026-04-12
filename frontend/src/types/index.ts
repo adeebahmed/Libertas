@@ -36,6 +36,9 @@ export type AccountType =
   | 'student_loan'
   | 'auto_loan'
   | 'personal_loan'
+  | 'real_estate'
+  | 'mortgage'
+  | 'other'
 
 export interface Holding {
   id: number
@@ -57,6 +60,7 @@ export interface Transaction {
   price: number | null
   amount: number | null
   description: string | null
+  import_log_id?: number | null
 }
 
 export interface BalanceSnapshot {
@@ -203,6 +207,7 @@ export interface DebtAccount {
   balance: number
   interest_rate: number
   minimum_payment: number
+  payoff_date: string | null
   months_to_payoff: number | null
   total_interest: number | null
   last_updated: string | null
@@ -227,6 +232,9 @@ export interface ImportLog {
   account_id: number | null
   rows_imported: number
   rows_skipped: number
+  rows_failed?: number | null
+  parse_errors?: number | null
+  potential_transfers?: number | null
   status: string
   error_message: string | null
   created_at: string | null
