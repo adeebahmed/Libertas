@@ -190,7 +190,7 @@ export default function Settings() {
             </tbody>
           </table>
         )}
-        <div style={{ padding: '16px 20px', borderTop: institutions?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: institutions?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Name</label>
             <input value={newInst.name} onChange={e => setNewInst(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Fidelity" />
@@ -227,7 +227,7 @@ export default function Settings() {
             </tbody>
           </table>
         )}
-        <div style={{ padding: '16px 20px', borderTop: accounts?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: accounts?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Name</label>
             <input value={newAcct.name} onChange={e => setNewAcct(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Fidelity Roth IRA" />

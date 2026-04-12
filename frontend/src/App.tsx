@@ -26,6 +26,36 @@ const NAV = [
 export default function App() {
   return (
     <div className="app">
+      <header className="mobile-topbar">
+        <div className="mobile-topbar-brand">
+          <span className="logo-mark">L</span>
+          <span>Libertas</span>
+        </div>
+        <div className="mobile-topbar-actions">
+          <NavLink to="/import" className="sidebar-import-btn">
+            <IconUpload size={13} />
+            Import
+          </NavLink>
+          <NavLink to="/settings" className="sidebar-icon-btn" title="Settings">
+            <IconGear size={14} />
+          </NavLink>
+        </div>
+      </header>
+
+      <nav className="mobile-nav">
+        {NAV.map((n) => (
+          <NavLink
+            key={`mobile-${n.to}`}
+            to={n.to}
+            end={n.end}
+            className={({ isActive }) => (isActive ? 'active' : '')}
+          >
+            {n.icon}
+            {n.label}
+          </NavLink>
+        ))}
+      </nav>
+
       <nav className="sidebar">
         <div className="sidebar-logo">
           <span className="logo-mark">L</span>ibertas
