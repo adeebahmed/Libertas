@@ -28,6 +28,8 @@ class Account(Base):
     institution_id = Column(Integer, ForeignKey("institutions.id"))
     currency = Column(Text, default="USD")
     created_at = Column(DateTime, server_default=func.now())
+    external_id = Column(Text)
+    sync_source = Column(Text)
 
     institution = relationship("Institution", back_populates="accounts")
     holdings = relationship("Holding", back_populates="account", cascade="all, delete-orphan")
@@ -46,6 +48,7 @@ class Holding(Base):
     cost_basis = Column(Float)
     last_price = Column(Float)
     last_updated = Column(DateTime)
+    source = Column(Text, default="csv")
 
     account = relationship("Account", back_populates="holdings")
 
@@ -65,6 +68,8 @@ class Transaction(Base):
     description = Column(Text)
     raw_row = Column(JSON)
     import_hash = Column(Text, unique=True)
+    external_id = Column(Text)
+    sync_source = Column(Text)
 
     account = relationship("Account", back_populates="transactions")
 
@@ -115,6 +120,9 @@ class ImportLog(Base):
     status = Column(Text, default="success")  # success | error | skipped
     error_message = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
+    rows_failed = Column(Integer, default=0)
+    parse_errors = Column(Text)
+    potential_transfers = Column(Integer, default=0)
 
     account = relationship("Account")
 
@@ -126,6 +134,7 @@ class DebtDetail(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"), unique=True, nullable=False)
     interest_rate = Column(Float, default=0.0)   # APR as percent, e.g. 22.99
     minimum_payment = Column(Float, default=0.0)
+    payoff_date = Column(Date, nullable=True)
 
     account = relationship("Account")
 
