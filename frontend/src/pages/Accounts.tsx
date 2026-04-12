@@ -531,7 +531,7 @@ export default function Accounts() {
 
   return (
     <div>
-      <div className="flex-between mb-24" style={{ alignItems: 'end' }}>
+      <div className="flex-between accounts-header mb-24" style={{ alignItems: 'end' }}>
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Accounts</h1>
           <div style={{ color: 'var(--text-3)', fontSize: 13 }}>
@@ -541,7 +541,7 @@ export default function Accounts() {
         <button className="btn btn-primary" onClick={openAccountCreate}>Add account</button>
       </div>
 
-      <div className="grid-2 mb-24" style={{ gridTemplateColumns: 'minmax(360px, 1fr) minmax(0, 1.25fr)', alignItems: 'start' }}>
+      <div className="grid-2 accounts-layout mb-24" style={{ gridTemplateColumns: 'minmax(360px, 1fr) minmax(0, 1.25fr)', alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div className="flex-between" style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-soft)' }}>
             <div>
