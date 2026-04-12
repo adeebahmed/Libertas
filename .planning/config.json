@@ -1,0 +1,19 @@
+{
+  "project": {
+    "name": "Libertas",
+    "type": "brownfield",
+    "scope": "v1"
+  },
+  "workflow": {
+    "granularity": "coarse",
+    "execution": "parallel",
+    "autonomy": "full",
+    "nyquist_validation": true,
+    "research_before_planning": true
+  },
+  "preferences": {
+    "phase_size": "large",
+    "confirmation_required": false,
+    "commit_frequency": "per_phase"
+  }
+}
