@@ -593,8 +593,9 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
         log.rows_imported = imported
         log.rows_skipped = skipped
         log.rows_failed = rows_failed
-        log.parse_errors = parse_errors
-        log.transfer_pairs_detected = transfer_pairs_detected
+        # Store parse error count as scalar for the TEXT column.
+        log.parse_errors = str(len(parse_errors))
+        log.potential_transfers = transfer_pairs_detected
         log.status = "success"
         db.add(log)
         db.commit()
