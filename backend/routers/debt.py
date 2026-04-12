@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+from datetime import date
 
 from ..database import get_db
 from ..models import Account, BalanceSnapshot, DebtDetail
@@ -15,6 +16,7 @@ DEBT_TYPES = {"credit_card", "student_loan", "auto_loan", "personal_loan"}
 class DebtDetailUpdate(BaseModel):
     interest_rate: Optional[float] = None
     minimum_payment: Optional[float] = None
+    payoff_date: Optional[date] = None
 
 
 def _months_to_payoff(balance: float, annual_rate: float, monthly_payment: float) -> Optional[int]:
@@ -103,7 +105,10 @@ def update_debt_detail(account_id: int, data: DebtDetailUpdate, db: Session = De
         setattr(detail, k, v)
     db.commit()
     db.refresh(detail)
-    return {"ok": True}
+    return {
+        "ok": True,
+        "payoff_date": detail.payoff_date.isoformat() if getattr(detail, "payoff_date", None) else None,
+    }
 
 
 @router.get("/strategies")
