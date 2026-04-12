@@ -3,75 +3,75 @@ layout: home
 
 hero:
   name: Libertas
-  text: Your private financial command center
-  tagline: See your full net worth, make better money decisions, and stay in control — without giving your financial life to a cloud app.
+  text: Money clarity. Zero surveillance.
+  tagline: A local-first finance app for people who want control, not account-sharing risk.
   actions:
     - theme: brand
-      text: Run Libertas Locally
+      text: Download Libertas
       link: https://github.com/adeebahmed/Libertas
     - theme: alt
-      text: View Product Roadmap
-      link: /technical
-
-features:
-  - icon: 🛡️
-    title: Privacy You Can Verify
-    details: No SaaS account. No institution credential sharing. Data stays on your machine in local SQLite.
-  - icon: 🧭
-    title: One Place For Everything
-    details: Brokerage, crypto, cash, debt, and real estate in one view so your next move is obvious.
-  - icon: ⚡
-    title: Fast Updates, Low Friction
-    details: Drag-and-drop import, watch-folder auto-ingest, and manual entry so you can keep data fresh your way.
-  - icon: 🧠
-    title: Guidance, Not Just Charts
-    details: Debt, retirement, tax, and portfolio insights help you act — not just monitor.
+      text: How It Works
+      link: /#how-it-works
 ---
 
-## Why Libertas
+<div class="lp-trust">
+  <span>Local-first by default</span>
+  <span>No required account linking</span>
+  <span>Designed for real financial decisions</span>
+</div>
 
-Most money apps ask for your credentials and then sell convenience in exchange for trust.
+<section class="lp-section lp-split">
+  <div>
+    <p class="lp-kicker">Why it feels different</p>
+    <h2>Everything important in one calm view.</h2>
+    <p class="lp-copy">Track net worth, holdings, debt, and progress without bouncing between five tools. Libertas keeps the signal high and the friction low.</p>
+    <a class="lp-link" href="https://github.com/adeebahmed/Libertas">Try it locally</a>
+  </div>
+  <div class="lp-visual" aria-hidden="true">
+    <div class="lp-window">
+      <div class="lp-bar"></div>
+      <div class="lp-grid">
+        <div class="lp-block lp-block-lg"></div>
+        <div class="lp-block"></div>
+        <div class="lp-block"></div>
+        <div class="lp-line"></div>
+        <div class="lp-line lp-line-soft"></div>
+        <div class="lp-line"></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-Libertas flips that model:
+<section id="how-it-works" class="lp-section">
+  <p class="lp-kicker">How it works</p>
+  <h2>Bring data in, get direction out.</h2>
+  <div class="lp-steps">
+    <article>
+      <h3>Import or enter data</h3>
+      <p>Use CSV files, watch-folder auto-ingest, or manual entry when exports are missing.</p>
+    </article>
+    <article>
+      <h3>See your full picture</h3>
+      <p>Investments, cash, debt, and real estate come together in a unified financial view.</p>
+    </article>
+    <article>
+      <h3>Take the next step</h3>
+      <p>Get actionable debt, retirement, tax, and allocation guidance you can use immediately.</p>
+    </article>
+  </div>
+</section>
 
-- **You own your data path**: manual entry, local file import, and optional integrations by choice
-- **You keep context together**: net worth, liabilities, goals, and account-level detail in one system
-- **You get decision support**: actionable insights for debt payoff, retirement readiness, allocation risk, and tax opportunities
+<section class="lp-section lp-highlight">
+  <p class="lp-kicker">Now shipping</p>
+  <h2>Built for real-world messiness.</h2>
+  <p class="lp-copy">Current updates improve confidence and control: manual account workflows, import quality warnings, rollback safety, debt payoff details, and freshness indicators.</p>
+</section>
 
-If you like tools like Copilot, Monarch, or Fey but want **local-first control**, this is the alternative.
-
-## Built For People Who Want Control
-
-- Investors who track across multiple brokerages and crypto wallets
-- Households balancing debt payoff and long-term investing
-- Privacy-conscious users who do not want permanent account-link access
-- Builders/analysts who want transparent logic and local data ownership
-
-## What’s Shipping In The Current Merge Cycle
-
-These updates are focused on making Libertas more usable day-to-day, especially when your data is messy or incomplete:
-
-- **Manual account workflows**: set balances, add manual transactions, and manage manual holdings directly from Accounts
-- **Import quality signals**: see failed row counts, parse error samples, and potential transfer warnings after each import
-- **Safer corrections**: rollback-aware import flows and backups make bad imports recoverable
-- **Debt planning upgrades**: maintain APR, minimum payment, and payoff-date detail where debt decisions happen
-- **Freshness visibility**: account-level staleness indicators help you know what needs updating before acting
-
-## Core Product Areas
-
-- **Dashboard**: net worth trend, allocation, account summary, and relevant financial news
-- **Accounts**: holdings, transactions, manual entry flows, and debt detail management
-- **Import**: CSV upload + watch-folder automation + rollback
-- **Debt & Retirement**: payoff strategy modeling and retirement trajectory planning
-- **Taxes & Insights**: estimate support, harvesting opportunities, and optional AI-assisted guidance
-- **Settings & Backups**: profile controls, institution setup, checkpoints, and restore confidence
-
-## Local-First, By Design
-
-Libertas is designed around a simple promise: your financial operating system should run for you, not on you.
-
-- Default mode is local and private
-- Cloud dependence is not required for core value
-- You can inspect the code, data model, and decisions any time
-
-For architecture notes, ADRs, and implementation details, go to [Technical Docs](/technical).
+<section class="lp-section lp-cta">
+  <h2>If you want a private, modern money OS, start here.</h2>
+  <p>Run Libertas locally and see your full financial picture in minutes.</p>
+  <div class="lp-actions">
+    <a class="vp-button brand" href="https://github.com/adeebahmed/Libertas">Download Libertas</a>
+    <a class="vp-button alt" href="/technical">Technical docs</a>
+  </div>
+</section>
