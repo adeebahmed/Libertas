@@ -17,7 +17,7 @@ hero:
 <div class="lp-trust">
   <span>Local-first by default</span>
   <span>No required account linking</span>
-  <span>Designed for real financial decisions</span>
+  <span>Decision support, not advisory service</span>
 </div>
 
 <section class="lp-section lp-split">
@@ -56,7 +56,7 @@ hero:
     </article>
     <article>
       <h3>Take the next step</h3>
-      <p>Get actionable debt, retirement, tax, and allocation guidance you can use immediately.</p>
+      <p>Get debt, retirement, tax, and allocation insights designed to support your decisions.</p>
     </article>
   </div>
 </section>
@@ -74,4 +74,8 @@ hero:
     <a class="vp-button brand" href="https://github.com/adeebahmed/Libertas">Download Libertas</a>
     <a class="vp-button alt" href="/technical">Technical docs</a>
   </div>
+</section>
+
+<section class="lp-section lp-legal">
+  <p><strong>Important:</strong> Libertas provides informational tools and analysis, not financial advice. AI features are optional and require explicit opt-in.</p>
 </section>

@@ -282,6 +282,17 @@ html.dark body {
   color: var(--lp-heading);
 }
 
+.vp-doc .lp-legal {
+  padding-top: 0.2rem;
+  padding-bottom: 1.4rem;
+}
+
+.vp-doc .lp-legal p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--lp-muted);
+}
+
 @keyframes lp-fade-in {
   from {
     opacity: 0;
