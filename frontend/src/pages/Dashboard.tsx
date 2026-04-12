@@ -110,7 +110,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 32 }}>
+      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 32 }}>
         {/* Net worth timeline */}
         <div className="card">
           <div className="section-label mb-16">Portfolio growth</div>
@@ -198,7 +198,7 @@ export default function Dashboard() {
       </div>
 
       {/* Accounts + News row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
+      <div className="dashboard-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }}>
         {/* Accounts */}
         <div ref={accountsColRef}>
           <div className="section-label mb-16">Accounts</div>

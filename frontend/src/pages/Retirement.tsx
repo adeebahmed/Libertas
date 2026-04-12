@@ -170,7 +170,7 @@ export default function RetirementPage() {
       {tab === 'scenarios' && (
         <>
           <div className="card mb-24" style={{ padding: '20px 24px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 20 }}>
+            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 20 }}>
               {[
                 { label: 'Monthly add ($)', value: contribution, set: setContribution, step: 100 },
                 { label: 'Years', value: years, set: setYears, step: 1 },
