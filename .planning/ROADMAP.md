@@ -15,6 +15,8 @@
 
 **GitHub Issues:** #28 (manual data entry)
 
+**Plans:** 5 plans
+
 **What gets built:**
 - Manual account creation and balance editing (all account types: checking, savings, brokerage, IRA/401k, crypto, real estate, auto loan, student loan, mortgage, credit card)
 - Manual transaction entry per account
@@ -22,6 +24,13 @@
 - CSV import hardening: idempotent deduplication, parse error surfacing, header drift detection, encoding auto-detection, junk-row skipping, transfer pair detection
 - Account staleness indicators (green/yellow/red based on last-updated timestamp)
 - Database schema extensibility hooks for future Plaid sync (`external_id`, `sync_source` columns)
+
+Plans:
+- [ ] 01-01-PLAN.md — Test infrastructure (pytest, conftest, stub tests)
+- [ ] 01-02-PLAN.md — Schema migrations (9 new columns across 5 models)
+- [ ] 01-03-PLAN.md — Backend manual entry endpoints (balance, transactions, holdings)
+- [ ] 01-04-PLAN.md — CSV import hardening (chardet encoding, per-row errors, header drift, transfer pairs)
+- [ ] 01-05-PLAN.md — Frontend manual entry modals + staleness indicators + import quality display
 
 **Success criteria:**
 - New user can reach a populated net worth view using only manual entry, no CSV required
