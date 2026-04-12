@@ -2,19 +2,19 @@
 
 ## Current Phase
 
-**Next up:** Phase 1 — Data Foundation
+**Next up:** Phase 1 — Data Foundation execution
 
-No phases have been planned or executed yet. Run `/gsd-plan-phase 1` to start.
+Phases 2-5 are now planned and queued.
 
 ## Phase Status
 
 | Phase | Status | Plan | Notes |
 |-------|--------|------|-------|
-| 1 — Data Foundation | not started | — | Manual entry, CSV hardening |
-| 2 — Net Worth Dashboard | not started | — | Tier 1 dashboard features |
-| 3 — Onboarding & FIRE | not started | — | First-run wizard, FIRE calculator |
-| 4 — AI & Multi-Model | not started | — | LLM abstraction, Claude/OpenAI/Ollama |
-| 5 — Plaid Integration | not started | — | Post-V1, optional |
+| 1 — Data Foundation | planned | `01-data-foundation/01-01..05` | Manual entry, CSV hardening |
+| 2 — Net Worth Dashboard | planned | `02-net-worth-dashboard/02-01..05` | Tier 1 dashboard features |
+| 3 — Onboarding & FIRE | planned | `03-onboarding-fire/03-01..05` | First-run wizard, FIRE calculator |
+| 4 — AI & Multi-Model | planned | `04-ai-multi-model/04-01..07` | LLM abstraction, Claude/OpenAI/Ollama |
+| 5 — Plaid Integration | planned | `05-plaid-integration/05-01..06` | Post-V1, optional |
 
 ## Project Memory
 
@@ -37,3 +37,4 @@ No phases have been planned or executed yet. Run `/gsd-plan-phase 1` to start.
 | Date | Action |
 |------|--------|
 | 2026-04-11 | Project initialized with GSD. Codebase mapped (7 docs). Research completed. REQUIREMENTS.md and ROADMAP.md created aligned to GitHub project board. |
+| 2026-04-11 | Planned Phases 2-5 with per-phase RESEARCH, VALIDATION, and executable PLAN files under `.planning/phases/`. |
