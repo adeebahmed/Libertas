@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, AccountDetail, AccountType, DebtResponse, Holding, Transaction } from '../types'
@@ -104,7 +104,7 @@ function formatAge(value: string | null | undefined): Freshness {
 }
 
 function humanize(value: string) {
-  return value.replace(/_/g, ' ')
+  return value.replace(/_/g, '\u00A0') // non-breaking space — prevents tag wrapping
 }
 
 function isImportedTransaction(txn: Transaction) {
@@ -175,6 +175,93 @@ function Badge({ label, tone, title }: { label: string; tone: 'red' | 'gold' | '
     >
       {label}
     </span>
+  )
+}
+
+type ActionItem = { label: string; onClick: () => void; destructive?: boolean }
+
+function ActionsMenu({ items, disabled }: { items: ActionItem[]; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  return (
+    <div ref={ref} className="row-actions" style={{ position: 'relative', display: 'inline-block' }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        aria-label="Actions"
+        style={{
+          background: 'transparent',
+          border: '1px solid transparent',
+          borderRadius: 6,
+          color: 'var(--text-3)',
+          cursor: 'pointer',
+          fontSize: 16,
+          lineHeight: 1,
+          padding: '2px 6px',
+          transition: 'border-color 0.15s, color 0.15s',
+        }}
+        onMouseEnter={(e) => {
+          const b = e.currentTarget as HTMLButtonElement
+          b.style.borderColor = 'var(--border)'
+          b.style.color = 'var(--text)'
+        }}
+        onMouseLeave={(e) => {
+          const b = e.currentTarget as HTMLButtonElement
+          b.style.borderColor = 'transparent'
+          b.style.color = 'var(--text-3)'
+        }}
+      >
+        ···
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: 'calc(100% + 4px)',
+          zIndex: 50,
+          minWidth: 130,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          overflow: 'hidden',
+        }}>
+          {items.map((item, i) => (
+            <button
+              key={item.label}
+              onClick={() => { item.onClick(); setOpen(false) }}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '9px 14px',
+                fontSize: 13,
+                fontWeight: 450,
+                color: item.destructive ? 'var(--red)' : 'var(--text)',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: i < items.length - 1 ? '1px solid var(--border-soft)' : 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -580,11 +667,14 @@ export default function Accounts() {
                       <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{usd(account.balance)}</td>
                       <td><FreshnessDot lastUpdated={account.last_updated} /></td>
                       <td>
-                        <div className="flex-end" onClick={(e) => e.stopPropagation()}>
-                          <button className="btn btn-sm" onClick={() => openAccountEdit(account)}>Edit</button>
-                          <button className="btn btn-sm" onClick={() => openBalanceModal(account)}>Balance</button>
-                          <button className="btn btn-sm" onClick={() => deleteAccount(account)} disabled={saving}>Delete</button>
-                        </div>
+                        <ActionsMenu
+                          disabled={saving}
+                          items={[
+                            { label: 'Edit', onClick: () => openAccountEdit(account) },
+                            { label: 'Set balance', onClick: () => openBalanceModal(account) },
+                            { label: 'Delete', onClick: () => deleteAccount(account), destructive: true },
+                          ]}
+                        />
                       </td>
                     </tr>
                   )
@@ -735,8 +825,13 @@ export default function Accounts() {
                               <td>
                                 <div className="flex-end" onClick={(e) => e.stopPropagation()}>
                                   {gainPct != null && <Badge label={`${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%`} tone={gainPct >= 0 ? 'green' : 'red'} title="Relative to average cost" />}
-                                  <button className="btn btn-sm" onClick={() => openHoldingEdit(activeAccount, holding)}>Edit</button>
-                                  <button className="btn btn-sm" onClick={() => deleteHolding(activeAccount, holding)} disabled={saving}>Delete</button>
+                                  <ActionsMenu
+                                    disabled={saving}
+                                    items={[
+                                      { label: 'Edit', onClick: () => openHoldingEdit(activeAccount, holding) },
+                                      { label: 'Delete', onClick: () => deleteHolding(activeAccount, holding), destructive: true },
+                                    ]}
+                                  />
                                 </div>
                               </td>
                             </tr>
@@ -797,10 +892,13 @@ export default function Accounts() {
                           <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{txn.amount == null ? '—' : usd(txn.amount)}</td>
                           <td style={{ color: 'var(--text-2)', maxWidth: 220 }}>{txn.description ?? '—'}</td>
                           <td>
-                            <div className="flex-end">
-                              <button className="btn btn-sm" onClick={() => openTransactionEdit(activeAccount, txn)}>Edit</button>
-                              <button className="btn btn-sm" onClick={() => deleteTransaction(activeAccount, txn)} disabled={saving}>Delete</button>
-                            </div>
+                            <ActionsMenu
+                              disabled={saving}
+                              items={[
+                                { label: 'Edit', onClick: () => openTransactionEdit(activeAccount, txn) },
+                                { label: 'Delete', onClick: () => deleteTransaction(activeAccount, txn), destructive: true },
+                              ]}
+                            />
                           </td>
                         </tr>
                       ))}

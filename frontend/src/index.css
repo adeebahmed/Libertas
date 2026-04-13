@@ -379,6 +379,9 @@ hr {
 .tbl tr:last-child td { border-bottom: none; }
 .tbl tr:hover td { background: rgba(255,255,255,0.02); }
 .tbl .num { color: var(--text); }
+.tbl td:last-child { white-space: nowrap; }
+.tbl .row-actions { opacity: 0; transition: opacity 0.15s; }
+.tbl tr:hover .row-actions { opacity: 1; }
 
 /* ── Pill / Tag ── */
 .tag {
@@ -391,6 +394,7 @@ hr {
   text-transform: uppercase;
   letter-spacing: 0.4px;
   border: 1px solid;
+  white-space: nowrap;
 }
 .tag-brokerage   { color: #7a9fe0; border-color: #7a9fe028; background: #7a9fe00c; }
 .tag-crypto      { color: var(--gold); border-color: #d4a84028; background: #d4a8400c; }
