@@ -132,15 +132,8 @@ export default function Dashboard() {
   return (
     <div>
       <div className="mb-24" style={{ paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
-          <div>
+        <div className="dashboard-hero-grid">
+          <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
             <div className="num-hero mb-8">{nw ? usd(nw.net_worth) : '$—'}</div>
 
