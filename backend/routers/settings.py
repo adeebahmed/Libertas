@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import json
 
 from ..database import get_db
-from ..models import Setting
+from ..models import Account, Setting
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -19,6 +19,19 @@ KNOWN_KEYS = {
     "claude_api_key",
     "watch_folder_path",
     "projection_return_rates",
+    "income_w2",
+    "income_1099",
+    "tax_filing_status",
+    "birth_year",
+    "retirement_age",
+    "monthly_contribution",
+    "retirement_target_amount",
+    "fire_type",
+    "monthly_income",
+    "annual_lean_expenses",
+    "annual_fat_expenses",
+    "part_time_income",
+    "onboarding_complete",
 }
 
 
@@ -64,3 +77,23 @@ def delete_setting(key: str, db: Session = Depends(get_db)):
         db.delete(s)
         db.commit()
     return {"ok": True}
+
+
+@router.get("/onboarding/status")
+def onboarding_status(db: Session = Depends(get_db)):
+    account_count = db.query(Account).count()
+    onboarding_row = db.query(Setting).get("onboarding_complete")
+
+    onboarding_complete = False
+    if onboarding_row and onboarding_row.value:
+        try:
+            onboarding_complete = bool(json.loads(onboarding_row.value))
+        except (json.JSONDecodeError, TypeError):
+            onboarding_complete = str(onboarding_row.value).strip().lower() == "true"
+
+    return {
+        "has_accounts": account_count > 0,
+        "account_count": account_count,
+        "onboarding_complete": onboarding_complete,
+        "should_run_onboarding": (account_count == 0) or (not onboarding_complete),
+    }
