@@ -28,8 +28,16 @@ export default function App() {
     <div className="app">
       <header className="mobile-topbar">
         <div className="mobile-topbar-brand">
-          <span className="logo-mark">L</span>
-          <span>Libertas</span>
+          <a
+            className="mobile-topbar-brand-link"
+            href="https://adeebahmed.github.io/Libertas/"
+            target="_blank"
+            rel="noreferrer"
+            title="Open Libertas GitHub Pages site"
+          >
+            <span className="logo-mark">L</span>
+            <span>Libertas</span>
+          </a>
         </div>
         <div className="mobile-topbar-actions">
           <NavLink to="/import" className="sidebar-import-btn">
@@ -58,7 +66,15 @@ export default function App() {
 
       <nav className="sidebar">
         <div className="sidebar-logo">
-          <span className="logo-mark">L</span>ibertas
+          <a
+            className="sidebar-logo-link"
+            href="https://adeebahmed.github.io/Libertas/"
+            target="_blank"
+            rel="noreferrer"
+            title="Open Libertas GitHub Pages site"
+          >
+            <span className="logo-mark">L</span>ibertas
+          </a>
         </div>
         <div className="sidebar-section">
           {NAV.map((n) => (
