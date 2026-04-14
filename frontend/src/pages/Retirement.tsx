@@ -1,227 +1,241 @@
-import { useState } from 'react'
-import { useApi } from '../hooks/useApi'
+import { useMemo, useState } from 'react'
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+
 import { api } from '../api/client'
-import type { Projection, RetirementPlan } from '../types'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { useApi } from '../hooks/useApi'
+import type { FireProjection, Projection, RetirementOverview } from '../types'
+
+type Tab = 'overview' | 'fire' | 'scenarios'
+type FireType = 'lean' | 'regular' | 'fat' | 'coast' | 'barista'
 
 function usd(n: number) {
-  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
-  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
-  return `$${n.toFixed(0)}`
-}
-
-function usdFull(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-      <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
-          {p.name}: {usdFull(p.value)}
-        </div>
-      ))}
-    </div>
-  )
+function compact(n: number) {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
+  return usd(n)
 }
 
-type Tab = 'scenarios' | 'plan'
-
 export default function RetirementPage() {
-  const [tab, setTab] = useState<Tab>('plan')
-  const [contribution, setContribution] = useState(2000)
-  const [years, setYears] = useState(20)
+  const [tab, setTab] = useState<Tab>('overview')
+  const [fireType, setFireType] = useState<FireType>('regular')
+  const [monthlyContribution, setMonthlyContribution] = useState(2000)
+  const [expectedReturn, setExpectedReturn] = useState(7)
+  const [swr, setSwr] = useState(4)
+
+  const [scenarioContribution, setScenarioContribution] = useState(2000)
+  const [scenarioYears, setScenarioYears] = useState(20)
   const [conservative, setConservative] = useState(4)
   const [moderate, setModerate] = useState(7)
   const [aggressive, setAggressive] = useState(10)
 
-  const qs = `?monthly_contribution=${contribution}&years=${years}&conservative_rate=${conservative / 100}&moderate_rate=${moderate / 100}&aggressive_rate=${aggressive / 100}`
-  const { data: scenarios } = useApi<Projection>(() => api.get(`/retirement${qs}`), [contribution, years, conservative, moderate, aggressive])
-  const { data: plan } = useApi<RetirementPlan>(() => api.get('/retirement/plan'), [])
+  const fireQs = useMemo(
+    () => `?fire_type=${fireType}&monthly_contribution=${monthlyContribution}&expected_return=${expectedReturn / 100}&safe_withdrawal_rate=${swr / 100}`,
+    [fireType, monthlyContribution, expectedReturn, swr],
+  )
+  const scenarioQs = useMemo(
+    () =>
+      `?monthly_contribution=${scenarioContribution}&years=${scenarioYears}&conservative_rate=${conservative / 100}&moderate_rate=${moderate / 100}&aggressive_rate=${aggressive / 100}`,
+    [scenarioContribution, scenarioYears, conservative, moderate, aggressive],
+  )
 
-  const chartData = scenarios
-    ? scenarios.scenarios.conservative.map((_, i) => ({
-        year: i,
-        Conservative: scenarios.scenarios.conservative[i].value,
-        Moderate: scenarios.scenarios.moderate[i].value,
-        Aggressive: scenarios.scenarios.aggressive[i].value,
-      }))
-    : []
+  const { data: overview } = useApi<RetirementOverview>(() => api.get('/retirement/overview'), [])
+  const { data: fire } = useApi<FireProjection>(() => api.get(`/retirement/fire${fireQs}`), [fireQs])
+  const { data: recommendation } = useApi<{ recommended_fire_type: string; reason: string }>(
+    () => api.get('/retirement/fire/recommend'),
+    [],
+  )
+  const { data: scenarios } = useApi<Projection>(() => api.get(`/retirement${scenarioQs}`), [scenarioQs])
 
-  const planChartData = plan
-    ? plan.scenarios.conservative.map((_, i) => ({
-        year: i,
-        Conservative: plan.scenarios.conservative[i].value,
-        Moderate: plan.scenarios.moderate[i].value,
-        Aggressive: plan.scenarios.aggressive[i].value,
-        Target: plan.target,
-      }))
-    : []
-
-  const last = (arr: { value: number }[]) => arr[arr.length - 1]?.value ?? 0
-  const finals = scenarios ? {
-    conservative: last(scenarios.scenarios.conservative),
-    moderate:     last(scenarios.scenarios.moderate),
-    aggressive:   last(scenarios.scenarios.aggressive),
-  } : null
+  const scenarioChartData = useMemo(
+    () =>
+      scenarios
+        ? scenarios.scenarios.conservative.map((_, i) => ({
+            year: i,
+            Conservative: scenarios.scenarios.conservative[i].value,
+            Moderate: scenarios.scenarios.moderate[i].value,
+            Aggressive: scenarios.scenarios.aggressive[i].value,
+          }))
+        : [],
+    [scenarios],
+  )
 
   return (
     <div>
-      <h1 className="page-title">Retirement</h1>
+      <h1 className="page-title">Retirement & FIRE</h1>
 
       <div className="tabs mb-24">
-        <button className={`tab${tab === 'plan' ? ' active' : ''}`} onClick={() => setTab('plan')}>Retirement Plan</button>
+        <button className={`tab${tab === 'overview' ? ' active' : ''}`} onClick={() => setTab('overview')}>Overview</button>
+        <button className={`tab${tab === 'fire' ? ' active' : ''}`} onClick={() => setTab('fire')}>FIRE Calculator</button>
         <button className={`tab${tab === 'scenarios' ? ' active' : ''}`} onClick={() => setTab('scenarios')}>Scenarios</button>
       </div>
 
-      {tab === 'plan' && plan && (
+      {tab === 'overview' && overview && (
         <>
-          {/* On-track status */}
-          {plan.on_track && (
-            <div className="card mb-24" style={{ borderTop: `3px solid ${plan.on_track.on_track ? 'var(--green)' : 'var(--red)'}` }}>
-              <div className="flex-between mb-16">
-                <div>
-                  <div className="section-label mb-4">Retirement Projection</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                    {plan.on_track.years_to_retire} years to retirement · ${plan.monthly_contribution.toLocaleString()}/mo contribution
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{
-                    fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
-                    color: plan.on_track.on_track ? 'var(--green)' : 'var(--red)',
-                    marginBottom: 4,
-                  }}>
-                    {plan.on_track.on_track ? '✓ On Track' : '⚠ Behind'}
-                  </div>
-                  <div className="num" style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                    {plan.on_track.on_track
-                      ? `${usd(plan.on_track.surplus)} surplus`
-                      : `${usd(plan.on_track.shortfall)} shortfall`}
-                  </div>
-                </div>
-              </div>
-              <div className="grid-3">
-                <div>
-                  <div className="section-label mb-4">Current Balance</div>
-                  <div className="num-mid">{usdFull(plan.current_balance)}</div>
-                </div>
-                <div>
-                  <div className="section-label mb-4">Projected at Retirement</div>
-                  <div className="num-mid" style={{ color: plan.on_track.on_track ? 'var(--green)' : 'var(--red)' }}>
-                    {usdFull(plan.on_track.projected_at_retirement)}
-                  </div>
-                </div>
-                <div>
-                  <div className="section-label mb-4">Target</div>
-                  <div className="num-mid">{usdFull(plan.target)}</div>
-                </div>
-              </div>
-              {!plan.on_track.on_track && plan.needed_monthly_contribution && (
-                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 6, fontSize: 13, color: 'var(--text-2)' }}>
-                  To hit your target by retirement: contribute <strong style={{ color: 'var(--text)' }}>{usdFull(plan.needed_monthly_contribution)}/mo</strong> (vs current {usdFull(plan.monthly_contribution)}/mo)
-                </div>
-              )}
+          <div className="grid-3 mb-24">
+            <div className="card">
+              <div className="section-label mb-8">Retirement Assets</div>
+              <div className="num-mid">{usd(overview.total_retirement_assets)}</div>
             </div>
-          )}
-
-          {!plan.on_track && (
-            <div className="card mb-24">
-              <div className="empty-sub">Set your birth year, retirement age, and monthly contribution in Settings to see your personalized plan.</div>
-              <div className="grid-2 mt-16">
-                <div>
-                  <div className="section-label mb-4">Current Balance</div>
-                  <div className="num-mid">{usdFull(plan.current_balance)}</div>
-                </div>
-                <div>
-                  <div className="section-label mb-4">FIRE Target (4% rule)</div>
-                  <div className="num-mid">{usdFull(plan.target)}</div>
-                </div>
-              </div>
-              {plan.years_to_target && (
-                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)' }}>
-                  At current pace: target reached in ~{plan.years_to_target} years
-                </div>
-              )}
+            <div className="card">
+              <div className="section-label mb-8">Readiness</div>
+              <div className="num-mid">{overview.readiness.percent.toFixed(1)}%</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>Target {usd(overview.readiness.target)}</div>
             </div>
-          )}
+            <div className="card">
+              <div className="section-label mb-8">Retirement Share</div>
+              <div className="num-mid">{overview.retirement_pct_of_net_worth.toFixed(1)}%</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>of investable net worth</div>
+            </div>
+          </div>
 
-          {/* Plan chart */}
+          <div className="grid-2">
+            <div className="card">
+              <div className="section-label mb-12">Retirement Accounts</div>
+              {overview.retirement_accounts.length === 0 && (
+                <div className="empty-sub">No retirement accounts found yet.</div>
+              )}
+              {overview.retirement_accounts.map((a) => (
+                <div key={a.id} className="flex-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border-soft)' }}>
+                  <div>
+                    <div>{a.name}</div>
+                    <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{a.type}</div>
+                  </div>
+                  <div className="num">{usd(a.balance)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <div className="section-label mb-12">Contribution Utilization</div>
+              {Object.entries(overview.contribution_utilization).map(([k, v]) => (
+                <div key={k} style={{ marginBottom: 12 }}>
+                  <div className="flex-between" style={{ fontSize: 13 }}>
+                    <span style={{ textTransform: 'uppercase' }}>{k}</span>
+                    <span>{v.utilization_pct.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ height: 7, borderRadius: 999, background: 'var(--bg-elevated)', marginTop: 6 }}>
+                    <div style={{ width: `${Math.min(100, v.utilization_pct)}%`, height: '100%', borderRadius: 999, background: 'var(--blue)' }} />
+                  </div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 4 }}>
+                    {usd(v.contributed)} / {usd(v.limit)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === 'fire' && fire && (
+        <>
+          <div className="card mb-24">
+            <div className="section-label mb-12">FIRE Type</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 8 }}>
+              {(['lean', 'regular', 'fat', 'coast', 'barista'] as FireType[]).map((type) => (
+                <button
+                  key={type}
+                  className="btn"
+                  onClick={() => setFireType(type)}
+                  style={{ borderColor: fireType === type ? 'var(--blue)' : 'var(--border)' }}
+                >
+                  {type.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            {recommendation && (
+              <div style={{ marginTop: 10, color: 'var(--text-2)', fontSize: 13 }}>
+                Recommended: <strong>{recommendation.recommended_fire_type.toUpperCase()}</strong> — {recommendation.reason}
+              </div>
+            )}
+          </div>
+
+          <div className="card mb-24">
+            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Monthly contribution</label>
+                <input type="number" value={monthlyContribution} onChange={(e) => setMonthlyContribution(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Expected return %</label>
+                <input type="number" value={expectedReturn} step={0.1} onChange={(e) => setExpectedReturn(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Safe withdrawal %</label>
+                <input type="number" value={swr} step={0.1} onChange={(e) => setSwr(Number(e.target.value))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-3 mb-24">
+            <div className="card">
+              <div className="section-label mb-8">FIRE Number</div>
+              <div className="num-mid">{usd(fire.fire_number)}</div>
+            </div>
+            <div className="card">
+              <div className="section-label mb-8">Progress</div>
+              <div className="num-mid">{fire.progress_pct.toFixed(1)}%</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{usd(fire.current_balance)} current</div>
+            </div>
+            <div className="card">
+              <div className="section-label mb-8">Time To FIRE</div>
+              <div className="num-mid">{fire.time_to_fire_years ?? '100+'} years</div>
+              <div style={{ color: 'var(--text-3)', fontSize: 12 }}>Savings rate {fire.savings_rate.toFixed(1)}%</div>
+            </div>
+          </div>
+
           <div className="card">
-            <div className="section-label mb-16">Growth to target</div>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={planChartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
-                <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={plan.target} stroke="var(--gold)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--gold)', fontSize: 11 }} />
-                <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
-                <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="section-label mb-10">Smart Nudges</div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {fire.nudges.map((n, i) => (
+                <li key={i} style={{ marginBottom: 6 }}>{n}</li>
+              ))}
+            </ul>
           </div>
         </>
       )}
 
       {tab === 'scenarios' && (
         <>
-          <div className="card mb-24" style={{ padding: '20px 24px' }}>
-            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 20 }}>
-              {[
-                { label: 'Monthly add ($)', value: contribution, set: setContribution, step: 100 },
-                { label: 'Years', value: years, set: setYears, step: 1 },
-                { label: 'Conservative (%)', value: conservative, set: setConservative, step: 0.5 },
-                { label: 'Moderate (%)', value: moderate, set: setModerate, step: 0.5 },
-                { label: 'Aggressive (%)', value: aggressive, set: setAggressive, step: 0.5 },
-              ].map(({ label, value, set, step }) => (
-                <div key={label} className="field" style={{ marginBottom: 0 }}>
-                  <label>{label}</label>
-                  <input type="number" value={value} step={step} onChange={(e) => set(Number(e.target.value))} />
-                </div>
-              ))}
+          <div className="card mb-24">
+            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Monthly add</label>
+                <input type="number" value={scenarioContribution} onChange={(e) => setScenarioContribution(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Years</label>
+                <input type="number" value={scenarioYears} onChange={(e) => setScenarioYears(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Conservative %</label>
+                <input type="number" value={conservative} step={0.1} onChange={(e) => setConservative(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Moderate %</label>
+                <input type="number" value={moderate} step={0.1} onChange={(e) => setModerate(Number(e.target.value))} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Aggressive %</label>
+                <input type="number" value={aggressive} step={0.1} onChange={(e) => setAggressive(Number(e.target.value))} />
+              </div>
             </div>
           </div>
 
-          {finals && scenarios && (
-            <div className="grid-3 mb-24">
-              {([
-                ['Conservative', finals.conservative, '#5cad7a', conservative],
-                ['Moderate',     finals.moderate,     '#d4a840', moderate],
-                ['Aggressive',   finals.aggressive,   '#c95f52', aggressive],
-              ] as const).map(([name, val, color, rate]) => (
-                <div key={name} className="card" style={{ borderTop: `3px solid ${color}`, paddingTop: 18 }}>
-                  <div className="section-label mb-8">{name} · {rate}% / yr</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 6 }}>
-                    {usdFull(val as number)}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
-                    in {years} yrs from {usdFull(scenarios.current_balance)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           <div className="card">
-            <div className="section-label mb-16">Growth scenarios</div>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <LineChart data={chartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                  <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                  <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
-                  <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="empty"><div className="empty-sub">Adjust parameters above</div></div>
-            )}
+            <div className="section-label mb-16">Scenario Curves</div>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={scenarioChartData}>
+                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={compact} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" dot={false} />
+                <Line type="monotone" dataKey="Moderate" stroke="#d4a840" dot={false} />
+                <Line type="monotone" dataKey="Aggressive" stroke="#c95f52" dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </>
       )}
