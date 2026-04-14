@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Import from './pages/Import'
@@ -8,6 +8,9 @@ import InsightsPage from './pages/Insights'
 import DebtPage from './pages/Debt'
 import TaxesPage from './pages/Taxes'
 import Settings from './pages/Settings'
+import Onboarding from './pages/Onboarding'
+import { useApi } from './hooks/useApi'
+import { api } from './api/client'
 import {
   IconGrid, IconWallet, IconTrendDown, IconBarChart,
   IconHouse, IconReceipt, IconSpark, IconUpload, IconGear,
@@ -24,8 +27,31 @@ const NAV = [
 ]
 
 export default function App() {
+  const location = useLocation()
+  const { data: onboarding, loading, refetch } = useApi<{
+    should_run_onboarding: boolean
+  }>(() => api.get('/settings/onboarding/status'), [])
+
+  if (loading) {
+    return (
+      <div className="app">
+        <main className="main">
+          <div className="card">Loading…</div>
+        </main>
+      </div>
+    )
+  }
+
+  const onboardingForced = onboarding?.should_run_onboarding ?? false
+  const isOnboardingRoute = location.pathname === '/onboarding'
+
+  if (onboardingForced && !isOnboardingRoute) {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return (
     <div className="app">
+      {!isOnboardingRoute && (
       <header className="mobile-topbar">
         <div className="mobile-topbar-brand">
           <a
@@ -49,7 +75,9 @@ export default function App() {
           </NavLink>
         </div>
       </header>
+      )}
 
+      {!isOnboardingRoute && (
       <nav className="mobile-nav">
         {NAV.map((n) => (
           <NavLink
@@ -63,7 +91,9 @@ export default function App() {
           </NavLink>
         ))}
       </nav>
+      )}
 
+      {!isOnboardingRoute && (
       <nav className="sidebar">
         <div className="sidebar-logo">
           <a
@@ -99,8 +129,10 @@ export default function App() {
           </NavLink>
         </div>
       </nav>
+      )}
       <main className="main">
         <Routes>
+          <Route path="/onboarding"    element={<Onboarding onComplete={refetch} />} />
           <Route path="/"             element={<Dashboard />} />
           <Route path="/accounts"     element={<Accounts />} />
           <Route path="/import"       element={<Import />} />
@@ -110,6 +142,7 @@ export default function App() {
           <Route path="/taxes"        element={<TaxesPage />} />
           <Route path="/insights"     element={<InsightsPage />} />
           <Route path="/settings"     element={<Settings />} />
+          <Route path="*"             element={<Navigate to={onboardingForced ? "/onboarding" : "/"} replace />} />
         </Routes>
       </main>
     </div>
