@@ -1,400 +1,475 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from typing import Optional
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import date, timedelta
 import json
 import math
-from datetime import date
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Account, Holding, RealEstate, Setting, BalanceSnapshot
+from ..models import Account, BalanceSnapshot, DebtDetail, RealEstate, Setting, Transaction
+from ..services.snapshots import DEBT_TYPES, compute_account_balance
 
 router = APIRouter(prefix="/api/insights", tags=["insights"])
 
-DEBT_TYPES = {"credit_card", "student_loan", "auto_loan", "personal_loan"}
-
 
 def _get_setting(db: Session, key: str, default=None):
-    s = db.query(Setting).get(key)
-    if s and s.value:
-        return json.loads(s.value)
+    setting = db.query(Setting).get(key)
+    if setting and setting.value:
+        return json.loads(setting.value)
     return default
 
 
-def _generate_insights(db: Session) -> list[dict]:
-    insights = []
-    accounts = db.query(Account).all()
+def _priority(score: float, high: float, medium: float, invert: bool = False) -> str:
+    if invert:
+        if score <= high:
+            return "high"
+        if score <= medium:
+            return "medium"
+        return "low"
 
-    # Collect all holdings and balances
-    all_holdings: list[dict] = []
+    if score >= high:
+        return "high"
+    if score >= medium:
+        return "medium"
+    return "low"
+
+
+def _aggregate_context(db: Session) -> dict:
+    accounts = db.query(Account).all()
+    properties = db.query(RealEstate).all()
+
+    assets_by_type: dict[str, float] = defaultdict(float)
     total_assets = 0.0
     total_debt = 0.0
-    by_type: dict[str, float] = {}
+    total_minimum_payment = 0.0
+    weighted_debt_apr_numerator = 0.0
 
-    for a in accounts:
-        if a.type in DEBT_TYPES:
-            snap = (
-                db.query(BalanceSnapshot)
-                .filter(BalanceSnapshot.account_id == a.id)
-                .order_by(BalanceSnapshot.date.desc())
-                .first()
-            )
-            total_debt += snap.balance if snap else 0.0
+    holdings_rows: list[dict] = []
+
+    for account in accounts:
+        balance = compute_account_balance(db, account)
+        if account.type in DEBT_TYPES:
+            total_debt += balance
+            detail = db.query(DebtDetail).filter(DebtDetail.account_id == account.id).first()
+            if detail:
+                total_minimum_payment += float(detail.minimum_payment or 0)
+                weighted_debt_apr_numerator += float(detail.interest_rate or 0) * balance
             continue
 
-        for h in a.holdings:
-            mv = (h.last_price or 0) * (h.quantity or 0)
-            all_holdings.append({
-                "symbol": h.symbol,
-                "market_value": mv,
-                "cost_basis": (h.cost_basis or 0) * (h.quantity or 0),
-                "account_name": a.name,
-                "account_type": a.type,
-            })
-            total_assets += mv
-            by_type[a.type] = by_type.get(a.type, 0) + mv
+        assets_by_type[account.type] += balance
+        total_assets += balance
 
-        if not a.holdings:
-            snap = (
-                db.query(BalanceSnapshot)
-                .filter(BalanceSnapshot.account_id == a.id)
-                .order_by(BalanceSnapshot.date.desc())
-                .first()
+        for holding in account.holdings:
+            qty = holding.quantity or 0
+            mv = (holding.last_price * qty) if holding.last_price is not None else (holding.cost_basis or 0)
+            cost_total = holding.cost_basis if holding.cost_basis is not None else mv
+            holdings_rows.append(
+                {
+                    "symbol": holding.symbol,
+                    "market_value": float(mv or 0),
+                    "cost_basis": float(cost_total or 0),
+                    "account_type": account.type,
+                }
             )
-            bal = snap.balance if snap else 0.0
-            total_assets += bal
-            by_type[a.type] = by_type.get(a.type, 0) + bal
 
-    # Add real estate equity
-    properties = db.query(RealEstate).all()
-    for p in properties:
-        equity = (p.effective_value or 0) - (p.mortgage_balance or 0)
+    real_estate_value = 0.0
+    mortgage_total = 0.0
+    for prop in properties:
+        value = float(prop.effective_value or 0)
+        mortgage = float(prop.mortgage_balance or 0)
+        equity = value - mortgage
+        assets_by_type["real_estate"] += equity
         total_assets += equity
-        by_type["real_estate"] = by_type.get("real_estate", 0) + equity
+        real_estate_value += value
+        mortgage_total += mortgage
 
-    total_net_worth = total_assets - total_debt
+    net_worth = total_assets - total_debt
 
-    if total_assets <= 0:
-        return [{"title": "Add Data", "category": "info", "description": "Import account data to see insights.", "why": "Insights need portfolio data to analyze."}]
+    income_w2 = float(_get_setting(db, "income_w2", 0) or 0)
+    income_1099 = float(_get_setting(db, "income_1099", 0) or 0)
+    annual_income = income_w2 + income_1099
+    monthly_income = annual_income / 12 if annual_income > 0 else 0
 
-    monthly_expenses = _get_setting(db, "monthly_expenses", 5000)
-    annual_expenses = monthly_expenses * 12
-    risk_profile = _get_setting(db, "risk_profile", "moderate")
-    birth_year = _get_setting(db, "birth_year", None)
-    annual_income = _get_setting(db, "annual_income", None)
-    retirement_age = _get_setting(db, "retirement_age", 65)
+    monthly_expenses = float(_get_setting(db, "monthly_expenses", 5000) or 0)
+    monthly_contribution = float(_get_setting(db, "monthly_contribution", 0) or 0)
+    risk_profile = str(_get_setting(db, "risk_profile", "moderate") or "moderate")
 
-    # ── CONCENTRATION ────────────────────────────────────────────────────────
-    for h in all_holdings:
-        if total_assets > 0:
-            pct = h["market_value"] / total_assets * 100
-            if pct > 20:
-                insights.append({
-                    "title": f"High Concentration: {h['symbol']}",
-                    "category": "Risk",
-                    "priority": "high",
-                    "action": f"Consider trimming {h['symbol']} and reinvesting proceeds into diversified funds.",
-                    "description": f"{h['symbol']} is {pct:.1f}% of your portfolio in {h['account_name']}.",
-                    "why": "Single-stock concentration above 20% increases unsystematic risk. Consider diversifying.",
-                })
+    retirement_target = _get_setting(db, "retirement_target_amount", None)
+    if retirement_target is None:
+        retirement_target = monthly_expenses * 12 * 25
+    retirement_target = float(retirement_target or 0)
 
-    # ── ALLOCATION ───────────────────────────────────────────────────────────
-    targets = {
-        "conservative": {"brokerage": 30, "crypto": 5, "real_estate": 30, "savings": 20, "roth_ira": 10, "401k": 5},
-        "moderate":     {"brokerage": 40, "crypto": 10, "real_estate": 25, "savings": 10, "roth_ira": 10, "401k": 5},
-        "aggressive":   {"brokerage": 50, "crypto": 20, "real_estate": 15, "savings": 5, "roth_ira": 5, "401k": 5},
-    }.get(risk_profile, {})
-
-    for atype, target_pct in targets.items():
-        actual_pct = by_type.get(atype, 0) / total_assets * 100 if total_assets else 0
-        deviation = actual_pct - target_pct
-        if abs(deviation) > 10:
-            direction = "overweight" if deviation > 0 else "underweight"
-            label = atype.replace('_', ' ').title()
-            action = (
-                f"Reduce {label} exposure by rebalancing into underweight categories."
-                if direction == "overweight"
-                else f"Increase {label} allocation toward your {target_pct}% target."
-            )
-            insights.append({
-                "title": f"{label} {direction.title()}",
-                "category": "Allocation",
-                "priority": "medium",
-                "action": action,
-                "description": f"{label} is {actual_pct:.1f}% (target: {target_pct}% for {risk_profile} profile).",
-                "why": f"Your {risk_profile} risk profile targets {target_pct}% in this category.",
-            })
-
-    # ── LIQUIDITY ────────────────────────────────────────────────────────────
-    liquid = by_type.get("savings", 0) + by_type.get("checking", 0)
-    months_runway = liquid / monthly_expenses if monthly_expenses > 0 else 0
-    if months_runway < 6:
-        insights.append({
-            "title": "Low Liquidity",
-            "category": "Liquidity",
-            "priority": "high",
-            "action": f"Build cash reserves to ${monthly_expenses * 6:,.0f} (6 months of expenses) before investing more.",
-            "description": f"You have {months_runway:.1f} months of expenses in liquid accounts (${liquid:,.0f}).",
-            "why": "Financial advisors recommend 3–6 months of expenses in easily accessible accounts.",
-        })
-    elif months_runway > 12:
-        insights.append({
-            "title": "Excess Cash",
-            "category": "Liquidity",
-            "priority": "low",
-            "action": "Consider investing the excess cash above 6 months of expenses into a diversified portfolio.",
-            "description": f"You have {months_runway:.1f} months of expenses sitting in cash (${liquid:,.0f}).",
-            "why": "Cash above 12 months of expenses may be better deployed in investments.",
-        })
-
-    # ── REAL ESTATE LTV ──────────────────────────────────────────────────────
-    for p in properties:
-        if p.effective_value and p.mortgage_balance:
-            ltv = p.mortgage_balance / p.effective_value * 100
-            if ltv > 80:
-                insights.append({
-                    "title": f"High LTV: {p.address[:30]}",
-                    "category": "Risk",
-                    "priority": "medium",
-                    "action": "Make extra principal payments to get below 80% LTV and eliminate PMI.",
-                    "description": f"Loan-to-value is {ltv:.1f}% on this property.",
-                    "why": "LTV above 80% typically requires PMI and increases risk in a downturn.",
-                })
-            elif ltv < 50:
-                insights.append({
-                    "title": f"Refinance Opportunity: {p.address[:30]}",
-                    "category": "Performance",
-                    "priority": "low",
-                    "action": "Contact lenders to compare current rates — your LTV qualifies you for the best pricing.",
-                    "description": f"LTV is only {ltv:.1f}%. You may qualify for better rates.",
-                    "why": "Low LTV properties often qualify for the best mortgage rates.",
-                })
-
-    # ── NET WORTH TREND ──────────────────────────────────────────────────────
     snapshots = db.query(BalanceSnapshot).order_by(BalanceSnapshot.date).all()
-    if len(snapshots) >= 2:
-        by_date: dict[str, float] = {}
-        for s in snapshots:
-            d = s.date.isoformat()
-            by_date[d] = by_date.get(d, 0) + s.balance
-        dates = sorted(by_date.keys())
-        if len(dates) >= 2:
-            first = by_date[dates[0]]
-            last = by_date[dates[-1]]
-            if first > 0:
-                growth = (last - first) / first * 100
-                insights.append({
-                    "title": "Net Worth Trend",
-                    "category": "Trends",
-                    "priority": "low",
-                    "action": "Keep importing data regularly to maintain an accurate growth picture.",
-                    "description": f"Net worth has {'grown' if growth > 0 else 'declined'} {abs(growth):.1f}% since tracking began.",
-                    "why": f"From ${first:,.0f} to ${last:,.0f} over {len(dates)} data points.",
-                })
+    by_date: dict[str, float] = defaultdict(float)
+    for snap in snapshots:
+        by_date[snap.date.isoformat()] += float(snap.balance)
 
-        # Declining streak (3+ consecutive months down)
-        if len(dates) >= 4:
-            recent = [by_date[d] for d in dates[-4:]]
-            if all(recent[i] > recent[i + 1] for i in range(3)):
-                insights.append({
-                    "title": "Net Worth Declining 3+ Months",
-                    "category": "Behavioral",
-                    "priority": "high",
-                    "action": "Review your monthly spending and investment contributions for the past quarter.",
-                    "description": "Your net worth has declined for at least three consecutive months.",
-                    "why": "A sustained downward trend warrants a review of spending, contributions, and asset performance.",
-                })
+    return {
+        "accounts": accounts,
+        "holdings": holdings_rows,
+        "assets_by_type": dict(assets_by_type),
+        "total_assets": total_assets,
+        "total_debt": total_debt,
+        "total_minimum_payment": total_minimum_payment,
+        "avg_debt_apr": (weighted_debt_apr_numerator / total_debt) if total_debt > 0 else 0.0,
+        "net_worth": net_worth,
+        "annual_income": annual_income,
+        "monthly_income": monthly_income,
+        "monthly_expenses": monthly_expenses,
+        "monthly_contribution": monthly_contribution,
+        "risk_profile": risk_profile,
+        "retirement_target": retirement_target,
+        "snapshots_by_date": dict(sorted(by_date.items())),
+        "real_estate_value": real_estate_value,
+        "mortgage_total": mortgage_total,
+        "properties": properties,
+    }
 
-    # ── 401k ─────────────────────────────────────────────────────────────────
-    k401_accounts = [a for a in accounts if a.type == "401k"]
-    k401_balance = by_type.get("401k", 0)
 
-    if not k401_accounts and total_assets > 10_000:
-        insights.append({
-            "title": "No 401k Detected",
-            "category": "Retirement",
-            "priority": "high",
-            "action": "Enroll in your employer's 401k and contribute at least enough to capture any match.",
-            "description": "You have no 401k account tracked. The 2024 contribution limit is $23,000 ($30,500 if 50+).",
-            "why": "401k contributions reduce taxable income and grow tax-deferred. Employer match is free money.",
-        })
-    elif k401_accounts and k401_balance / total_assets < 0.05 and total_assets > 50_000:
-        insights.append({
-            "title": "401k Appears Underutilized",
-            "category": "Retirement",
-            "priority": "high",
-            "action": "Increase your 401k contribution rate — aim for $23,000/yr or at minimum the full employer match.",
-            "description": f"Your 401k is ${k401_balance:,.0f} — only {k401_balance / total_assets * 100:.1f}% of total assets.",
-            "why": "Maximizing 401k contributions (up to $23,000/yr) is one of the highest-impact tax moves available.",
-        })
+def _generate_insights(db: Session) -> list[dict]:
+    ctx = _aggregate_context(db)
 
-    # ── RETIREMENT READINESS (4% rule) ───────────────────────────────────────
-    fire_target = annual_expenses * 25
-    investable = total_assets - by_type.get("real_estate", 0) - by_type.get("savings", 0) - by_type.get("checking", 0)
-    if fire_target > 0 and investable > 0:
-        pct_to_fire = investable / fire_target * 100
-        if pct_to_fire < 100:
-            insights.append({
-                "title": f"Retirement Readiness: {pct_to_fire:.0f}%",
-                "category": "Retirement",
-                "priority": "medium",
-                "action": f"Increase monthly contributions and check the Retirement page for a personalized plan.",
-                "description": f"At ${monthly_expenses:,.0f}/mo expenses, your FIRE number is ${fire_target:,.0f}. You're at ${investable:,.0f} ({pct_to_fire:.0f}%).",
-                "why": "The 4% rule: you need 25× annual expenses invested to retire safely with a 4% withdrawal rate.",
-            })
+    if ctx["total_assets"] <= 0 and ctx["total_debt"] <= 0:
+        return [
+            {
+                "title": "Add your first account",
+                "description": "Import or manually add account balances to unlock the dashboard insights engine.",
+                "category": "Behavioral",
+                "priority": "high",
+                "action": "Go to Accounts and add at least one cash or investment account.",
+                "why": "Insights are deterministic and local-only, but they need portfolio data to evaluate your position.",
+            }
+        ]
 
-    # ── DEBT ─────────────────────────────────────────────────────────────────
-    if total_debt > 0:
-        from ..models import DebtDetail
-        debt_accounts = [a for a in accounts if a.type in DEBT_TYPES]
-        for da in debt_accounts:
-            detail = db.query(DebtDetail).filter(DebtDetail.account_id == da.id).first()
-            if detail and detail.interest_rate > 15:
-                snap = (
-                    db.query(BalanceSnapshot)
-                    .filter(BalanceSnapshot.account_id == da.id)
-                    .order_by(BalanceSnapshot.date.desc())
-                    .first()
-                )
-                bal = snap.balance if snap else 0
-                if bal > 0:
-                    insights.append({
-                        "title": f"High-Interest Debt: {da.name}",
-                        "category": "Debt",
-                        "priority": "high",
-                        "action": f"Pay more than the minimum on {da.name} — every extra dollar saves {detail.interest_rate:.0f}¢ in interest.",
-                        "description": f"{da.name} carries {detail.interest_rate:.1f}% APR with ${bal:,.0f} balance.",
-                        "why": "High-interest debt (>15%) costs more than most investments earn. Pay this down before investing further.",
-                    })
+    insights: list[dict] = []
+    total_assets = max(ctx["total_assets"], 0.0)
+    monthly_expenses = max(ctx["monthly_expenses"], 1.0)
+    annual_income = ctx["annual_income"]
+    monthly_income = ctx["monthly_income"]
+    total_debt = ctx["total_debt"]
+    monthly_contribution = ctx["monthly_contribution"]
 
-        if annual_income and annual_income > 0:
-            dti = total_debt / annual_income * 100
-            if dti > 36:
-                insights.append({
-                    "title": f"High Debt-to-Income: {dti:.0f}%",
-                    "category": "Debt",
-                    "priority": "high",
-                    "action": "Focus extra income on debt payoff before taking on new credit or large purchases.",
-                    "description": f"Total debt of ${total_debt:,.0f} is {dti:.0f}% of your annual income.",
-                    "why": "Lenders use 36% DTI as a threshold. Above this, borrowing becomes harder and financial flexibility shrinks.",
-                })
+    holdings = ctx["holdings"]
+    assets_by_type = ctx["assets_by_type"]
 
-        re_pct = by_type.get("real_estate", 0) / total_assets * 100 if total_assets else 0
-        if re_pct > 50:
-            insights.append({
-                "title": "Real Estate Illiquidity Risk",
-                "category": "Risk",
-                "priority": "medium",
-                "action": "Build liquid savings and diversify into financial assets to reduce concentration in real estate.",
-                "description": f"Real estate is {re_pct:.0f}% of your assets (${by_type.get('real_estate', 0):,.0f}).",
-                "why": "Heavy real estate concentration creates liquidity risk — property can't be sold quickly in a downturn.",
-            })
-
-    # ── TAX ──────────────────────────────────────────────────────────────────
-    tlh_candidates = []
-    for h in all_holdings:
-        if h["cost_basis"] > 0 and h["market_value"] > 0:
-            loss_pct = (h["market_value"] - h["cost_basis"]) / h["cost_basis"] * 100
-            if loss_pct < -20:
-                tlh_candidates.append((h["symbol"], loss_pct, h["market_value"] - h["cost_basis"]))
-
-    if tlh_candidates:
-        worst = min(tlh_candidates, key=lambda x: x[1])
-        total_loss = sum(x[2] for x in tlh_candidates)
-        insights.append({
-            "title": "Tax-Loss Harvesting Opportunity",
-            "category": "Tax",
-            "priority": "medium",
-            "action": f"Sell {worst[0]} to realize the loss, then repurchase a similar (not identical) fund after 30 days.",
-            "description": f"{len(tlh_candidates)} position(s) are down 20%+. {worst[0]} is down {abs(worst[1]):.0f}% (${abs(total_loss):,.0f} in unrealized losses).",
-            "why": "Selling losing positions to offset capital gains can reduce your tax bill. Repurchase after 30 days to maintain exposure.",
-        })
-
-    bond_keywords = {"BND", "AGG", "TLT", "IEF", "SHY", "BOND", "VBTLX", "FXNAX", "LQD", "HYG", "TIPS"}
-    misplaced = [
-        h for h in all_holdings
-        if h["account_type"] == "brokerage"
-        and any(kw in h["symbol"].upper() for kw in bond_keywords)
-    ]
-    if misplaced:
-        symbols = ", ".join(h["symbol"] for h in misplaced[:3])
-        insights.append({
-            "title": "Asset Location: Bonds in Taxable Account",
-            "category": "Tax",
-            "priority": "medium",
-            "action": f"Move {symbols} into your IRA or 401k, and hold equities in the taxable account instead.",
-            "description": f"{symbols} appear to be bond funds held in a taxable brokerage account.",
-            "why": "Bonds generate ordinary-income dividends. Holding them in a tax-deferred account (IRA, 401k) shields that income from annual taxes.",
-        })
-
-    # ── BEHAVIORAL ───────────────────────────────────────────────────────────
-    today = date.today()
-    for a in accounts:
-        if a.type in DEBT_TYPES:
-            continue
-        snap = (
-            db.query(BalanceSnapshot)
-            .filter(BalanceSnapshot.account_id == a.id)
-            .order_by(BalanceSnapshot.date.desc())
-            .first()
-        )
-        if snap:
-            days_old = (today - snap.date).days
-            if days_old > 30:
-                insights.append({
-                    "title": f"Stale Data: {a.name}",
-                    "category": "Behavioral",
-                    "priority": "low",
-                    "action": f"Download a fresh CSV from your {a.name} institution and drop it into Import.",
-                    "description": f"{a.name} hasn't been updated in {days_old} days.",
-                    "why": "Stale data leads to inaccurate net worth calculations. Import a fresh CSV to stay current.",
-                })
-
-    crypto_pct = by_type.get("crypto", 0) / total_assets * 100 if total_assets else 0
-    if crypto_pct > 20:
-        insights.append({
-            "title": f"High Crypto Allocation: {crypto_pct:.0f}%",
+    # 1) Concentration risk
+    top_holding = max(holdings, key=lambda h: h["market_value"], default=None)
+    concentration_pct = (top_holding["market_value"] / total_assets * 100) if top_holding and total_assets else 0.0
+    concentration_priority = _priority(concentration_pct, high=40, medium=25)
+    insights.append(
+        {
+            "title": "Concentration Risk",
+            "description": (
+                f"Largest position is {top_holding['symbol']} at {concentration_pct:.1f}% of assets."
+                if top_holding
+                else "No concentrated single-name positions detected in tracked holdings."
+            ),
             "category": "Risk",
-            "priority": "medium",
-            "action": "Consider gradually rebalancing crypto gains into less volatile assets.",
-            "description": f"Crypto is {crypto_pct:.0f}% of your portfolio (${by_type.get('crypto', 0):,.0f}).",
-            "why": "Crypto is highly volatile. Most advisors suggest limiting it to 5–10% of a portfolio unless you have high risk tolerance.",
-        })
+            "priority": concentration_priority,
+            "action": "Keep any single position below 40% by trimming outsized winners over time.",
+            "why": "High concentration increases unsystematic risk and can dominate portfolio volatility.",
+        }
+    )
 
-    # ── ESTATE ───────────────────────────────────────────────────────────────
-    if total_net_worth > 500_000:
-        insights.append({
-            "title": "Estate Plan Review",
-            "category": "Estate",
-            "priority": "medium",
-            "action": "Review or create a will and update beneficiary designations on all accounts.",
-            "description": f"With a net worth of ${total_net_worth:,.0f}, an outdated or missing estate plan creates risk.",
-            "why": "Above $500k, a will and updated beneficiary designations become critical. Dying intestate can delay distribution and increase taxes.",
-        })
-    if total_net_worth > 1_000_000:
-        insights.append({
-            "title": "Consider a Trust",
-            "category": "Estate",
+    # 2) Liquidity ratio
+    liquid_assets = assets_by_type.get("checking", 0) + assets_by_type.get("savings", 0)
+    runway_months = liquid_assets / monthly_expenses if monthly_expenses > 0 else 0
+    insights.append(
+        {
+            "title": "Liquidity Ratio (Emergency Fund)",
+            "description": f"Liquid runway is {runway_months:.1f} months ({liquid_assets:,.0f} vs {monthly_expenses:,.0f} monthly expenses).",
+            "category": "Liquidity",
+            "priority": _priority(runway_months, high=0, medium=3, invert=True),
+            "action": "Target 3–6 months of expenses in checking/savings before increasing risk.",
+            "why": "Liquidity protects against forced selling during emergencies and market drawdowns.",
+        }
+    )
+
+    # 3) Allocation drift
+    bucket_map = {
+        "equities": {"brokerage", "401k", "roth_ira", "hsa"},
+        "crypto": {"crypto"},
+        "cash": {"checking", "savings"},
+        "real_estate": {"real_estate"},
+    }
+    bucket_totals = {
+        bucket: sum(assets_by_type.get(t, 0) for t in types)
+        for bucket, types in bucket_map.items()
+    }
+
+    targets = {
+        "conservative": {"equities": 35, "crypto": 3, "cash": 35, "real_estate": 27},
+        "moderate": {"equities": 50, "crypto": 8, "cash": 20, "real_estate": 22},
+        "aggressive": {"equities": 62, "crypto": 12, "cash": 10, "real_estate": 16},
+    }.get(ctx["risk_profile"], {"equities": 50, "crypto": 8, "cash": 20, "real_estate": 22})
+
+    drift = 0.0
+    drift_parts = []
+    for bucket, target in targets.items():
+        actual = (bucket_totals[bucket] / total_assets * 100) if total_assets else 0.0
+        delta = abs(actual - target)
+        drift += delta
+        drift_parts.append(f"{bucket}: {actual:.0f}% (target {target:.0f}%)")
+
+    insights.append(
+        {
+            "title": "Allocation Drift",
+            "description": "; ".join(drift_parts),
+            "category": "Allocation",
+            "priority": _priority(drift, high=35, medium=20),
+            "action": "Rebalance the most off-target bucket first, then reassess monthly.",
+            "why": "Drift compounds over time and can move your risk profile away from intent.",
+        }
+    )
+
+    # 4) Debt-to-income ratio
+    dti = (ctx["total_minimum_payment"] / monthly_income * 100) if monthly_income > 0 else 0.0
+    insights.append(
+        {
+            "title": "Debt-to-Income Ratio",
+            "description": (
+                f"Estimated DTI is {dti:.1f}% using minimum payments ({ctx['total_minimum_payment']:,.0f}/mo)."
+                if monthly_income > 0
+                else "Set W-2 and 1099 income in Settings to compute DTI accurately."
+            ),
+            "category": "Debt",
+            "priority": _priority(dti, high=36, medium=20),
+            "action": "Keep DTI below 36% and prioritize high-interest balances if above threshold.",
+            "why": "DTI is a core affordability and credit-health metric used by lenders.",
+        }
+    )
+
+    # 5) Asset class diversification
+    active_classes = sum(1 for v in bucket_totals.values() if v > 0)
+    insights.append(
+        {
+            "title": "Asset Class Diversification",
+            "description": f"You currently hold {active_classes} active asset classes.",
+            "category": "Risk",
+            "priority": "high" if active_classes < 3 else ("medium" if active_classes == 3 else "low"),
+            "action": "Aim for exposure across at least three classes: equities, cash, and one diversifier.",
+            "why": "Diversification lowers dependency on a single market regime.",
+        }
+    )
+
+    # 6) Net worth growth rate
+    date_keys = list(ctx["snapshots_by_date"].keys())
+    growth_monthly = 0.0
+    if len(date_keys) >= 2:
+        first_val = ctx["snapshots_by_date"][date_keys[0]]
+        last_val = ctx["snapshots_by_date"][date_keys[-1]]
+        months = max((date.fromisoformat(date_keys[-1]) - date.fromisoformat(date_keys[0])).days / 30.44, 1)
+        growth_monthly = (last_val - first_val) / months
+
+    insights.append(
+        {
+            "title": "Net Worth Growth Rate",
+            "description": f"Estimated net worth trend is {growth_monthly:,.0f} per month based on your snapshot history.",
+            "category": "Trends",
+            "priority": "high" if growth_monthly < 0 else ("medium" if growth_monthly < 1000 else "low"),
+            "action": "Maintain positive monthly net worth momentum through savings consistency and debt reduction.",
+            "why": "Growth rate is a leading indicator for timeline-based planning.",
+        }
+    )
+
+    # 7) Retirement readiness / FIRE timeline
+    retirement_target = max(ctx["retirement_target"], 1.0)
+    investable = max(total_assets - assets_by_type.get("checking", 0) - assets_by_type.get("savings", 0), 0)
+    monthly_progress = monthly_contribution if monthly_contribution > 0 else max(monthly_income - monthly_expenses, 0)
+    years_to_fire = None
+    if monthly_progress > 0 and investable < retirement_target:
+        years_to_fire = (retirement_target - investable) / (monthly_progress * 12)
+
+    readiness_pct = investable / retirement_target * 100
+    insights.append(
+        {
+            "title": "Retirement Readiness / FIRE Timeline",
+            "description": (
+                f"You are at {readiness_pct:.1f}% of target; projected timeline is {years_to_fire:.1f} years."
+                if years_to_fire is not None
+                else f"You are at {readiness_pct:.1f}% of target. Increase monthly contributions to project a timeline."
+            ),
+            "category": "Retirement",
+            "priority": "high" if readiness_pct < 25 else ("medium" if readiness_pct < 60 else "low"),
+            "action": "Increase recurring monthly contributions to compress your expected FIRE date.",
+            "why": "Timeline projection translates static net worth into actionable pace-to-goal.",
+        }
+    )
+
+    # 8) 401k/IRA contribution rate
+    contribution_accounts = {"401k", "roth_ira"}
+    year_start = date(date.today().year, 1, 1)
+    retirement_contrib = (
+        db.query(Transaction)
+        .join(Account, Account.id == Transaction.account_id)
+        .filter(Account.type.in_(contribution_accounts), Transaction.date >= year_start)
+        .all()
+    )
+    contributed = sum(abs(float(t.amount or 0)) for t in retirement_contrib if (t.amount or 0) > 0)
+    # Use settings contribution as fallback when transactions are sparse.
+    if contributed == 0 and monthly_contribution > 0:
+        contributed = monthly_contribution * max(date.today().month, 1)
+
+    annual_limit_proxy = 23_500 + 7_000
+    contribution_pct = (contributed / annual_limit_proxy * 100) if annual_limit_proxy > 0 else 0.0
+    insights.append(
+        {
+            "title": "401k / IRA Contribution Rate",
+            "description": f"Estimated retirement contributions are {contributed:,.0f} YTD ({contribution_pct:.1f}% of annual limits proxy).",
+            "category": "Retirement",
+            "priority": "high" if contribution_pct < 25 else ("medium" if contribution_pct < 60 else "low"),
+            "action": "Set auto-contributions that pace toward annual limits by year-end.",
+            "why": "Retirement tax-advantaged space is use-it-or-lose-it each calendar year.",
+        }
+    )
+
+    # 9) Compound growth projection
+    projection_10y = investable * (1.06 ** 10) + (monthly_progress * 12) * ((1.06 ** 10 - 1) / 0.06)
+    insights.append(
+        {
+            "title": "Compound Growth Projection",
+            "description": f"At 6% annual growth, 10-year projection is {projection_10y:,.0f}.",
+            "category": "Retirement",
             "priority": "low",
-            "action": "Consult an estate attorney about a revocable living trust to streamline asset transfer.",
-            "description": f"At ${total_net_worth:,.0f}, a revocable living trust may help avoid probate.",
-            "why": "Trusts allow assets to pass directly to heirs, bypass probate court, and offer more control than a will alone.",
-        })
+            "action": "Focus on contribution consistency first; compounding amplifies disciplined deposits.",
+            "why": "Long-term outcomes are most sensitive to time in market and sustained contributions.",
+        }
+    )
 
-    # ── INSURANCE (commented out — data not yet tracked) ─────────────────────
-    # if total_net_worth > 500_000:
-    #     insights.append({
-    #         "title": "Umbrella Insurance",
-    #         "category": "Insurance",
-    #         "description": f"Net worth of ${total_net_worth:,.0f} may warrant a personal umbrella policy.",
-    #         "why": "Umbrella policies add $1M+ of liability coverage above auto/home limits, typically for ~$200/yr. High net worth makes you a target for lawsuits.",
-    #     })
-    # if annual_income:
-    #     insights.append({
-    #         "title": "Disability Insurance Check",
-    #         "category": "Insurance",
-    #         "description": "Disability insurance is the most commonly overlooked coverage gap.",
-    #         "why": "A 35-year-old has a 1 in 4 chance of becoming disabled before retirement. Short-term disability rarely covers more than 3 months.",
-    #     })
+    # 10) Debt payoff trajectory
+    payoff_months = (total_debt / ctx["total_minimum_payment"]) if ctx["total_minimum_payment"] > 0 else None
+    payoff_priority = "high" if (payoff_months and payoff_months > 120) else ("medium" if (payoff_months and payoff_months > 48) else "low")
+    insights.append(
+        {
+            "title": "Debt Payoff Trajectory",
+            "description": (
+                f"At current minimum payments, debt payoff is ~{payoff_months:.0f} months."
+                if payoff_months is not None and total_debt > 0
+                else "No active debt payoff schedule detected from minimum-payment data."
+            ),
+            "category": "Debt",
+            "priority": payoff_priority,
+            "action": "Add targeted extra principal to the highest APR balance to shorten payoff duration.",
+            "why": "Trajectory highlights whether debt is shrinking at a pace aligned with wealth goals.",
+        }
+    )
+
+    # 11) Total interest burden
+    annual_interest = total_debt * (ctx["avg_debt_apr"] / 100)
+    insights.append(
+        {
+            "title": "Total Interest Burden",
+            "description": f"Estimated annual interest cost is {annual_interest:,.0f} at {ctx['avg_debt_apr']:.1f}% weighted APR.",
+            "category": "Debt",
+            "priority": "high" if annual_interest > 5000 else ("medium" if annual_interest > 1500 else "low"),
+            "action": "Prioritize debt principal payments where APR materially exceeds expected portfolio return.",
+            "why": "Interest drag directly reduces investable cash flow and slows net worth growth.",
+        }
+    )
+
+    # 12) Mortgage affordability (LTV)
+    avg_ltv = (ctx["mortgage_total"] / ctx["real_estate_value"] * 100) if ctx["real_estate_value"] > 0 else 0.0
+    insights.append(
+        {
+            "title": "Mortgage Affordability (LTV)",
+            "description": (
+                f"Portfolio real-estate LTV is {avg_ltv:.1f}% across {len(ctx['properties'])} properties."
+                if ctx["properties"]
+                else "No mortgage-backed real-estate positions detected."
+            ),
+            "category": "Risk",
+            "priority": "high" if avg_ltv > 85 else ("medium" if avg_ltv > 70 else "low"),
+            "action": "Aim to keep LTV below 80% to improve refinancing options and reduce risk.",
+            "why": "Lower LTV generally improves borrowing resilience and reduces payment pressure.",
+        }
+    )
+
+    # 13) Savings rate trend
+    savings_rate = ((annual_income - (monthly_expenses * 12)) / annual_income * 100) if annual_income > 0 else 0.0
+    insights.append(
+        {
+            "title": "Savings Rate Trend",
+            "description": (
+                f"Estimated savings rate is {savings_rate:.1f}% from income minus expense settings."
+                if annual_income > 0
+                else "Add income settings to compute savings-rate trend."
+            ),
+            "category": "Behavioral",
+            "priority": "high" if savings_rate < 10 else ("medium" if savings_rate < 20 else "low"),
+            "action": "Keep savings rate above 20% to accelerate financial freedom planning.",
+            "why": "Savings rate is a controllable input with outsized effect on timeline outcomes.",
+        }
+    )
+
+    # 14) Income stability / volatility
+    six_month_start = date.today() - timedelta(days=183)
+    income_rows = (
+        db.query(Transaction)
+        .filter(Transaction.date >= six_month_start)
+        .all()
+    )
+
+    monthly_income_buckets: dict[str, float] = defaultdict(float)
+    income_types = {"income", "salary", "paycheck", "bonus", "freelance", "deposit", "rental_income"}
+    for row in income_rows:
+        if (row.type or "").lower() not in income_types:
+            continue
+        if row.amount is None or row.amount <= 0:
+            continue
+        key = row.date.strftime("%Y-%m")
+        monthly_income_buckets[key] += float(row.amount)
+
+    monthly_income_samples = list(monthly_income_buckets.values())
+    if len(monthly_income_samples) >= 3:
+        mean_income = sum(monthly_income_samples) / len(monthly_income_samples)
+        variance = sum((value - mean_income) ** 2 for value in monthly_income_samples) / len(monthly_income_samples)
+        cv = math.sqrt(variance) / mean_income if mean_income > 0 else 0
+    else:
+        cv = 0.05 if annual_income > 0 else 0
+
+    insights.append(
+        {
+            "title": "Income Stability / Volatility",
+            "description": f"Income volatility coefficient is {cv:.2f} (lower is more stable).",
+            "category": "Trends",
+            "priority": "high" if cv > 0.35 else ("medium" if cv > 0.2 else "low"),
+            "action": "Maintain a larger emergency buffer when monthly income swings are elevated.",
+            "why": "Income volatility increases planning uncertainty and required liquidity.",
+        }
+    )
+
+    # 15) Passive vs earned income
+    passive_types = {"dividend", "interest", "rental_income", "passive_income"}
+    passive_income = 0.0
+    earned_income = 0.0
+    twelve_month_start = date.today() - timedelta(days=365)
+    last_year_rows = db.query(Transaction).filter(Transaction.date >= twelve_month_start).all()
+    for row in last_year_rows:
+        if row.amount is None or row.amount <= 0:
+            continue
+        ttype = (row.type or "").lower()
+        if ttype in passive_types:
+            passive_income += float(row.amount)
+        elif ttype in income_types:
+            earned_income += float(row.amount)
+
+    if earned_income == 0 and annual_income > 0:
+        earned_income = annual_income
+
+    passive_pct = (passive_income / (passive_income + earned_income) * 100) if (passive_income + earned_income) > 0 else 0.0
+    insights.append(
+        {
+            "title": "Passive vs Earned Income",
+            "description": f"Passive income represents {passive_pct:.1f}% of tracked income flows.",
+            "category": "Performance",
+            "priority": "low" if passive_pct >= 10 else ("medium" if passive_pct >= 3 else "high"),
+            "action": "Increase compounding assets and yield sources to reduce reliance on earned income.",
+            "why": "A higher passive-income share improves financial flexibility and downside resilience.",
+        }
+    )
 
     return insights
 
@@ -408,60 +483,41 @@ def get_insights(db: Session = Depends(get_db)):
 async def insights_chat(body: dict, db: Session = Depends(get_db)):
     """Ask Claude a question about your portfolio. Requires Claude API key in Settings."""
     from .. import ai
+
     if not ai.is_configured():
         from fastapi import HTTPException
+
         raise HTTPException(400, "Claude API key not configured. Add it in Settings.")
 
     question = (body.get("message") or "").strip()
     if not question:
         from fastapi import HTTPException
+
         raise HTTPException(400, "message is required")
 
-    # Build context from current portfolio state
     insights = _generate_insights(db)
-
-    from ..models import Account, BalanceSnapshot
-    accounts = db.query(Account).all()
-    total_assets = 0.0
-    by_type: dict[str, float] = {}
-    for a in accounts:
-        for h in a.holdings:
-            mv = (h.last_price or 0) * (h.quantity or 0)
-            total_assets += mv
-            by_type[a.type] = by_type.get(a.type, 0) + mv
-        if not a.holdings:
-            snap = (
-                db.query(BalanceSnapshot)
-                .filter(BalanceSnapshot.account_id == a.id)
-                .order_by(BalanceSnapshot.date.desc())
-                .first()
-            )
-            bal = snap.balance if snap else 0.0
-            total_assets += bal
-            by_type[a.type] = by_type.get(a.type, 0) + bal
-
-    monthly_expenses = _get_setting(db, "monthly_expenses", 5000)
+    ctx = _aggregate_context(db)
 
     allocation_summary = ", ".join(
-        f"{k.replace('_',' ')}: {v/total_assets*100:.1f}%"
-        for k, v in sorted(by_type.items(), key=lambda x: -x[1])
-        if v > 0 and total_assets > 0
+        f"{k.replace('_', ' ')}: {(v / ctx['total_assets'] * 100):.1f}%"
+        for k, v in sorted(ctx["assets_by_type"].items(), key=lambda item: -item[1])
+        if ctx["total_assets"] > 0 and v > 0
     )
 
     active_insights = [
         f"[{ins['priority'].upper()}] {ins['title']}: {ins['description']}"
         for ins in insights
-        if ins.get("priority") in ("high", "medium")
+        if ins.get("priority") in {"high", "medium"}
     ][:8]
 
     system = f"""You are a personal finance advisor for a locally-hosted finance app called Libertas.
 The user's portfolio summary:
-- Total assets: ${total_assets:,.0f}
-- Monthly expenses: ${monthly_expenses:,.0f}
+- Net worth: ${ctx['net_worth']:,.0f}
+- Monthly expenses: ${ctx['monthly_expenses']:,.0f}
 - Allocation: {allocation_summary or 'no data'}
 - Active insights: {'; '.join(active_insights) if active_insights else 'none'}
 
-Give concise, actionable advice. Be direct. No disclaimers about not being a licensed advisor — the user knows this is an AI tool. Max 3 paragraphs."""
+Give concise, actionable advice. Be direct. Max 3 paragraphs."""
 
     reply = await ai.chat([{"role": "user", "content": question}], system=system)
     return {"reply": reply}

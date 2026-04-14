@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Account, AccountDetail, AccountType, DebtResponse, Holding, Transaction } from '../types'
+import type { Account, AccountDetail, AccountPerformance, AccountType, DebtResponse, Holding, Property, Transaction } from '../types'
 
 const ACCOUNT_TYPES: AccountType[] = [
   'brokerage',
@@ -324,17 +325,46 @@ function ModalShell({
 }
 
 export default function Accounts() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: accounts, loading: accountsLoading, refetch: refetchAccounts } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: debtData, refetch: refetchDebts } = useApi<DebtResponse>(() => api.get('/debt'), [])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    const value = searchParams.get('accountId')
+    if (!value) return null
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  })
+  const [txSearch, setTxSearch] = useState('')
+  const [txTypeFilter, setTxTypeFilter] = useState('')
+  const [txMinAmount, setTxMinAmount] = useState('')
+  const [txMaxAmount, setTxMaxAmount] = useState('')
+  const [txFromDate, setTxFromDate] = useState('')
+  const [txToDate, setTxToDate] = useState('')
   const { data: detail, loading: detailLoading, refetch: refetchDetail } = useApi<AccountDetail | null>(
     () => (selectedId ? api.get(`/accounts/${selectedId}`) : Promise.resolve(null)),
     [selectedId],
   )
+  const txQuery = useMemo(() => {
+    if (!selectedId) return ''
+    const params = new URLSearchParams({ limit: '500' })
+    if (txSearch.trim()) params.set('search', txSearch.trim())
+    if (txTypeFilter) params.set('type', txTypeFilter)
+    if (txFromDate) params.set('date_from', txFromDate)
+    if (txToDate) params.set('date_to', txToDate)
+    if (txMinAmount.trim()) params.set('min_amount', txMinAmount.trim())
+    if (txMaxAmount.trim()) params.set('max_amount', txMaxAmount.trim())
+    return params.toString()
+  }, [selectedId, txSearch, txTypeFilter, txFromDate, txToDate, txMinAmount, txMaxAmount])
+
   const { data: transactions, refetch: refetchTransactions } = useApi<Transaction[]>(
-    () => (selectedId ? api.get(`/accounts/${selectedId}/transactions`) : Promise.resolve([])),
+    () => (selectedId ? api.get(`/accounts/${selectedId}/transactions?${txQuery}`) : Promise.resolve([])),
+    [selectedId, txQuery],
+  )
+  const { data: performance } = useApi<AccountPerformance | null>(
+    () => (selectedId ? api.get(`/accounts/${selectedId}/performance`) : Promise.resolve(null)),
     [selectedId],
   )
+  const { data: properties } = useApi<Property[]>(() => api.get('/real-estate'), [])
 
   const [modal, setModal] = useState<ModalState | null>(null)
   const [accountDraft, setAccountDraft] = useState({ name: '', type: 'brokerage' as AccountType, institution_id: '', currency: 'USD' })
@@ -374,9 +404,26 @@ export default function Accounts() {
     return debtData?.debts.find((debt) => debt.account_id === activeAccount?.id) ?? null
   }, [activeAccount?.id, debtData])
 
-  const manualTransactions = useMemo(() => (transactions ?? []).filter((txn) => !isImportedTransaction(txn)), [transactions])
-  const importedTransactions = useMemo(() => (transactions ?? []).filter((txn) => isImportedTransaction(txn)), [transactions])
   const activeFreshness = formatAge(activeAccount?.last_updated ?? null)
+  const activeProperties = useMemo(
+    () => (properties ?? []).filter((property) => property.account_id === activeAccount?.id),
+    [properties, activeAccount?.id],
+  )
+  const holdingsTotal = useMemo(
+    () => (detail?.holdings ?? []).reduce((sum, holding) => sum + (holding.market_value ?? 0), 0),
+    [detail?.holdings],
+  )
+
+  useEffect(() => {
+    const current = searchParams.get('accountId')
+    const next = selectedId == null ? null : String(selectedId)
+    if (current === next) return
+
+    const nextParams = new URLSearchParams(searchParams)
+    if (next == null) nextParams.delete('accountId')
+    else nextParams.set('accountId', next)
+    setSearchParams(nextParams, { replace: true })
+  }, [selectedId, searchParams, setSearchParams])
 
   useEffect(() => {
     if (!activeDebt) {
@@ -741,6 +788,30 @@ export default function Accounts() {
                 </div>
               </div>
 
+              {INVESTMENT_TYPES.has(activeAccount.type) && (
+                <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: 'rgba(96,165,250,0.2)' }}>
+                  <div className="section-label mb-8">Performance baseline (S&P 500)</div>
+                  <div className="grid-3" style={{ gap: 12 }}>
+                    <div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Account return</div>
+                      <div style={{ fontWeight: 600, color: (performance?.gain_pct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {performance?.gain_pct != null ? `${performance.gain_pct >= 0 ? '+' : ''}${performance.gain_pct.toFixed(2)}%` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>S&P baseline</div>
+                      <div style={{ fontWeight: 600 }}>{performance?.benchmark_gain_pct != null ? `${performance.benchmark_gain_pct.toFixed(2)}%` : '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Relative</div>
+                      <div style={{ fontWeight: 600, color: (performance?.relative_gain_pct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {performance?.relative_gain_pct != null ? `${performance.relative_gain_pct >= 0 ? '+' : ''}${performance.relative_gain_pct.toFixed(2)}%` : '—'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {DEBT_TYPES.has(activeAccount.type) && (
                 <div className="card" style={{ padding: 18, marginBottom: 16, borderColor: 'rgba(248,113,113,0.18)' }}>
                   <div className="flex-between mb-8">
@@ -803,37 +874,32 @@ export default function Accounts() {
                         <tr>
                           <th>Symbol</th>
                           <th style={{ textAlign: 'right' }}>Qty</th>
-                          <th style={{ textAlign: 'right' }}>Avg cost</th>
+                          <th style={{ textAlign: 'right' }}>Cost basis</th>
                           <th style={{ textAlign: 'right' }}>Last price</th>
                           <th style={{ textAlign: 'right' }}>Market value</th>
+                          <th style={{ textAlign: 'right' }}>Gain/loss</th>
+                          <th style={{ textAlign: 'right' }}>% of acct</th>
                           <th>Freshness</th>
-                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
                         {[...detail.holdings].sort((a, b) => b.market_value - a.market_value).map((holding) => {
-                          const avgCost = holding.cost_basis && holding.quantity ? holding.cost_basis / holding.quantity : null
-                          const gainPct = avgCost && avgCost !== 0 && holding.last_price != null ? ((holding.last_price - avgCost) / avgCost) * 100 : null
+                          const costBasis = holding.cost_basis ?? null
+                          const gain = costBasis == null ? null : holding.market_value - costBasis
+                          const gainPct = costBasis && costBasis !== 0 ? (gain! / costBasis) * 100 : null
+                          const weight = holdingsTotal > 0 ? (holding.market_value / holdingsTotal) * 100 : null
                           return (
                             <tr key={holding.id}>
                               <td style={{ fontWeight: 500 }}>{holding.symbol}</td>
                               <td className="num" style={{ textAlign: 'right' }}>{qty(holding.quantity)}</td>
-                              <td className="num" style={{ textAlign: 'right' }}>{avgCost == null ? '—' : usd(avgCost)}</td>
+                              <td className="num" style={{ textAlign: 'right' }}>{costBasis == null ? '—' : usd(costBasis)}</td>
                               <td className="num" style={{ textAlign: 'right' }}>{holding.last_price == null ? '—' : usd(holding.last_price)}</td>
                               <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{usd(holding.market_value)}</td>
-                              <td><FreshnessDot lastUpdated={holding.last_updated} /></td>
-                              <td>
-                                <div className="flex-end" onClick={(e) => e.stopPropagation()}>
-                                  {gainPct != null && <Badge label={`${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(1)}%`} tone={gainPct >= 0 ? 'green' : 'red'} title="Relative to average cost" />}
-                                  <ActionsMenu
-                                    disabled={saving}
-                                    items={[
-                                      { label: 'Edit', onClick: () => openHoldingEdit(activeAccount, holding) },
-                                      { label: 'Delete', onClick: () => deleteHolding(activeAccount, holding), destructive: true },
-                                    ]}
-                                  />
-                                </div>
+                              <td className="num" style={{ textAlign: 'right', color: gain != null ? (gain >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-3)' }}>
+                                {gain == null ? '—' : `${gain >= 0 ? '+' : ''}${usd(gain)}`}
                               </td>
+                              <td className="num" style={{ textAlign: 'right' }}>{weight == null ? '—' : `${weight.toFixed(1)}%`}</td>
+                              <td><FreshnessDot lastUpdated={holding.last_updated} /></td>
                             </tr>
                           )
                         })}
@@ -851,23 +917,88 @@ export default function Accounts() {
 
               {activeAccount.type === 'real_estate' && (
                 <div className="card" style={{ padding: 18, marginBottom: 16 }}>
-                  <div className="section-label mb-8">Real estate</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
-                    This account type is a container for property value. Use the Real Estate page for address-level property editing and valuation.
+                  <div className="flex-between mb-12">
+                    <div>
+                      <div className="section-label mb-8">Real estate details</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                        Value, mortgage, LTV, and equity are shown per property in this account.
+                      </div>
+                    </div>
+                    <a className="btn btn-sm" href="/real-estate">Open Real Estate page</a>
                   </div>
+                  {activeProperties.length > 0 ? (
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th>Address</th>
+                          <th style={{ textAlign: 'right' }}>Value</th>
+                          <th style={{ textAlign: 'right' }}>Mortgage</th>
+                          <th style={{ textAlign: 'right' }}>LTV</th>
+                          <th style={{ textAlign: 'right' }}>Equity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeProperties.map((property) => (
+                          <tr key={property.id}>
+                            <td style={{ maxWidth: 280 }}>{property.address}</td>
+                            <td className="num" style={{ textAlign: 'right' }}>{usd(property.effective_value)}</td>
+                            <td className="num" style={{ textAlign: 'right' }}>{usd(property.mortgage_balance)}</td>
+                            <td className="num" style={{ textAlign: 'right' }}>{property.ltv == null ? '—' : `${property.ltv.toFixed(1)}%`}</td>
+                            <td className="num" style={{ textAlign: 'right', color: 'var(--green)', fontWeight: 600 }}>{usd(property.equity)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="empty" style={{ padding: '20px 12px' }}>
+                      <div className="empty-title">No properties on this account</div>
+                      <div className="empty-sub">Add one in the Real Estate page to track value and equity.</div>
+                    </div>
+                  )}
                 </div>
               )}
 
               <div className="card" style={{ padding: 18 }}>
                 <div className="flex-between mb-12">
                   <div>
-                    <div className="section-label mb-8">Manual transactions</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Add, edit, or delete entries you want to keep outside of imported files.</div>
+                    <div className="section-label mb-8">Transactions</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
+                      Search and filter by date, type, and amount. Imported rows are read-only.
+                    </div>
                   </div>
                   <button className="btn btn-sm btn-primary" onClick={() => openTransactionCreate(activeAccount)}>Add transaction</button>
                 </div>
 
-                {manualTransactions.length > 0 ? (
+                <div className="grid-3 mb-16" style={{ gap: 10 }}>
+                  <input placeholder="Search symbol/description" value={txSearch} onChange={(e) => setTxSearch(e.target.value)} />
+                  <select value={txTypeFilter} onChange={(e) => setTxTypeFilter(e.target.value)}>
+                    <option value="">All types</option>
+                    {TRANSACTION_TYPES.map((type) => (
+                      <option key={type} value={type}>{humanize(type)}</option>
+                    ))}
+                  </select>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <input type="number" placeholder="Min amount" value={txMinAmount} onChange={(e) => setTxMinAmount(e.target.value)} />
+                    <input type="number" placeholder="Max amount" value={txMaxAmount} onChange={(e) => setTxMaxAmount(e.target.value)} />
+                  </div>
+                  <input type="date" value={txFromDate} onChange={(e) => setTxFromDate(e.target.value)} />
+                  <input type="date" value={txToDate} onChange={(e) => setTxToDate(e.target.value)} />
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => {
+                      setTxSearch('')
+                      setTxTypeFilter('')
+                      setTxMinAmount('')
+                      setTxMaxAmount('')
+                      setTxFromDate('')
+                      setTxToDate('')
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+
+                {(transactions ?? []).length > 0 ? (
                   <table className="tbl">
                     <thead>
                       <tr>
@@ -882,23 +1013,33 @@ export default function Accounts() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...manualTransactions].sort((a, b) => b.date.localeCompare(a.date)).map((txn) => (
+                      {[...(transactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).map((txn) => (
                         <tr key={txn.id}>
                           <td>{formatDate(txn.date)}</td>
-                          <td><Badge label={humanize(txn.type)} tone="neutral" /></td>
+                          <td>
+                            <Badge
+                              label={humanize(txn.type)}
+                              tone={isImportedTransaction(txn) ? 'blue' : 'neutral'}
+                              title={isImportedTransaction(txn) ? 'Imported row' : 'Manual row'}
+                            />
+                          </td>
                           <td style={{ fontWeight: 500 }}>{txn.symbol ?? '—'}</td>
                           <td className="num" style={{ textAlign: 'right' }}>{qty(txn.quantity)}</td>
                           <td className="num" style={{ textAlign: 'right' }}>{txn.price == null ? '—' : usd(txn.price)}</td>
                           <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{txn.amount == null ? '—' : usd(txn.amount)}</td>
                           <td style={{ color: 'var(--text-2)', maxWidth: 220 }}>{txn.description ?? '—'}</td>
                           <td>
-                            <ActionsMenu
-                              disabled={saving}
-                              items={[
-                                { label: 'Edit', onClick: () => openTransactionEdit(activeAccount, txn) },
-                                { label: 'Delete', onClick: () => deleteTransaction(activeAccount, txn), destructive: true },
-                              ]}
-                            />
+                            {isImportedTransaction(txn) ? (
+                              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>locked</span>
+                            ) : (
+                              <ActionsMenu
+                                disabled={saving}
+                                items={[
+                                  { label: 'Edit', onClick: () => openTransactionEdit(activeAccount, txn) },
+                                  { label: 'Delete', onClick: () => deleteTransaction(activeAccount, txn), destructive: true },
+                                ]}
+                              />
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -906,37 +1047,9 @@ export default function Accounts() {
                   </table>
                 ) : (
                   <div className="empty" style={{ padding: '24px 20px 8px' }}>
-                    <div className="empty-title">No manual transactions</div>
-                    <div className="empty-sub" style={{ marginBottom: 12 }}>Create one here when the file import does not cover the activity you need.</div>
+                    <div className="empty-title">No matching transactions</div>
+                    <div className="empty-sub" style={{ marginBottom: 12 }}>Try broadening filters or create a manual transaction.</div>
                     <button className="btn btn-primary" onClick={() => openTransactionCreate(activeAccount)}>Add transaction</button>
-                  </div>
-                )}
-
-                {importedTransactions.length > 0 && (
-                  <div style={{ marginTop: 22 }}>
-                    <div className="section-label mb-12">Imported transactions</div>
-                    <table className="tbl">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Type</th>
-                          <th>Symbol</th>
-                          <th style={{ textAlign: 'right' }}>Amount</th>
-                          <th>Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...importedTransactions].sort((a, b) => b.date.localeCompare(a.date)).map((txn) => (
-                          <tr key={txn.id}>
-                            <td>{formatDate(txn.date)}</td>
-                            <td><Badge label={humanize(txn.type)} tone="blue" title="Imported row" /></td>
-                            <td>{txn.symbol ?? '—'}</td>
-                            <td className="num" style={{ textAlign: 'right' }}>{txn.amount == null ? '—' : usd(txn.amount)}</td>
-                            <td style={{ color: 'var(--text-2)' }}>{txn.description ?? '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 )}
               </div>
