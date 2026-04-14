@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -275,17 +275,40 @@ def set_account_balance(account_id: int, data: BalanceUpdate, db: Session = Depe
 
 
 @router.get("/{account_id}/transactions")
-def get_account_transactions(account_id: int, limit: int = 200, db: Session = Depends(get_db)):
+def get_account_transactions(
+    account_id: int,
+    limit: int = 200,
+    search: Optional[str] = Query(default=None),
+    tx_type: Optional[str] = Query(default=None, alias="type"),
+    date_from: Optional[date] = Query(default=None),
+    date_to: Optional[date] = Query(default=None),
+    min_amount: Optional[float] = Query(default=None),
+    max_amount: Optional[float] = Query(default=None),
+    db: Session = Depends(get_db),
+):
     account = db.query(Account).get(account_id)
     if not account:
         raise HTTPException(404, "Account not found")
-    txns = (
-        db.query(Transaction)
-        .filter(Transaction.account_id == account_id)
-        .order_by(Transaction.date.desc())
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Transaction).filter(Transaction.account_id == account_id)
+
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            (Transaction.symbol.ilike(pattern)) |
+            (Transaction.description.ilike(pattern))
+        )
+    if tx_type:
+        query = query.filter(Transaction.type == tx_type.strip().lower())
+    if date_from:
+        query = query.filter(Transaction.date >= date_from)
+    if date_to:
+        query = query.filter(Transaction.date <= date_to)
+    if min_amount is not None:
+        query = query.filter(Transaction.amount >= min_amount)
+    if max_amount is not None:
+        query = query.filter(Transaction.amount <= max_amount)
+
+    txns = query.order_by(Transaction.date.desc()).limit(limit).all()
     return [_serialize_transaction(t) for t in txns]
 
 
@@ -403,15 +426,28 @@ def get_account_performance(account_id: int, db: Session = Depends(get_db)):
         .all()
     )
     if len(snaps) < 2:
-        return {"snapshots": [{"date": s.date.isoformat(), "balance": s.balance} for s in snaps], "gain_pct": None}
+        return {
+            "snapshots": [{"date": s.date.isoformat(), "balance": s.balance} for s in snaps],
+            "gain_pct": None,
+            "benchmark_gain_pct": None,
+            "relative_gain_pct": None,
+        }
 
     first = snaps[0].balance
     last = snaps[-1].balance
     gain_pct = (last - first) / first * 100 if first > 0 else None
 
+    # Simple S&P 500 baseline using 8% annualized return over the same span.
+    day_span = max((snaps[-1].date - snaps[0].date).days, 1)
+    years = day_span / 365.0
+    benchmark_gain_pct = (((1.08 ** years) - 1) * 100) if years > 0 else 0.0
+    relative_gain_pct = (gain_pct - benchmark_gain_pct) if gain_pct is not None else None
+
     return {
         "snapshots": [{"date": s.date.isoformat(), "balance": s.balance} for s in snaps],
         "gain_pct": round(gain_pct, 2) if gain_pct is not None else None,
+        "benchmark_gain_pct": round(benchmark_gain_pct, 2),
+        "relative_gain_pct": round(relative_gain_pct, 2) if relative_gain_pct is not None else None,
         "first_balance": first,
         "last_balance": last,
     }

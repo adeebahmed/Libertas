@@ -2,16 +2,16 @@
 
 ## Current Phase
 
-**Next up:** Phase 2 — Net Worth Dashboard execution
+**Next up:** Phase 3 — Onboarding & FIRE execution
 
-Phase 1 completed 2026-04-11. Currently working on UI refresh before Phase 2.
+Phase 2 completed 2026-04-12 with range-aware snapshots, grouped dashboard UX, account depth upgrades, deterministic 15-rule insights, and performance validation.
 
 ## Phase Status
 
 | Phase | Status | Plan | Notes |
 |-------|--------|------|-------|
 | 1 — Data Foundation | ✅ complete | `01-data-foundation/01-01..05` | Manual entry, CSV hardening (all 5 plans merged) |
-| 2 — Net Worth Dashboard | planned | `02-net-worth-dashboard/02-01..05` | Tier 1 dashboard features |
+| 2 — Net Worth Dashboard | ✅ complete | `02-net-worth-dashboard/02-01..05` | Tier 1 dashboard features + validation complete |
 | 3 — Onboarding & FIRE | planned | `03-onboarding-fire/03-01..05` | First-run wizard, FIRE calculator |
 | 4 — AI & Multi-Model | planned | `04-ai-multi-model/04-01..07` | LLM abstraction, Claude/OpenAI/Ollama |
 | 5 — Plaid Integration | planned | `05-plaid-integration/05-01..06` | Post-V1, optional |
@@ -38,3 +38,4 @@ Phase 1 completed 2026-04-11. Currently working on UI refresh before Phase 2.
 |------|--------|
 | 2026-04-11 | Project initialized with GSD. Codebase mapped (7 docs). Research completed. REQUIREMENTS.md and ROADMAP.md created aligned to GitHub project board. |
 | 2026-04-11 | Planned Phases 2-5 with per-phase RESEARCH, VALIDATION, and executable PLAN files under `.planning/phases/`. |
+| 2026-04-12 | Executed Phase 2 plans 02-01..05 end-to-end, added ADR-006, completed validation matrix, and marked phase complete. |

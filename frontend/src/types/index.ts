@@ -52,7 +52,7 @@ export interface Holding {
 
 export interface Transaction {
   id: number
-  account_id: number
+  account_id?: number
   date: string
   type: string
   symbol: string | null
@@ -61,11 +61,21 @@ export interface Transaction {
   amount: number | null
   description: string | null
   import_log_id?: number | null
+  import_hash?: string | null
 }
 
 export interface BalanceSnapshot {
   date: string
   net_worth: number
+}
+
+export interface AccountPerformance {
+  snapshots: { date: string; balance: number }[]
+  gain_pct: number | null
+  benchmark_gain_pct: number | null
+  relative_gain_pct: number | null
+  first_balance?: number
+  last_balance?: number
 }
 
 export interface Property {
@@ -183,6 +193,9 @@ export interface NetWorth {
   net_worth: number
   previous: number
   delta: number
+  delta_30d?: number | null
+  delta_30d_pct?: number | null
+  last_updated?: string | null
   by_type: Record<string, number>
 }
 

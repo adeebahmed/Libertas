@@ -219,3 +219,64 @@ def test_debt_patch_accepts_iso_payoff_date(client, db, session_factory):
         assert updated.interest_rate == 17.25
     finally:
         verify.close()
+
+
+def test_transactions_endpoint_supports_search_and_filters(client, db):
+    account = _seed_account(db, name="Ops Checking", type_="checking")
+
+    db.add_all(
+        [
+            Transaction(
+                account_id=account.id,
+                import_log_id=None,
+                date=date(2026, 3, 1),
+                type="deposit",
+                symbol=None,
+                amount=2500.0,
+                description="Payroll march",
+            ),
+            Transaction(
+                account_id=account.id,
+                import_log_id=None,
+                date=date(2026, 3, 5),
+                type="fee",
+                symbol=None,
+                amount=25.0,
+                description="Monthly service fee",
+            ),
+            Transaction(
+                account_id=account.id,
+                import_log_id=None,
+                date=date(2026, 3, 9),
+                type="deposit",
+                symbol="BONUS",
+                amount=900.0,
+                description="Quarterly bonus",
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = client.get(
+        f"/api/accounts/{account.id}/transactions?search=bonus&type=deposit&min_amount=500"
+    ).json()
+
+    assert len(payload) == 1
+    assert payload[0]["description"] == "Quarterly bonus"
+
+
+def test_account_performance_includes_benchmark_baseline(client, db):
+    account = _seed_account(db, name="Brokerage", type_="brokerage")
+    db.add_all(
+        [
+            BalanceSnapshot(account_id=account.id, date=date(2025, 1, 1), balance=10000),
+            BalanceSnapshot(account_id=account.id, date=date(2026, 1, 1), balance=11200),
+        ]
+    )
+    db.commit()
+
+    payload = client.get(f"/api/accounts/{account.id}/performance").json()
+
+    assert payload["gain_pct"] == 12.0
+    assert payload["benchmark_gain_pct"] is not None
+    assert payload["relative_gain_pct"] is not None
