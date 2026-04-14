@@ -148,6 +148,43 @@ export interface RetirementPlan {
     retirement_age: number
     monthly_expenses: number
   }
+  fire_context?: {
+    recommended_fire_type: string
+    reason: string
+  }
+}
+
+export interface RetirementOverview {
+  retirement_accounts: { id: number; name: string; type: string; balance: number }[]
+  total_retirement_assets: number
+  retirement_pct_of_net_worth: number
+  tax_split: {
+    tax_advantaged: number
+    taxable: number
+    cash: number
+    other: number
+  }
+  contribution_utilization: Record<string, { limit: number; contributed: number; utilization_pct: number }>
+  readiness: { target: number; percent: number }
+  age_milestones: {
+    current_age: number
+    target_retirement_age: number
+    milestones: { label: string; age: number }[]
+  }
+}
+
+export interface FireProjection {
+  fire_type: string
+  fire_number: number
+  current_balance: number
+  progress_pct: number
+  savings_rate: number
+  time_to_fire_years: number | null
+  projected_balance_at_target: number
+  recommended_fire_type: string
+  recommendation_reason: string
+  inputs: Record<string, number>
+  nudges: string[]
 }
 
 export interface TaxEstimate {
