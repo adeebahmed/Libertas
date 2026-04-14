@@ -150,6 +150,14 @@ export interface RetirementPlan {
   }
 }
 
+export interface GoalProgressSnapshot {
+  fire_type: string
+  progress_pct: number
+  current_balance: number
+  target_balance: number
+  years_to_target: number | null
+}
+
 export interface TaxEstimate {
   income_w2: number
   income_1099: number

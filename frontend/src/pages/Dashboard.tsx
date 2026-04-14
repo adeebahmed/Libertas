@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Account, BalanceSnapshot, Insight, NetWorth } from '../types'
+import type { Account, BalanceSnapshot, Insight, NetWorth, RetirementPlan } from '../types'
 import {
   Area,
   AreaChart,
@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import GoalProgress from '../components/GoalProgress'
 
 const PIE_COLORS = ['#3b82f6', '#34d399', '#d4a840', '#a78bfa', '#22d3ee', '#f87171', '#60a5fa']
 const RANGE_OPTIONS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
@@ -85,6 +86,8 @@ export default function Dashboard() {
   const { data: history } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
   const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: insights } = useApi<Insight[]>(() => api.get('/insights'), [])
+  const { data: retirementPlan } = useApi<RetirementPlan>(() => api.get('/retirement/plan'), [])
+  const { data: settings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -168,6 +171,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <GoalProgress plan={retirementPlan} fireType={String(settings?.fire_type ?? 'regular')} />
 
       <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 24 }}>
         <div className="card">
