@@ -12,7 +12,14 @@ frontend/tsconfig.tsbuildinfo
 data/libertas.db
 data/libertas.db-shm
 data/libertas.db-wal
+data/libertas-demo.db
+data/libertas-demo.db-shm
+data/libertas-demo.db-wal
 data/watch/processed/
+
+# Docs build artifacts
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # OS
 .DS_Store

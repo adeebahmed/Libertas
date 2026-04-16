@@ -4,9 +4,31 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_LOG="${TMPDIR:-/tmp}/libertas-backend.log"
 
+# Args:
+#   ./start.sh [branch]
+#   ./start.sh --demo
+#   ./start.sh [branch] --demo
+BRANCH=""
+DEMO_MODE=0
+for arg in "$@"; do
+  case "$arg" in
+    --demo)
+      DEMO_MODE=1
+      ;;
+    *)
+      if [ -z "$BRANCH" ]; then
+        BRANCH="$arg"
+      else
+        echo "Error: unsupported argument '$arg'"
+        echo "Usage: ./start.sh [branch] [--demo]"
+        exit 1
+      fi
+      ;;
+  esac
+done
+
 # Optional: switch to a branch before starting
-if [ "${1:-}" != "" ]; then
-  BRANCH="$1"
+if [ -n "$BRANCH" ]; then
   CURRENT_BRANCH="$(git -C "$DIR" rev-parse --abbrev-ref HEAD)"
   if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
     echo "Switching to branch: $BRANCH"
@@ -53,6 +75,16 @@ ensure_frontend_env() {
 ensure_backend_env
 ensure_frontend_env
 UVICORN_CMD=("$DIR/.venv/bin/python" "-m" "uvicorn")
+
+if [ "$DEMO_MODE" -eq 1 ]; then
+  DEMO_DB="$DIR/data/libertas-demo.db"
+  if [ ! -f "$DEMO_DB" ]; then
+    echo "Creating demo database at $DEMO_DB ..."
+    "$DIR/.venv/bin/python" "$DIR/backend/seed_demo.py" --db "$DEMO_DB"
+  fi
+  export LIBERTAS_DB_PATH="$DEMO_DB"
+  echo "Demo mode enabled (LIBERTAS_DB_PATH=$LIBERTAS_DB_PATH)"
+fi
 
 # Start backend first and verify it's reachable.
 # Use reload only when explicitly requested because file watching can fail

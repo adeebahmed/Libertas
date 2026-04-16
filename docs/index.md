@@ -1,81 +1,114 @@
 ---
-layout: home
-
-hero:
-  name: Libertas
-  text: Money clarity. Zero surveillance.
-  tagline: A local-first finance app for people who want control, not account-sharing risk.
-  actions:
-    - theme: brand
-      text: Download Libertas
-      link: https://github.com/adeebahmed/Libertas
-    - theme: alt
-      text: How It Works
-      link: /#how-it-works
+title: false
+layout: doc
+outline: false
+aside: false
 ---
 
-<div class="lp-trust">
-  <span>Local-first by default</span>
-  <span>No required account linking</span>
-  <span>Decision support, not advisory service</span>
+<div class="lp-shell">
+  <Hero
+    eyebrow="Private personal finance"
+    headline="All your accounts. One private view."
+    sub="Twelve logins. Five spreadsheets. None of it has to touch the cloud. Consolidate, understand trajectory, and act with confidence from one local-first dashboard."
+    cta-primary-text="Download"
+    cta-primary-link="/download/"
+    cta-secondary-text="See features"
+    cta-secondary-link="/features/"
+    screenshot="/screenshots/placeholder.png"
+    screenshot-alt="Libertas dashboard showing net worth trend, allocation, and account balances"
+    :trust-items="['100% local', 'No account linking', 'Open source', 'MIT']"
+  />
+
+  <section class="lp-problem" aria-label="Problem statement">
+    <p>Twelve logins.</p>
+    <p>Five spreadsheets.</p>
+    <p>Zero clarity.</p>
+  </section>
+
+  <ProductWalkthrough
+    :steps="[
+      {
+        title: 'Dashboard',
+        body: 'Net worth, allocation, and trajectory in one screen. Open the app and see where you stand in seconds.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Dashboard walkthrough screenshot'
+      },
+      {
+        title: 'Accounts',
+        body: 'Fidelity, Schwab, Coinbase, Chase, Vanguard. Side by side. No OAuth, no account-link dependency.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Accounts walkthrough screenshot'
+      },
+      {
+        title: 'Import',
+        body: 'Drop CSVs into data/watch and Libertas does the parsing. First import teaches. Next imports get faster.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Import workflow screenshot'
+      },
+      {
+        title: 'Real Estate',
+        body: 'Track Zillow estimates, manual overrides, and equity in the same place as your investments.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Real estate workflow screenshot'
+      },
+      {
+        title: 'Projections',
+        body: 'Model decade-scale outcomes from contribution and return assumptions before you commit to a strategy.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Projections workflow screenshot'
+      },
+      {
+        title: 'Insights',
+        body: 'Catch drift, concentration risk, and debt signals early. Optional Claude chat stays opt-in.',
+        screenshot: '/screenshots/placeholder.png',
+        alt: 'Insights workflow screenshot'
+      }
+    ]"
+  />
+
+  <FeatureGrid
+    :features="[
+      { icon: '◎', title: 'Dashboard', oneLine: 'Net worth at a glance.', href: '/features/dashboard' },
+      { icon: '◫', title: 'Accounts', oneLine: 'All of them. One roof.', href: '/features/accounts' },
+      { icon: '↥', title: 'Import', oneLine: 'Drop a CSV. Done.', href: '/features/import' },
+      { icon: '⌂', title: 'Real Estate', oneLine: 'Zillow + override.', href: '/features/real-estate' },
+      { icon: '◷', title: 'Projections', oneLine: 'Today\'s choice. Ten-year view.', href: '/features/projections' },
+      { icon: '✦', title: 'Insights', oneLine: 'Drift. Risk. Caught early.', href: '/features/insights' }
+    ]"
+  />
+
+  <section class="lp-proof-slot" aria-label="Proof section placeholder">
+    Proof section reserved for v2
+  </section>
+
+  <PrivacyStrip
+    :bullets="[
+      'No account linking required',
+      'No cloud sync dependency for core value',
+      'Optional AI chat is explicit opt-in'
+    ]"
+    link-href="/privacy/"
+    link-text="Why local-first matters"
+  />
+
+  <FAQ
+    :items="[
+      { q: 'Is Libertas free?', a: 'Yes. Libertas is MIT licensed and self-hosted.' },
+      { q: 'What platforms are supported?', a: 'Mac first, Linux tested, and Windows via WSL.' },
+      { q: 'Where is my data stored?', a: 'In data/libertas.db on your machine.' },
+      { q: 'Where does price data come from?', a: 'yfinance for stocks and CoinGecko for crypto, no paid API required.' },
+      { q: 'How do backups work?', a: 'Copy your .db file or use built-in backup checkpoints.' },
+      { q: 'Does Libertas use Plaid?', a: 'No. CSV and Excel imports are the default workflow.' }
+    ]"
+  />
+
+  <CTABlock
+    title="Download Libertas and start fresh with one private financial view."
+    sub="Install locally, import your files, and get a reliable command center for your money decisions."
+    install-cmd="git clone https://github.com/adeebahmed/Libertas && cd Libertas && ./start.sh"
+    primary-text="Download"
+    primary-href="/download/"
+    secondary-text="GitHub"
+    secondary-href="https://github.com/adeebahmed/Libertas"
+  />
 </div>
-
-<section class="lp-section lp-split">
-  <div>
-    <p class="lp-kicker">Why it feels different</p>
-    <h2>Everything important in one calm view.</h2>
-    <p class="lp-copy">Track net worth, holdings, debt, and progress without bouncing between five tools. Libertas keeps the signal high and the friction low.</p>
-    <a class="lp-link" href="https://github.com/adeebahmed/Libertas">Try it locally</a>
-  </div>
-  <div class="lp-visual" aria-hidden="true">
-    <div class="lp-window">
-      <div class="lp-bar"></div>
-      <div class="lp-grid">
-        <div class="lp-block lp-block-lg"></div>
-        <div class="lp-block"></div>
-        <div class="lp-block"></div>
-        <div class="lp-line"></div>
-        <div class="lp-line lp-line-soft"></div>
-        <div class="lp-line"></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="how-it-works" class="lp-section">
-  <p class="lp-kicker">How it works</p>
-  <h2>Bring data in, get direction out.</h2>
-  <div class="lp-steps">
-    <article>
-      <h3>Import or enter data</h3>
-      <p>Use CSV files, watch-folder auto-ingest, or manual entry when exports are missing.</p>
-    </article>
-    <article>
-      <h3>See your full picture</h3>
-      <p>Investments, cash, debt, and real estate come together in a unified financial view.</p>
-    </article>
-    <article>
-      <h3>Take the next step</h3>
-      <p>Get debt, retirement, tax, and allocation insights designed to support your decisions.</p>
-    </article>
-  </div>
-</section>
-
-<section class="lp-section lp-highlight">
-  <p class="lp-kicker">Now shipping</p>
-  <h2>Built for real-world messiness.</h2>
-  <p class="lp-copy">Current updates improve confidence and control: manual account workflows, import quality warnings, rollback safety, debt payoff details, and freshness indicators.</p>
-</section>
-
-<section class="lp-section lp-cta">
-  <h2>If you want a private, modern money OS, start here.</h2>
-  <p>Run Libertas locally and see your full financial picture in minutes.</p>
-  <div class="lp-actions">
-    <a class="vp-button brand" href="https://github.com/adeebahmed/Libertas">Download Libertas</a>
-    <a class="vp-button alt" href="/technical">Technical docs</a>
-  </div>
-</section>
-
-<section class="lp-section lp-legal">
-  <p><strong>Important:</strong> Libertas provides informational tools and analysis, not financial advice. AI features are optional and require explicit opt-in.</p>
-</section>
