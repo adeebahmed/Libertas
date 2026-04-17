@@ -1,43 +1,78 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #060b14;
-  --bg-card: #0c1526;
-  --bg-elevated: #121d31;
-  --border: #223757;
-  --border-soft: #16253d;
+  /* Surface */
+  --bg:            #0a0a0a;
+  --bg-1:          #111111;
+  --bg-2:          #171717;
+  --bg-elev:       #1f1f1f;
+  --border:        #1f1f1f;
+  --border-strong: #2a2a2a;
+  --border-focus:  #3f3f3f;
 
-  --text: #edf3ff;
-  --text-2: #b8c9e4;
-  --text-3: #7f99bc;
+  /* Text */
+  --text:          #ededed;
+  --text-2:        #a1a1a1;
+  --text-3:        #666666;
+  --text-mute:     #404040;
 
-  --gold: #ddb66a;
-  --gold-dim: #8a6a2c;
-  --blue: #2f8dff;
-  --blue-bright: #68afff;
-  --blue-glow: rgba(47, 141, 255, 0.2);
+  /* Functional */
+  --accent:        #f5a524;
+  --accent-dim:    #6b4a10;
+  --pos:           #22c55e;
+  --neg:           #ef4444;
+  --focus-ring:    #3f3f3f;
 
-  --green: #51d09a;
-  --red: #ff7d81;
-  --purple: #9caeff;
-  --cyan: #59d4df;
-  --amber: #e0906a;
-  --gold-warm: #e0c06a;
+  /* Typography */
+  --font-sans: 'Geist', 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
 
-  --blue-chart: var(--blue);
-  --green-chart: var(--green);
-  --gold-chart: var(--gold);
-  --red-chart: var(--red);
-  --purple-chart: var(--purple);
-  --cyan-chart: var(--cyan);
-  --blue-bright-chart: var(--blue-bright);
+  /* Scale */
+  --r:    4px;
+  --r-sm: 2px;
 
-  --font-serif: 'Fraunces', Georgia, serif;
-  --font-sans: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
-  --font-mono: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
 
-  --r: 14px;
-  --r-sm: 10px;
+  --fs-xs:   11px;
+  --fs-sm:   12px;
+  --fs-base: 13px;
+  --fs-md:   15px;
+  --fs-lg:   18px;
+  --fs-xl:   24px;
+  --fs-2xl:  32px;
+  --fs-3xl:  48px;
+  --fs-hero: 72px;
+
+  /* Temporary aliases removed in T02. */
+  --bg-card: var(--bg-1);
+  --bg-elevated: var(--bg-2);
+  --border-soft: var(--border);
+  --gold: var(--accent);
+  --gold-dim: var(--accent-dim);
+  --gold-warm: var(--accent);
+  --blue: var(--accent);
+  --blue-bright: var(--accent);
+  --blue-glow: rgba(245, 165, 36, 0.16);
+  --green: var(--pos);
+  --red: var(--neg);
+  --purple: var(--text-2);
+  --cyan: var(--text-2);
+  --amber: var(--accent);
+  --blue-chart: var(--text);
+  --green-chart: var(--pos);
+  --gold-chart: var(--accent);
+  --red-chart: var(--neg);
+  --purple-chart: var(--text-2);
+  --cyan-chart: var(--text-2);
+  --blue-bright-chart: var(--text-2);
+  --font-serif: var(--font-sans);
 }
 
 *,
