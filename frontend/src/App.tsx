@@ -1,4 +1,5 @@
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import CommandPalette from './components/CommandPalette'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Import from './pages/Import'
@@ -120,6 +121,7 @@ export default function App() {
           </NavLink>
         </div>
       </nav>
+      <CommandPalette />
       <main className="main">
         <header className="app-header">
           <div className="app-header-title">
