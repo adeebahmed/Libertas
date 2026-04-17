@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, AccountDetail, AccountPerformance, AccountType, DebtResponse, Holding, Property, Transaction } from '../types'
+import Confirm from '../components/Confirm'
 
 const ACCOUNT_TYPES: AccountType[] = [
   'brokerage',
@@ -48,7 +49,7 @@ type ModalState =
 
 type Freshness = {
   label: string
-  tone: 'green' | 'gold' | 'red' | 'neutral'
+  tone: 'fresh' | 'aging' | 'stale' | 'neutral'
   title: string
 }
 
@@ -97,11 +98,11 @@ function formatAge(value: string | null | undefined): Freshness {
   }
   const ageDays = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000))
   if (ageDays <= 1) {
-    return { label: ageDays === 0 ? 'Fresh' : '1d old', tone: 'green', title: `Updated ${ageDays === 0 ? 'today' : 'yesterday'}` }
+    return { label: ageDays === 0 ? 'Fresh' : '1d old', tone: 'fresh', title: `Updated ${ageDays === 0 ? 'today' : 'yesterday'}` }
   }
-  if (ageDays <= 7) return { label: `${ageDays}d old`, tone: 'green', title: `Updated ${ageDays} days ago` }
-  if (ageDays <= 30) return { label: `${ageDays}d old`, tone: 'gold', title: `Updated ${ageDays} days ago` }
-  return { label: `${ageDays}d old`, tone: 'red', title: `Updated ${ageDays} days ago` }
+  if (ageDays <= 7) return { label: `${ageDays}d old`, tone: 'fresh', title: `Updated ${ageDays} days ago` }
+  if (ageDays <= 30) return { label: `${ageDays}d old`, tone: 'aging', title: `Updated ${ageDays} days ago` }
+  return { label: `${ageDays}d old`, tone: 'stale', title: `Updated ${ageDays} days ago` }
 }
 
 function humanize(value: string) {
@@ -114,7 +115,7 @@ function isImportedTransaction(txn: Transaction) {
 
 function AccountTag({ type }: { type: AccountType }) {
   const fallback: Record<string, { color: string; borderColor: string; background: string }> = {
-    mortgage: { color: 'var(--red)', borderColor: '#f8717128', background: '#f871710c' },
+    mortgage: { color: 'var(--neg)', borderColor: '#f8717128', background: '#f871710c' },
     other: { color: 'var(--text-2)', borderColor: '#7898b828', background: '#7898b80c' },
   }
 
@@ -128,21 +129,21 @@ function AccountTag({ type }: { type: AccountType }) {
 function FreshnessDot({ lastUpdated }: { lastUpdated: string | null }) {
   const freshness = formatAge(lastUpdated)
   const color =
-    freshness.tone === 'green'
-      ? 'var(--green)'
-      : freshness.tone === 'gold'
-        ? 'var(--gold)'
-        : freshness.tone === 'red'
-          ? 'var(--red)'
+    freshness.tone === 'fresh'
+      ? 'var(--pos)'
+      : freshness.tone === 'aging'
+        ? 'var(--accent)'
+        : freshness.tone === 'stale'
+          ? 'var(--neg)'
           : 'var(--text-3)'
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--text-2)', fontSize: 12 }} title={freshness.title}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--text-2)', fontSize: 'var(--fs-sm)' }} title={freshness.title}>
       <span
         style={{
           width: 8,
           height: 8,
-          borderRadius: 999,
+          borderRadius: 'var(--r-round)',
           background: color,
           boxShadow: `0 0 0 3px ${color}18`,
           flexShrink: 0,
@@ -153,12 +154,12 @@ function FreshnessDot({ lastUpdated }: { lastUpdated: string | null }) {
   )
 }
 
-function Badge({ label, tone, title }: { label: string; tone: 'red' | 'gold' | 'blue' | 'green' | 'neutral'; title?: string }) {
+function Badge({ label, tone, title }: { label: string; tone: 'danger' | 'warning' | 'info' | 'success' | 'neutral'; title?: string }) {
   const styles: Record<typeof tone, { color: string; borderColor: string; background: string }> = {
-    red: { color: 'var(--red)', borderColor: '#f8717128', background: '#f871710c' },
-    gold: { color: 'var(--gold)', borderColor: '#d4a84028', background: '#d4a8400c' },
-    blue: { color: 'var(--blue-bright)', borderColor: '#60a5fa28', background: '#60a5fa0c' },
-    green: { color: 'var(--green)', borderColor: '#34d39928', background: '#34d3990c' },
+    danger: { color: 'var(--neg)', borderColor: '#f8717128', background: '#f871710c' },
+    warning: { color: 'var(--accent)', borderColor: '#d4a84028', background: '#d4a8400c' },
+    info: { color: 'var(--accent)', borderColor: '#60a5fa28', background: '#60a5fa0c' },
+    success: { color: 'var(--pos)', borderColor: '#34d39928', background: '#34d3990c' },
     neutral: { color: 'var(--text-2)', borderColor: '#7898b828', background: '#7898b80c' },
   }
 
@@ -170,7 +171,7 @@ function Badge({ label, tone, title }: { label: string; tone: 'red' | 'gold' | '
         ...styles[tone],
         textTransform: 'none',
         letterSpacing: 0,
-        fontSize: 10.5,
+        fontSize: 'var(--fs-xs)',
         padding: '2px 7px',
       }}
     >
@@ -203,10 +204,10 @@ function ActionsMenu({ items, disabled }: { items: ActionItem[]; disabled?: bool
         style={{
           background: 'transparent',
           border: '1px solid transparent',
-          borderRadius: 6,
+          borderRadius: 'var(--r)',
           color: 'var(--text-3)',
           cursor: 'pointer',
-          fontSize: 16,
+          fontSize: 'var(--fs-md)',
           lineHeight: 1,
           padding: '2px 6px',
           transition: 'border-color 0.15s, color 0.15s',
@@ -231,9 +232,9 @@ function ActionsMenu({ items, disabled }: { items: ActionItem[]; disabled?: bool
           top: 'calc(100% + 4px)',
           zIndex: 50,
           minWidth: 130,
-          background: 'var(--bg-elevated)',
+          background: 'var(--bg-2)',
           border: '1px solid var(--border)',
-          borderRadius: 8,
+          borderRadius: 'var(--r)',
           boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
           overflow: 'hidden',
         }}>
@@ -246,12 +247,12 @@ function ActionsMenu({ items, disabled }: { items: ActionItem[]; disabled?: bool
                 width: '100%',
                 textAlign: 'left',
                 padding: '9px 14px',
-                fontSize: 13,
+                fontSize: 'var(--fs-base)',
                 fontWeight: 450,
-                color: item.destructive ? 'var(--red)' : 'var(--text)',
+                color: item.destructive ? 'var(--neg)' : 'var(--text)',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: i < items.length - 1 ? '1px solid var(--border-soft)' : 'none',
+                borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none',
                 cursor: 'pointer',
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)' }}
@@ -302,17 +303,17 @@ function ModalShell({
           width: `min(100%, ${width}px)`,
           maxHeight: 'min(90vh, 900px)',
           overflow: 'auto',
-          borderRadius: 16,
+          borderRadius: 'var(--r)',
           border: '1px solid var(--border)',
-          background: 'linear-gradient(180deg, rgba(17,24,39,0.98), rgba(12,15,26,0.98))',
-          boxShadow: '0 28px 70px rgba(0,0,0,0.45)',
+          background: 'var(--bg-1)',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
           padding: 24,
         }}
       >
         <div className="flex-between gap-12 mb-8" style={{ alignItems: 'start' }}>
           <div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 600, lineHeight: 1.1 }}>{title}</div>
-            {subtitle && <div style={{ marginTop: 6, color: 'var(--text-3)', fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div>}
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--fs-xl)', fontWeight: 600, lineHeight: 1.1 }}>{title}</div>
+            {subtitle && <div style={{ marginTop: 6, color: 'var(--text-3)', fontSize: 'var(--fs-base)', lineHeight: 1.45 }}>{subtitle}</div>}
           </div>
           <button type="button" className="btn btn-sm" onClick={onClose}>
             Close
@@ -388,6 +389,13 @@ export default function Accounts() {
   })
   const [debtDraft, setDebtDraft] = useState({ interest_rate: '', minimum_payment: '', payoff_date: '' })
   const [saving, setSaving] = useState(false)
+  const [plaidBusy, setPlaidBusy] = useState(false)
+  const [plaidMessage, setPlaidMessage] = useState<string>('')
+  const [confirmPending, setConfirmPending] = useState<{ message: string; detail?: string; onConfirm: () => Promise<void> } | null>(null)
+
+  function withConfirm(message: string, detail: string | undefined, action: () => Promise<void>) {
+    setConfirmPending({ message, detail, onConfirm: action })
+  }
 
   const sortedAccounts = useMemo(() => {
     return [...(accounts ?? [])].sort((a, b) => b.balance - a.balance)
@@ -440,6 +448,76 @@ export default function Accounts() {
 
   function closeModal() {
     setModal(null)
+  }
+
+  async function ensurePlaidScriptReady() {
+    const plaidGlobal = (window as any).Plaid
+    if (plaidGlobal?.create) return
+
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>('script[src*="cdn.plaid.com/link/v2/stable/link-initialize.js"]')
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true })
+        existing.addEventListener('error', () => reject(new Error('Failed to load Plaid Link')), { once: true })
+        setTimeout(() => {
+          if ((window as any).Plaid?.create) resolve()
+        }, 50)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
+      script.async = true
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error('Failed to load Plaid Link'))
+      document.head.appendChild(script)
+    })
+  }
+
+  async function connectPlaidFromAccounts() {
+    if (plaidBusy) return
+
+    setPlaidBusy(true)
+    setPlaidMessage('')
+    try {
+      const tokenRes = await api.post<{ link_token: string }>('/integrations/plaid/create-link-token', { user_id: 'local-user' })
+      const linkToken = tokenRes.link_token
+      if (!linkToken) throw new Error('Plaid link token was not returned by the server')
+
+      await ensurePlaidScriptReady()
+
+      const plaid = (window as any).Plaid
+      if (!plaid?.create) throw new Error('Plaid Link is unavailable in this browser')
+
+      const handler = plaid.create({
+        token: linkToken,
+        onSuccess: async (publicToken: string) => {
+          try {
+            const created = await api.post<{ id: number }>('/integrations/plaid/exchange-public-token', {
+              public_token: publicToken,
+              name: `Plaid ${new Date().toLocaleDateString()}`,
+            })
+            await api.post('/integrations/plaid/sync-now', { connection_id: created.id })
+            await refreshAll()
+            setPlaidMessage('Plaid connected and synced.')
+          } catch (e: any) {
+            setPlaidMessage(`Plaid connected, but sync failed: ${e?.message ?? 'Unknown error'}`)
+          } finally {
+            setPlaidBusy(false)
+          }
+        },
+        onExit: (err: any) => {
+          if (err?.error_message) {
+            setPlaidMessage(`Plaid canceled: ${err.error_message}`)
+          }
+          setPlaidBusy(false)
+        },
+      })
+      handler.open()
+    } catch (e: any) {
+      setPlaidMessage(`Unable to start Plaid: ${e?.message ?? 'Unknown error'}`)
+      setPlaidBusy(false)
+    }
   }
 
   function openAccountCreate() {
@@ -538,17 +616,22 @@ export default function Accounts() {
     }
   }
 
-  async function deleteAccount(account: Account) {
-    if (!window.confirm(`Delete ${account.name}? This cannot be undone.`)) return
-    setSaving(true)
-    try {
-      await api.delete(`/accounts/${account.id}`)
-      if (selectedId === account.id) setSelectedId(null)
-      closeModal()
-      await refreshAll()
-    } finally {
-      setSaving(false)
-    }
+  function deleteAccount(account: Account) {
+    withConfirm(
+      `Delete ${account.name}?`,
+      'This cannot be undone. All transactions and holdings will be removed.',
+      async () => {
+        setSaving(true)
+        try {
+          await api.delete(`/accounts/${account.id}`)
+          if (selectedId === account.id) setSelectedId(null)
+          closeModal()
+          await refreshAll()
+        } finally {
+          setSaving(false)
+        }
+      },
+    )
   }
 
   async function saveBalance() {
@@ -596,15 +679,16 @@ export default function Accounts() {
     }
   }
 
-  async function deleteTransaction(account: Account, transaction: Transaction) {
-    if (!window.confirm('Delete this transaction?')) return
-    setSaving(true)
-    try {
-      await api.delete(`/accounts/${account.id}/transactions/${transaction.id}`)
-      await refreshAll()
-    } finally {
-      setSaving(false)
-    }
+  function deleteTransaction(account: Account, transaction: Transaction) {
+    withConfirm('Delete this transaction?', undefined, async () => {
+      setSaving(true)
+      try {
+        await api.delete(`/accounts/${account.id}/transactions/${transaction.id}`)
+        await refreshAll()
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   async function saveHolding() {
@@ -635,15 +719,16 @@ export default function Accounts() {
     }
   }
 
-  async function deleteHolding(account: Account, holding: Holding) {
-    if (!window.confirm(`Delete holding ${holding.symbol}?`)) return
-    setSaving(true)
-    try {
-      await api.delete(`/accounts/${account.id}/holdings/${holding.id}`)
-      await refreshAll()
-    } finally {
-      setSaving(false)
-    }
+  function deleteHolding(account: Account, holding: Holding) {
+    withConfirm(`Delete holding ${holding.symbol}?`, undefined, async () => {
+      setSaving(true)
+      try {
+        await api.delete(`/accounts/${account.id}/holdings/${holding.id}`)
+        await refreshAll()
+      } finally {
+        setSaving(false)
+      }
+    })
   }
 
   async function saveDebt() {
@@ -668,24 +753,30 @@ export default function Accounts() {
       <div className="flex-between accounts-header mb-24" style={{ alignItems: 'end' }}>
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Accounts</h1>
-          <div style={{ color: 'var(--text-3)', fontSize: 13 }}>
+          <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-base)' }}>
             {accountCount} {accountCount === 1 ? 'account' : 'accounts'} · {usd(totalBalance)} total balance
           </div>
+          {plaidMessage && <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', marginTop: 6 }}>{plaidMessage}</div>}
         </div>
-        <button className="btn btn-primary" onClick={openAccountCreate}>Add account</button>
+        <div className="flex gap-8">
+          <button className="btn" onClick={connectPlaidFromAccounts} disabled={plaidBusy}>
+            {plaidBusy ? 'Connecting…' : 'Connect Plaid'}
+          </button>
+          <button className="btn btn-primary" onClick={openAccountCreate}>Add account</button>
+        </div>
       </div>
 
       <div className="grid-2 accounts-layout mb-24" style={{ gridTemplateColumns: 'minmax(360px, 1fr) minmax(0, 1.25fr)', alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
-          <div className="flex-between" style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border-soft)' }}>
+          <div className="flex-between" style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
             <div>
               <div className="section-label mb-8">Accounts</div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Select an account to inspect holdings, debt, and activity.</div>
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>Select an account to inspect holdings, debt, and activity.</div>
             </div>
           </div>
 
           {accountsLoading ? (
-            <div style={{ padding: 24, color: 'var(--text-3)', fontSize: 13 }}>Loading accounts…</div>
+            <div style={{ padding: 24, color: 'var(--text-3)', fontSize: 'var(--fs-base)' }}>Loading accounts…</div>
           ) : sortedAccounts.length > 0 ? (
             <table className="tbl">
               <thead>
@@ -704,11 +795,11 @@ export default function Accounts() {
                     <tr
                       key={account.id}
                       onClick={() => setSelectedId(account.id)}
-                      style={{ cursor: 'pointer', background: isActive ? 'rgba(59,130,246,0.06)' : undefined }}
+                      style={{ cursor: 'pointer', background: isActive ? 'var(--bg-1)' : undefined, borderLeft: isActive ? '2px solid var(--accent)' : '2px solid transparent' }}
                     >
                       <td>
                         <div style={{ fontWeight: 500 }}>{account.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{account.institution_name ?? 'No institution'}</div>
+                        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginTop: 3 }}>{account.institution_name ?? 'No institution'}</div>
                       </td>
                       <td><AccountTag type={account.type} /></td>
                       <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{usd(account.balance)}</td>
@@ -726,8 +817,8 @@ export default function Accounts() {
                     </tr>
                   )
                 })}
-                <tr style={{ background: 'var(--bg-elevated)' }}>
-                  <td colSpan={2} style={{ fontWeight: 500, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-3)' }}>Total</td>
+                <tr style={{ background: 'var(--bg-2)' }}>
+                  <td colSpan={2} style={{ fontWeight: 500, fontSize: 'var(--fs-sm)', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-3)' }}>Total</td>
                   <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{usd(totalBalance)}</td>
                   <td colSpan={2} />
                 </tr>
@@ -751,23 +842,23 @@ export default function Accounts() {
               <div className="empty-sub">Holdings, transactions, balance snapshots, and debt details show up here.</div>
             </div>
           ) : detailLoading ? (
-            <div style={{ padding: 24, color: 'var(--text-3)', fontSize: 13 }}>Loading account details…</div>
+            <div style={{ padding: 24, color: 'var(--text-3)', fontSize: 'var(--fs-base)' }}>Loading account details…</div>
           ) : (
-            <div style={{ padding: 20 }}>
+            <div style={{ padding: 'var(--s-5)' }}>
               <div className="flex-between mb-16" style={{ alignItems: 'start' }}>
                 <div>
                   <div className="section-label mb-8">Selected account</div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 600, lineHeight: 1.05 }}>{activeAccount.name}</div>
+                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--fs-2xl)', fontWeight: 600, lineHeight: 1.05 }}>{activeAccount.name}</div>
                   <div className="flex-center" style={{ flexWrap: 'wrap', marginTop: 10 }}>
                     <AccountTag type={activeAccount.type} />
                     <FreshnessDot lastUpdated={activeAccount.last_updated} />
-                    <span style={{ color: 'var(--text-3)', fontSize: 12 }}>{activeAccount.institution_name ?? 'No institution attached'}</span>
+                    <span style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>{activeAccount.institution_name ?? 'No institution attached'}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div className="section-label mb-8">Balance</div>
                   <div className="num-large">{usd(activeAccount.balance)}</div>
-                  <div style={{ marginTop: 4, color: 'var(--text-3)', fontSize: 12 }}>Updated {activeFreshness.label}</div>
+                  <div style={{ marginTop: 4, color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>Updated {activeFreshness.label}</div>
                 </div>
               </div>
 
@@ -778,33 +869,33 @@ export default function Accounts() {
               </div>
 
               <div className="grid-2 mb-16" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-                <div style={{ padding: 14, borderRadius: 12, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,0.015)' }}>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Account type</div>
+                <div style={{ padding: 'var(--s-4)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Account type</div>
                   <div style={{ fontWeight: 500 }}>{humanize(activeAccount.type)}</div>
                 </div>
-                <div style={{ padding: 14, borderRadius: 12, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,0.015)' }}>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Created</div>
+                <div style={{ padding: 'var(--s-4)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Created</div>
                   <div style={{ fontWeight: 500 }}>{formatDate(activeAccount.created_at)}</div>
                 </div>
               </div>
 
               {INVESTMENT_TYPES.has(activeAccount.type) && (
-                <div className="card" style={{ padding: 14, marginBottom: 16, borderColor: 'rgba(96,165,250,0.2)' }}>
+                <div className="card" style={{ padding: 'var(--s-4)', marginBottom: 16 }}>
                   <div className="section-label mb-8">Performance baseline (S&P 500)</div>
                   <div className="grid-3" style={{ gap: 12 }}>
                     <div>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Account return</div>
-                      <div style={{ fontWeight: 600, color: (performance?.gain_pct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Account return</div>
+                      <div style={{ fontWeight: 600, color: (performance?.gain_pct ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
                         {performance?.gain_pct != null ? `${performance.gain_pct >= 0 ? '+' : ''}${performance.gain_pct.toFixed(2)}%` : '—'}
                       </div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>S&P baseline</div>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>S&P baseline</div>
                       <div style={{ fontWeight: 600 }}>{performance?.benchmark_gain_pct != null ? `${performance.benchmark_gain_pct.toFixed(2)}%` : '—'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Relative</div>
-                      <div style={{ fontWeight: 600, color: (performance?.relative_gain_pct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Relative</div>
+                      <div style={{ fontWeight: 600, color: (performance?.relative_gain_pct ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
                         {performance?.relative_gain_pct != null ? `${performance.relative_gain_pct >= 0 ? '+' : ''}${performance.relative_gain_pct.toFixed(2)}%` : '—'}
                       </div>
                     </div>
@@ -813,26 +904,26 @@ export default function Accounts() {
               )}
 
               {DEBT_TYPES.has(activeAccount.type) && (
-                <div className="card" style={{ padding: 18, marginBottom: 16, borderColor: 'rgba(248,113,113,0.18)' }}>
+                <div className="card" style={{ padding: 18, marginBottom: 16 }}>
                   <div className="flex-between mb-8">
                     <div>
                       <div className="section-label mb-8">Debt detail</div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Keep APR, monthly payment, and payoff timing current for planning.</div>
+                      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>Keep APR, monthly payment, and payoff timing current for planning.</div>
                     </div>
-                    {activeDebt?.months_to_payoff != null && <Badge label={`${activeDebt.months_to_payoff} mo payoff`} tone="red" />}
+                    {activeDebt?.months_to_payoff != null && <Badge label={`${activeDebt.months_to_payoff} mo payoff`} tone="danger" />}
                   </div>
 
                   <div className="grid-3" style={{ marginBottom: 14 }}>
-                    <div style={{ padding: 12, borderRadius: 12, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,0.015)' }}>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>APR</div>
+                    <div style={{ padding: 'var(--s-3)', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>APR</div>
                       <div style={{ fontWeight: 500 }}>{activeDebt ? percent(activeDebt.interest_rate) : '—'}</div>
                     </div>
-                    <div style={{ padding: 12, borderRadius: 12, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,0.015)' }}>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Minimum payment</div>
+                    <div style={{ padding: 'var(--s-3)', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Minimum payment</div>
                       <div style={{ fontWeight: 500 }}>{activeDebt ? usd(activeDebt.minimum_payment) : '—'}</div>
                     </div>
-                    <div style={{ padding: 12, borderRadius: 12, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,0.015)' }}>
-                      <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Payoff date</div>
+                    <div style={{ padding: 'var(--s-3)', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
+                      <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>Payoff date</div>
                       <div style={{ fontWeight: 500 }}>{activeDebt?.payoff_date ? formatDate(activeDebt.payoff_date) : '—'}</div>
                     </div>
                   </div>
@@ -863,7 +954,7 @@ export default function Accounts() {
                   <div className="flex-between mb-12">
                     <div>
                       <div className="section-label mb-8">Holdings</div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Track positions, cost basis, and current value for investment accounts.</div>
+                      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>Track positions, cost basis, and current value for investment accounts.</div>
                     </div>
                     <button className="btn btn-sm btn-primary" onClick={() => openHoldingCreate(activeAccount)}>Add holding</button>
                   </div>
@@ -895,7 +986,7 @@ export default function Accounts() {
                               <td className="num" style={{ textAlign: 'right' }}>{costBasis == null ? '—' : usd(costBasis)}</td>
                               <td className="num" style={{ textAlign: 'right' }}>{holding.last_price == null ? '—' : usd(holding.last_price)}</td>
                               <td className="num" style={{ textAlign: 'right', fontWeight: 500 }}>{usd(holding.market_value)}</td>
-                              <td className="num" style={{ textAlign: 'right', color: gain != null ? (gain >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-3)' }}>
+                              <td className="num" style={{ textAlign: 'right', color: gain != null ? (gain >= 0 ? 'var(--pos)' : 'var(--neg)') : 'var(--text-3)' }}>
                                 {gain == null ? '—' : `${gain >= 0 ? '+' : ''}${usd(gain)}`}
                               </td>
                               <td className="num" style={{ textAlign: 'right' }}>{weight == null ? '—' : `${weight.toFixed(1)}%`}</td>
@@ -906,7 +997,7 @@ export default function Accounts() {
                       </tbody>
                     </table>
                   ) : (
-                    <div className="empty" style={{ padding: '28px 20px 12px' }}>
+                    <div className="empty" style={{ padding: 'var(--s-6) var(--s-5) var(--s-3)' }}>
                       <div className="empty-title">No holdings yet</div>
                       <div className="empty-sub" style={{ marginBottom: 12 }}>Add your first position to start tracking cost basis and market value.</div>
                       <button className="btn btn-primary" onClick={() => openHoldingCreate(activeAccount)}>Add holding</button>
@@ -920,7 +1011,7 @@ export default function Accounts() {
                   <div className="flex-between mb-12">
                     <div>
                       <div className="section-label mb-8">Real estate details</div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>
                         Value, mortgage, LTV, and equity are shown per property in this account.
                       </div>
                     </div>
@@ -944,13 +1035,13 @@ export default function Accounts() {
                             <td className="num" style={{ textAlign: 'right' }}>{usd(property.effective_value)}</td>
                             <td className="num" style={{ textAlign: 'right' }}>{usd(property.mortgage_balance)}</td>
                             <td className="num" style={{ textAlign: 'right' }}>{property.ltv == null ? '—' : `${property.ltv.toFixed(1)}%`}</td>
-                            <td className="num" style={{ textAlign: 'right', color: 'var(--green)', fontWeight: 600 }}>{usd(property.equity)}</td>
+                            <td className="num" style={{ textAlign: 'right', color: 'var(--pos)', fontWeight: 600 }}>{usd(property.equity)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   ) : (
-                    <div className="empty" style={{ padding: '20px 12px' }}>
+                    <div className="empty" style={{ padding: 'var(--s-5) var(--s-3)' }}>
                       <div className="empty-title">No properties on this account</div>
                       <div className="empty-sub">Add one in the Real Estate page to track value and equity.</div>
                     </div>
@@ -962,14 +1053,14 @@ export default function Accounts() {
                 <div className="flex-between mb-12">
                   <div>
                     <div className="section-label mb-8">Transactions</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
+                    <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>
                       Search and filter by date, type, and amount. Imported rows are read-only.
                     </div>
                   </div>
                   <button className="btn btn-sm btn-primary" onClick={() => openTransactionCreate(activeAccount)}>Add transaction</button>
                 </div>
 
-                <div className="grid-3 mb-16" style={{ gap: 10 }}>
+                <div className="grid-3 mb-16" style={{ gap: 'var(--s-2)' }}>
                   <input placeholder="Search symbol/description" value={txSearch} onChange={(e) => setTxSearch(e.target.value)} />
                   <select value={txTypeFilter} onChange={(e) => setTxTypeFilter(e.target.value)}>
                     <option value="">All types</option>
@@ -1019,7 +1110,7 @@ export default function Accounts() {
                           <td>
                             <Badge
                               label={humanize(txn.type)}
-                              tone={isImportedTransaction(txn) ? 'blue' : 'neutral'}
+                              tone={isImportedTransaction(txn) ? 'info' : 'neutral'}
                               title={isImportedTransaction(txn) ? 'Imported row' : 'Manual row'}
                             />
                           </td>
@@ -1030,7 +1121,7 @@ export default function Accounts() {
                           <td style={{ color: 'var(--text-2)', maxWidth: 220 }}>{txn.description ?? '—'}</td>
                           <td>
                             {isImportedTransaction(txn) ? (
-                              <span style={{ color: 'var(--text-3)', fontSize: 12 }}>locked</span>
+                              <span style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>locked</span>
                             ) : (
                               <ActionsMenu
                                 disabled={saving}
@@ -1057,6 +1148,20 @@ export default function Accounts() {
           )}
         </div>
       </div>
+
+      {confirmPending && (
+        <Confirm
+          message={confirmPending.message}
+          detail={confirmPending.detail}
+          destructive
+          onCancel={() => setConfirmPending(null)}
+          onConfirm={() => {
+            const action = confirmPending.onConfirm
+            setConfirmPending(null)
+            void action()
+          }}
+        />
+      )}
 
       {modal?.kind === 'account' && (
         <ModalShell

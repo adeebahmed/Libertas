@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Account, Institution } from '../types'
+import type { Account, Institution, IntegrationConnection } from '../types'
+import Confirm from '../components/Confirm'
+import { useTheme, type Theme } from '../theme'
 
 type SeedDemoResponse = {
   ok: boolean
@@ -14,6 +16,10 @@ export default function Settings() {
   const { data: accounts, refetch: refetchAccounts } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: institutions, refetch: refetchInst } = useApi<Institution[]>(() => api.get('/accounts/institutions'), [])
   const { data: settings, refetch: refetchSettings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
+  const { data: integrationStatus, refetch: refetchIntegrations } = useApi<{ connections: IntegrationConnection[] }>(
+    () => api.get('/integrations/status'),
+    [],
+  )
 
   const [newAcct, setNewAcct] = useState({ name: '', type: 'brokerage', institution_id: '' })
   const [newInst, setNewInst] = useState({ name: '', export_url: '', file_pattern: '' })
@@ -30,7 +36,17 @@ export default function Settings() {
   const [monthlyContribution, setMonthlyContribution] = useState('')
   const [retirementTarget, setRetirementTarget] = useState('')
 
+  const [confirmPending, setConfirmPending] = useState<{ message: string; detail?: string; onConfirm: () => void } | null>(null)
   const [toast, setToast] = useState('')
+  const [plaidLinkToken, setPlaidLinkToken] = useState('')
+  const [plaidPublicToken, setPlaidPublicToken] = useState('')
+  const [plaidConnectionName, setPlaidConnectionName] = useState('')
+  const [sheetsName, setSheetsName] = useState('')
+  const [sheetsCsvUrl, setSheetsCsvUrl] = useState('')
+  const [sheetsAccountId, setSheetsAccountId] = useState('')
+  const [sheetsValidation, setSheetsValidation] = useState('')
+  const [sheetsMappingPreset, setSheetsMappingPreset] = useState('default')
+  const [busyAction, setBusyAction] = useState<string | null>(null)
 
   useEffect(() => {
     if (!settings) return
@@ -47,6 +63,19 @@ export default function Settings() {
   }, [settings])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+  const actionError = (e: any) => e?.message || 'Request failed'
+
+  const runAction = async (key: string, fn: () => Promise<void>) => {
+    if (busyAction) return
+    try {
+      setBusyAction(key)
+      await fn()
+    } catch (e: any) {
+      showToast(actionError(e))
+    } finally {
+      setBusyAction(null)
+    }
+  }
 
   const saveSetting = async (key: string, value: unknown) => {
     await api.put(`/settings/${key}`, { value })
@@ -70,6 +99,32 @@ export default function Settings() {
     showToast('Institution added')
   }
 
+  const removeInstitution = (institution: Institution) => {
+    setConfirmPending({
+      message: `Remove ${institution.name}?`,
+      detail: 'Accounts using this institution may lose their institution link.',
+      onConfirm: async () => {
+        setConfirmPending(null)
+        await api.delete('/accounts/institutions/' + institution.id)
+        refetchInst()
+        showToast('Institution removed')
+      },
+    })
+  }
+
+  const removeAccount = (account: Account) => {
+    setConfirmPending({
+      message: `Remove ${account.name}?`,
+      detail: 'This deletes the account, holdings, balance history, and transactions. This cannot be undone.',
+      onConfirm: async () => {
+        setConfirmPending(null)
+        await api.delete('/accounts/' + account.id)
+        refetchAccounts()
+        showToast('Account removed')
+      },
+    })
+  }
+
   const seedDemoData = async () => {
     const result = await api.post<SeedDemoResponse>('/settings/seed-demo')
     refetchAccounts()
@@ -86,11 +141,121 @@ export default function Settings() {
     showToast('Fake demo data already loaded')
   }
 
+  const createPlaidLinkToken = async () => {
+    const result = await api.post<{ link_token: string }>('/integrations/plaid/create-link-token', { user_id: 'local-user' })
+    setPlaidLinkToken(result.link_token || '')
+    showToast('Plaid link token created')
+  }
+
+  const exchangePlaidPublicToken = async () => {
+    if (!plaidPublicToken.trim()) return
+    await api.post('/integrations/plaid/exchange-public-token', {
+      public_token: plaidPublicToken.trim(),
+      name: plaidConnectionName.trim() || null,
+    })
+    setPlaidPublicToken('')
+    setPlaidConnectionName('')
+    refetchIntegrations()
+    showToast('Plaid connection saved')
+  }
+
+  const syncPlaid = async (connectionId?: number) => {
+    await api.post('/integrations/plaid/sync-now', connectionId ? { connection_id: connectionId } : {})
+    refetchIntegrations()
+    refetchAccounts()
+    showToast('Plaid sync complete')
+  }
+
+  const setPlaidRelink = async (connectionId: number) => {
+    await api.post('/integrations/plaid/relink', { connection_id: connectionId })
+    refetchIntegrations()
+    showToast('Relink requested')
+  }
+
+  const disconnectPlaid = async (connectionId: number) => {
+    await api.post('/integrations/plaid/disconnect', { connection_id: connectionId })
+    refetchIntegrations()
+    showToast('Plaid disconnected')
+  }
+
+  const validateSheetsFeed = async () => {
+    if (!sheetsCsvUrl.trim()) return
+    const result = await api.post<{ row_count: number; headers: string[] }>('/integrations/sheets/validate-feed', { csv_url: sheetsCsvUrl.trim() })
+    setSheetsValidation(`Valid feed · ${result.row_count} rows · headers: ${result.headers.join(', ')}`)
+    showToast('Sheets feed validated')
+  }
+
+  const addSheetsFeed = async () => {
+    if (!sheetsName.trim() || !sheetsCsvUrl.trim() || !sheetsAccountId) return
+    const mappingPresets: Record<string, Record<string, string>> = {
+      default: {},
+      bank_statement: {
+        date: 'Date',
+        amount: 'Amount',
+        description: 'Description',
+        type: 'Type',
+        row_id: 'Transaction ID',
+      },
+      brokerage_export: {
+        date: 'Trade Date',
+        amount: 'Net Amount',
+        description: 'Description',
+        type: 'Action',
+        symbol: 'Symbol',
+        quantity: 'Quantity',
+        price: 'Price',
+        row_id: 'Activity ID',
+      },
+    }
+    await api.post('/integrations/sheets/add-feed', {
+      name: sheetsName.trim(),
+      csv_url: sheetsCsvUrl.trim(),
+      account_id: Number(sheetsAccountId),
+      mapping: mappingPresets[sheetsMappingPreset] ?? {},
+    })
+    setSheetsName('')
+    setSheetsCsvUrl('')
+    setSheetsAccountId('')
+    setSheetsValidation('')
+    setSheetsMappingPreset('default')
+    refetchIntegrations()
+    showToast('Sheets feed added')
+  }
+
+  const syncSheets = async (connectionId?: number) => {
+    await api.post('/integrations/sheets/sync-now', connectionId ? { connection_id: connectionId } : {})
+    refetchIntegrations()
+    refetchAccounts()
+    showToast('Sheets sync complete')
+  }
+
+  const disableSheetsFeed = async (connectionId: number) => {
+    await api.post('/integrations/sheets/disable-feed', { connection_id: connectionId })
+    refetchIntegrations()
+    showToast('Sheets feed disabled')
+  }
+
   const ACCOUNT_TYPES = ['brokerage', 'crypto', 'savings', 'hsa', 'roth_ira', '401k', 'checking', 'credit_card', 'student_loan', 'auto_loan', 'personal_loan']
+
+  const { theme, setTheme } = useTheme()
 
   return (
     <div>
       <h1 className="page-title">Settings</h1>
+
+      {/* ── Appearance ── */}
+      <div className="section-label mb-16">Appearance</div>
+      <div className="card mb-32">
+        <div className="grid-3">
+          <div className="field">
+            <label>Theme</label>
+            <select value={theme} onChange={e => setTheme(e.target.value as Theme)}>
+              <option value="onyx">Onyx (dark)</option>
+              <option value="retro">Retro (blue)</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* ── General ── */}
       <div className="section-label mb-16">General</div>
@@ -182,15 +347,15 @@ export default function Settings() {
               {institutions.map(i => (
                 <tr key={i.id}>
                   <td style={{ fontWeight: 500 }}>{i.name}</td>
-                  <td className="num" style={{ fontSize: 12, color: 'var(--text-3)' }}>{i.file_pattern ?? '—'}</td>
+                  <td className="num" style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>{i.file_pattern ?? '—'}</td>
                   <td>{i.export_url ? <a href={i.export_url} target="_blank" rel="noopener">↗ Open</a> : '—'}</td>
-                  <td><button className="btn btn-sm" onClick={async () => { await api.delete(`/accounts/institutions/${i.id}`); refetchInst() }}>Remove</button></td>
+                  <td><button className="btn btn-sm" onClick={() => removeInstitution(i)}>Remove</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: institutions?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: institutions?.length ? '1px solid var(--border)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Name</label>
             <input value={newInst.name} onChange={e => setNewInst(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Fidelity" />
@@ -221,13 +386,13 @@ export default function Settings() {
                   <td style={{ fontWeight: 500 }}>{a.name}</td>
                   <td><span className={`tag tag-${a.type}`}>{a.type.replace('_', ' ')}</span></td>
                   <td style={{ color: 'var(--text-2)' }}>{a.institution_name ?? '—'}</td>
-                  <td><button className="btn btn-sm" onClick={async () => { await api.delete(`/accounts/${a.id}`); refetchAccounts() }}>Remove</button></td>
+                  <td><button className="btn btn-sm" onClick={() => removeAccount(a)}>Remove</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: accounts?.length ? '1px solid var(--border-soft)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <div className="settings-inline-form" style={{ padding: '16px 20px', borderTop: accounts?.length ? '1px solid var(--border)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Name</label>
             <input value={newAcct.name} onChange={e => setNewAcct(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Fidelity Roth IRA" />
@@ -249,6 +414,137 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* ── Integrations ── */}
+      <div className="section-label mb-16">Integrations</div>
+      <div className="card mb-32">
+        <div style={{ marginBottom: 16, color: 'var(--text-2)', fontSize: 'var(--fs-base)' }}>
+          Optional only. CSV/Excel/manual workflows continue to work exactly the same if you do nothing here.
+        </div>
+        <div className="grid-2" style={{ gap: 16 }}>
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--s-2)' }}>Plaid (optional)</div>
+            <div className="field">
+              <label>Connection name</label>
+              <input value={plaidConnectionName} onChange={e => setPlaidConnectionName(e.target.value)} placeholder="e.g. Chase via Plaid" />
+            </div>
+            <div className="field">
+              <label>Public token (from Plaid Link)</label>
+              <input value={plaidPublicToken} onChange={e => setPlaidPublicToken(e.target.value)} placeholder="public-sandbox-..." />
+            </div>
+            <div className="flex gap-8" style={{ marginBottom: 'var(--s-2)' }}>
+              <button className="btn" onClick={() => runAction('plaid-link', createPlaidLinkToken)} disabled={!!busyAction}>
+                {busyAction === 'plaid-link' ? 'Working…' : 'Create link token'}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => runAction('plaid-exchange', exchangePlaidPublicToken)}
+                disabled={!plaidPublicToken.trim() || !!busyAction}
+              >
+                {busyAction === 'plaid-exchange' ? 'Working…' : 'Exchange token'}
+              </button>
+              <button className="btn" onClick={() => runAction('plaid-sync-all', () => syncPlaid())} disabled={!!busyAction}>
+                {busyAction === 'plaid-sync-all' ? 'Working…' : 'Sync all Plaid'}
+              </button>
+            </div>
+            {plaidLinkToken && (
+              <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', wordBreak: 'break-all' }}>
+                Link token: {plaidLinkToken}
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 600, marginBottom: 'var(--s-2)' }}>Google Sheets CSV feed (optional)</div>
+            <div className="field">
+              <label>Feed name</label>
+              <input value={sheetsName} onChange={e => setSheetsName(e.target.value)} placeholder="e.g. Household Checking Feed" />
+            </div>
+            <div className="field">
+              <label>CSV URL</label>
+              <input value={sheetsCsvUrl} onChange={e => setSheetsCsvUrl(e.target.value)} placeholder="https://docs.google.com/...&output=csv" />
+            </div>
+            <div className="field">
+              <label>Bind to account</label>
+              <select value={sheetsAccountId} onChange={e => setSheetsAccountId(e.target.value)}>
+                <option value="">Select account</option>
+                {accounts?.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Mapping preset</label>
+              <select value={sheetsMappingPreset} onChange={e => setSheetsMappingPreset(e.target.value)}>
+                <option value="default">Default (lowercase headers)</option>
+                <option value="bank_statement">Bank statement style</option>
+                <option value="brokerage_export">Brokerage export style</option>
+              </select>
+            </div>
+            <div className="flex gap-8">
+              <button className="btn" onClick={() => runAction('sheets-validate', validateSheetsFeed)} disabled={!sheetsCsvUrl.trim() || !!busyAction}>
+                {busyAction === 'sheets-validate' ? 'Working…' : 'Validate feed'}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => runAction('sheets-add', addSheetsFeed)}
+                disabled={!sheetsName.trim() || !sheetsCsvUrl.trim() || !sheetsAccountId || !!busyAction}
+              >
+                {busyAction === 'sheets-add' ? 'Working…' : 'Add feed'}
+              </button>
+              <button className="btn" onClick={() => runAction('sheets-sync-all', () => syncSheets())} disabled={!!busyAction}>
+                {busyAction === 'sheets-sync-all' ? 'Working…' : 'Sync all Sheets'}
+              </button>
+              <button className="btn" onClick={() => refetchIntegrations()} disabled={!!busyAction}>Refresh status</button>
+            </div>
+            {sheetsValidation && <div style={{ marginTop: 10, color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>{sheetsValidation}</div>}
+          </div>
+        </div>
+
+        {integrationStatus?.connections?.length ? (
+          <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Connection status</div>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Last sync</th>
+                  <th>Error</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {integrationStatus.connections.map(conn => (
+                  <tr key={conn.id}>
+                    <td style={{ textTransform: 'capitalize' }}>{conn.provider}</td>
+                    <td>{conn.name}</td>
+                    <td>{conn.status}</td>
+                    <td>{conn.last_sync_at ? new Date(conn.last_sync_at).toLocaleString() : '—'}</td>
+                    <td style={{ maxWidth: 240, color: 'var(--text-3)' }}>{conn.last_error ?? '—'}</td>
+                    <td>
+                      <div className="flex gap-8">
+                        {conn.provider === 'plaid' && (
+                          <>
+                            <button className="btn btn-sm" onClick={() => runAction(`plaid-sync-${conn.id}`, () => syncPlaid(conn.id))} disabled={!!busyAction}>Sync</button>
+                            <button className="btn btn-sm" onClick={() => runAction(`plaid-relink-${conn.id}`, () => setPlaidRelink(conn.id))} disabled={!!busyAction}>Relink</button>
+                            <button className="btn btn-sm" onClick={() => runAction(`plaid-disconnect-${conn.id}`, () => disconnectPlaid(conn.id))} disabled={!!busyAction}>Disconnect</button>
+                          </>
+                        )}
+                        {conn.provider === 'sheets' && (
+                          <>
+                            <button className="btn btn-sm" onClick={() => runAction(`sheets-sync-${conn.id}`, () => syncSheets(conn.id))} disabled={!!busyAction}>Sync</button>
+                            <button className="btn btn-sm" onClick={() => runAction(`sheets-disable-${conn.id}`, () => disableSheetsFeed(conn.id))} disabled={!!busyAction}>Disable</button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
+
       {/* ── Data ── */}
       <div className="section-label mb-16">Data</div>
       <div className="flex gap-8">
@@ -266,6 +562,16 @@ export default function Settings() {
         </button>
       </div>
 
+      {confirmPending && (
+        <Confirm
+          message={confirmPending.message}
+          detail={confirmPending.detail}
+          destructive
+          confirmLabel="Remove"
+          onConfirm={confirmPending.onConfirm}
+          onCancel={() => setConfirmPending(null)}
+        />
+      )}
       {toast && <div className="toast">{toast}</div>}
     </div>
   )

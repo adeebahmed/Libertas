@@ -1,4 +1,6 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import CommandPalette from './components/CommandPalette'
+import { ThemeProvider } from './theme'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Import from './pages/Import'
@@ -23,8 +25,27 @@ const NAV = [
   { to: '/insights',    label: 'Insights',    end: false, icon: <IconSpark /> },
 ]
 
+const ROUTE_TITLES: Array<{ path: string; title: string; exact?: boolean }> = [
+  { path: '/', title: 'Overview', exact: true },
+  { path: '/accounts', title: 'Accounts' },
+  { path: '/debt', title: 'Debt' },
+  { path: '/retirement', title: 'Retirement' },
+  { path: '/real-estate', title: 'Real Estate' },
+  { path: '/taxes', title: 'Taxes' },
+  { path: '/insights', title: 'Insights' },
+  { path: '/import', title: 'Import' },
+  { path: '/settings', title: 'Settings' },
+]
+
 export default function App() {
+  const location = useLocation()
+
+  const activeTitle = ROUTE_TITLES.find((route) => (
+    route.exact ? location.pathname === route.path : location.pathname.startsWith(route.path)
+  ))?.title ?? 'Libertas'
+
   return (
+    <ThemeProvider>
     <div className="app">
       <header className="mobile-topbar">
         <div className="mobile-topbar-brand">
@@ -73,7 +94,7 @@ export default function App() {
             rel="noreferrer"
             title="Open Libertas GitHub Pages site"
           >
-            <span className="logo-mark">L</span>ibertas
+            Libertas
           </a>
         </div>
         <div className="sidebar-section">
@@ -90,16 +111,32 @@ export default function App() {
           ))}
         </div>
         <div className="sidebar-footer">
-          <NavLink to="/import" className="sidebar-import-btn">
-            <IconUpload size={13} />
-            Import
-          </NavLink>
-          <NavLink to="/settings" className="sidebar-icon-btn" title="Settings">
-            <IconGear size={14} />
-          </NavLink>
+          <div className="sidebar-cmd-hint">
+            <span>Commands</span>
+            <kbd>⌘K</kbd>
+          </div>
+          <div className="sidebar-footer-row">
+            <NavLink to="/import" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
+              <IconUpload size={13} />
+              <span>Import</span>
+            </NavLink>
+            <NavLink to="/settings" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
+              <IconGear size={13} />
+              <span>Settings</span>
+            </NavLink>
+          </div>
         </div>
       </nav>
+      <CommandPalette />
       <main className="main">
+        <header className="app-header">
+          <div className="app-header-title">
+            <span className="app-header-brand">Libertas</span>
+            <span className="app-header-rule" aria-hidden="true" />
+            <span>{activeTitle}</span>
+          </div>
+          <div className="app-header-actions" />
+        </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />
           <Route path="/accounts"     element={<Accounts />} />
@@ -113,5 +150,6 @@ export default function App() {
         </Routes>
       </main>
     </div>
+    </ThemeProvider>
   )
 }

@@ -3,19 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, BalanceSnapshot, Insight, NetWorth } from '../types'
-import {
-  Area,
-  AreaChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { TerminalAreaChart, TerminalDonut } from '../components/Chart'
 
-const PIE_COLORS = ['#3b82f6', '#34d399', '#d4a840', '#a78bfa', '#22d3ee', '#f87171', '#60a5fa']
+const PIE_COLORS = [
+  'var(--text)',
+  'var(--pos)',
+  'var(--accent)',
+  'var(--text-2)',
+  'var(--text-2)',
+  'var(--neg)',
+  'var(--text-2)',
+]
 const RANGE_OPTIONS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 
 const GROUPS: Array<{ title: string; types: string[] }> = [
@@ -48,31 +46,12 @@ function formatDate(value: string | null | undefined) {
   return d.toLocaleString()
 }
 
-function stalenessTone(lastUpdated: string | null): 'green' | 'gold' | 'red' {
-  if (!lastUpdated) return 'red'
+function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' {
+  if (!lastUpdated) return 'stale'
   const days = Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 86_400_000)
-  if (days < 7) return 'green'
-  if (days < 30) return 'gold'
-  return 'red'
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div
-      style={{
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        padding: '10px 12px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 12,
-      }}
-    >
-      <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>{label}</div>
-      <div style={{ color: 'var(--text)' }}>{usd(payload[0].value)}</div>
-    </div>
-  )
+  if (days < 7) return 'fresh'
+  if (days < 30) return 'aging'
+  return 'stale'
 }
 
 export default function Dashboard() {
@@ -81,10 +60,10 @@ export default function Dashboard() {
   const [pinnedTitle, setPinnedTitle] = useState<string | null>(() => localStorage.getItem('dashboardPinnedInsight'))
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
 
-  const { data: nw } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
-  const { data: history } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
-  const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
-  const { data: insights } = useApi<Insight[]>(() => api.get('/insights'), [])
+  const { data: nw, loading: nwLoading, error: nwError } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
+  const { data: history, loading: historyLoading, error: historyError } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
+  const { data: accounts, loading: accountsLoading, error: accountsError } = useApi<Account[]>(() => api.get('/accounts'), [])
+  const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -125,9 +104,13 @@ export default function Dashboard() {
       .sort((a, b) => b.value - a.value)
   }, [nw])
 
-  const tone = recommendation?.priority === 'high' ? 'var(--red)' : recommendation?.priority === 'medium' ? 'var(--gold)' : 'var(--green)'
+  const tone = recommendation?.priority === 'high' ? 'var(--neg)' : recommendation?.priority === 'medium' ? 'var(--accent)' : 'var(--pos)'
 
   const historyReady = history && history.length > 0
+  const netWorthLoading = nwLoading && !nw
+  const historyInitialLoading = historyLoading && !history
+  const accountsInitialLoading = accountsLoading && !accounts
+  const insightsInitialLoading = insightsLoading && !insights
 
   return (
     <div>
@@ -135,24 +118,34 @@ export default function Dashboard() {
         <div className="dashboard-hero-grid">
           <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
-            <div className="num-hero mb-8">{nw ? usd(nw.net_worth) : '$—'}</div>
+            <div className="num-hero mb-8">
+              {netWorthLoading ? <span className="spinner" aria-label="Loading net worth" style={{ width: 30, height: 30, borderWidth: 3 }} /> : nw ? usd(nw.net_worth) : '$—'}
+            </div>
 
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>
-              <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                30d: {nw?.delta_30d != null ? `${nw.delta_30d >= 0 ? '+' : ''}${usd(nw.delta_30d)} (${pct(nw.delta_30d_pct)})` : '—'}
-              </span>
-              <span style={{ color: 'var(--text-3)' }}>Last updated: {formatDate(nw?.last_updated)}</span>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 'var(--fs-base)' }}>
+              {nwError ? (
+                <span style={{ color: 'var(--neg)', fontWeight: 600 }}>Unable to load net worth.</span>
+              ) : netWorthLoading ? (
+                <span style={{ color: 'var(--text-3)' }}>Loading latest balances…</span>
+              ) : (
+                <>
+                  <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)', fontWeight: 600 }}>
+                    30d: {nw?.delta_30d != null ? `${nw.delta_30d >= 0 ? '+' : ''}${usd(nw.delta_30d)} (${pct(nw.delta_30d_pct)})` : '—'}
+                  </span>
+                  <span style={{ color: 'var(--text-3)' }}>Last updated: {formatDate(nw?.last_updated)}</span>
+                </>
+              )}
             </div>
           </div>
 
           {recommendation ? (
-            <div className="card" style={{ borderColor: `${tone}55`, borderLeft: `3px solid ${tone}`, marginBottom: 0 }}>
-              <div className="flex-between" style={{ alignItems: 'start', gap: 10 }}>
+            <div style={{ borderLeft: `2px solid ${tone}`, paddingLeft: 'var(--s-4)', marginBottom: 0 }}>
+              <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
                 <div>
-                  <div className="section-label mb-8">Top recommendation</div>
-                  <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 6 }}>{recommendation.title}</div>
-                  <div style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55 }}>{recommendation.description}</div>
-                  <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{recommendation.action}</div>
+                  <div className="section-label mb-8">Top insight</div>
+                  <div style={{ fontWeight: 500, fontSize: 'var(--fs-md)', marginBottom: 6 }}>{recommendation.title}</div>
+                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>{recommendation.description}</div>
+                  <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>{recommendation.action}</div>
                 </div>
                 <button
                   className="btn btn-sm"
@@ -163,17 +156,21 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+          ) : insightsInitialLoading ? (
+            <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
+              Loading insight…
+            </div>
           ) : (
             <div />
           )}
         </div>
       </div>
 
-      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 24 }}>
+      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--s-5)', marginBottom: 24 }}>
         <div className="card">
           <div className="flex-between mb-16" style={{ alignItems: 'center' }}>
             <div className="section-label">Net worth history</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
               {RANGE_OPTIONS.map((opt) => (
                 <button
                   key={opt}
@@ -181,8 +178,8 @@ export default function Dashboard() {
                   onClick={() => setRange(opt)}
                   style={{
                     padding: '3px 10px',
-                    borderColor: opt === range ? 'var(--blue)' : 'var(--border-soft)',
-                    color: opt === range ? 'var(--blue-bright)' : 'var(--text-3)',
+                    borderColor: opt === range ? 'var(--accent)' : 'var(--border)',
+                    color: opt === range ? 'var(--accent)' : 'var(--text-3)',
                   }}
                 >
                   {opt}
@@ -191,26 +188,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {historyReady ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={history} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: 'var(--text-3)', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value) => usd(value, true)}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="net_worth" stroke="#3b82f6" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+          {historyError ? (
+            <div className="empty">
+              <div className="empty-title">Chart unavailable</div>
+              <div className="empty-sub">Net worth history could not be loaded.</div>
+            </div>
+          ) : historyInitialLoading ? (
+            <div className="empty">
+              <span className="spinner" aria-label="Loading chart" />
+              <div className="empty-sub" style={{ marginTop: 10 }}>Loading net worth history…</div>
+            </div>
+          ) : historyReady ? (
+            <TerminalAreaChart data={history} dataKey="net_worth" height={250} formatter={(value) => usd(value, true)} />
           ) : (
             <div className="empty">
               <div className="empty-title">No chart data</div>
@@ -221,25 +210,27 @@ export default function Dashboard() {
 
         <div className="card">
           <div className="section-label mb-16">Allocation (incl. liabilities)</div>
-          {allocationData.length > 0 ? (
+          {nwError ? (
+            <div className="empty">
+              <div className="empty-title">Allocation unavailable</div>
+              <div className="empty-sub">Current balances could not be loaded.</div>
+            </div>
+          ) : netWorthLoading ? (
+            <div className="empty">
+              <span className="spinner" aria-label="Loading allocation" />
+              <div className="empty-sub" style={{ marginTop: 10 }}>Loading allocation…</div>
+            </div>
+          ) : allocationData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={170}>
-                <PieChart>
-                  <Pie data={allocationData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={76} paddingAngle={2}>
-                    {allocationData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              <TerminalDonut data={allocationData} colors={PIE_COLORS} size={170} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', marginTop: 8 }}>
                 {allocationData.map((item, i) => (
-                  <div key={item.name} className="flex-between" style={{ fontSize: 12 }}>
+                  <div key={item.name} className="flex-between" style={{ fontSize: 'var(--fs-sm)' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 999, background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
+                      <span style={{ width: 8, height: 8, borderRadius: 'var(--r-round)', background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
                       <span style={{ textTransform: 'capitalize', color: 'var(--text-2)' }}>{item.name}</span>
                     </div>
-                    <span className="num" style={{ fontSize: 11 }}>{usd(item.value, true)}</span>
+                    <span className="num" style={{ fontSize: 'var(--fs-xs)' }}>{usd(item.value, true)}</span>
                   </div>
                 ))}
               </div>
@@ -252,65 +243,61 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card mb-24" style={{ borderColor: 'var(--border-soft)' }}>
+      <div className="card mb-24" style={{ borderColor: 'var(--border)' }}>
         <div className="flex-between mb-16">
           <div>
             <div className="section-label mb-8">Account overview</div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Grouped for fast scanning. Click any account for detail view.</div>
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>Grouped for fast scanning. Click any account for detail view.</div>
           </div>
-          <button className="btn btn-primary" onClick={() => navigate('/accounts')}>Quick add</button>
+          <button className="btn btn-primary" onClick={() => navigate('/accounts')}>Manage accounts</button>
         </div>
 
-        {groupedAccounts.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {groupedAccounts.map((group) => (
-              <div key={group.title}>
-                <div style={{ marginBottom: 8, color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                  {group.title}
-                </div>
-                <div className="grid-auto" style={{ gap: 10 }}>
-                  {group.items.map((account) => {
-                    const toneValue = stalenessTone(account.last_updated)
-                    const toneColor = toneValue === 'green' ? 'var(--green)' : toneValue === 'gold' ? 'var(--gold)' : 'var(--red)'
-
-                    return (
-                      <button
-                        key={account.id}
-                        className="card"
-                        onClick={() => navigate(`/accounts?accountId=${account.id}`)}
-                        style={{
-                          textAlign: 'left',
-                          padding: '14px 16px',
-                          display: 'grid',
-                          gridTemplateColumns: '1fr auto',
-                          gap: 12,
-                          alignItems: 'center',
-                          color: 'var(--text)',
-                          font: 'inherit',
-                          background: 'linear-gradient(135deg, rgba(255,255,255,0.015), rgba(255,255,255,0.005))',
-                          border: '1px solid var(--border-soft)',
-                          borderRadius: 12,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600, marginBottom: 4 }}>{account.name}</div>
-                          <div style={{ color: 'var(--text-3)', fontSize: 12, textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="num" style={{ fontSize: 14 }}>{usd(account.balance)}</div>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 999, background: toneColor, display: 'inline-block' }} />
-                            {formatDate(account.last_updated)}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+        {accountsError ? (
+          <div className="empty">
+            <div className="empty-title">Accounts unavailable</div>
+            <div className="empty-sub">Account balances could not be loaded.</div>
           </div>
+        ) : accountsInitialLoading ? (
+          <div className="empty">
+            <span className="spinner" aria-label="Loading accounts" />
+            <div className="empty-sub" style={{ marginTop: 10 }}>Loading accounts…</div>
+          </div>
+        ) : groupedAccounts.length > 0 ? (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Type</th>
+                <th style={{ textAlign: 'right' }}>Balance</th>
+                <th style={{ textAlign: 'right' }}>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedAccounts.flatMap((group) =>
+                group.items.map((account) => {
+                  const toneValue = stalenessTone(account.last_updated)
+                  const toneColor = toneValue === 'fresh' ? 'var(--pos)' : toneValue === 'aging' ? 'var(--accent)' : 'var(--neg)'
+                  return (
+                    <tr
+                      key={account.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/accounts?accountId=${account.id}`)}
+                    >
+                      <td style={{ fontWeight: 500 }}>{account.name}</td>
+                      <td style={{ color: 'var(--text-3)', textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</td>
+                      <td className="num" style={{ textAlign: 'right' }}>{usd(account.balance)}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: toneColor, display: 'inline-block', flexShrink: 0 }} />
+                          <span className="num" style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}>{formatDate(account.last_updated)}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         ) : (
           <div className="empty">
             <div className="empty-title">No accounts yet</div>
@@ -319,7 +306,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>Local-first. Your data stays here.</div>
+      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginTop: 8 }}>Local-first. Your data stays here.</div>
     </div>
   )
 }

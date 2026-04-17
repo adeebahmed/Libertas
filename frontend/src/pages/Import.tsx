@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { ImportLog } from '../types'
+import Confirm from '../components/Confirm'
 
 type UploadResult = {
   id?: number
@@ -18,10 +19,10 @@ type UploadResult = {
 
 type QualityKey = 'rows_failed' | 'parse_errors' | 'potential_transfers'
 
-const QUALITY_META: Record<QualityKey, { label: string; tone: 'red' | 'gold' | 'blue' }> = {
-  rows_failed: { label: 'Failed rows', tone: 'red' },
-  parse_errors: { label: 'Parse errors', tone: 'gold' },
-  potential_transfers: { label: 'Transfer warnings', tone: 'blue' },
+const QUALITY_META: Record<QualityKey, { label: string; tone: 'danger' | 'warning' | 'info' }> = {
+  rows_failed: { label: 'Failed rows', tone: 'danger' },
+  parse_errors: { label: 'Parse errors', tone: 'warning' },
+  potential_transfers: { label: 'Transfer warnings', tone: 'info' },
 }
 
 function qualityItems(source: Partial<Record<QualityKey, number | null | undefined>>) {
@@ -31,26 +32,26 @@ function qualityItems(source: Partial<Record<QualityKey, number | null | undefin
       if (value == null || value <= 0) return null
       return { key, label: QUALITY_META[key].label, tone: QUALITY_META[key].tone, value }
     })
-    .filter((item): item is { key: QualityKey; label: string; tone: 'red' | 'gold' | 'blue'; value: number } => item !== null)
+    .filter((item): item is { key: QualityKey; label: string; tone: 'danger' | 'warning' | 'info'; value: number } => item !== null)
 }
 
 function QualityBadges({ source }: { source: Partial<Record<QualityKey, number | null | undefined>> }) {
   const items = qualityItems(source)
-  if (!items.length) return <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
+  if (!items.length) return <span style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>—</span>
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-2)' }}>
       {items.map((item) => (
         <span
           key={item.key}
           className="tag"
           style={{
-            color: item.tone === 'red' ? 'var(--red)' : item.tone === 'gold' ? 'var(--gold)' : 'var(--blue-bright)',
-            borderColor: item.tone === 'red' ? '#f8717128' : item.tone === 'gold' ? '#d4a84028' : '#60a5fa28',
-            background: item.tone === 'red' ? '#f871710c' : item.tone === 'gold' ? '#d4a8400c' : '#60a5fa0c',
+            color: item.tone === 'danger' ? 'var(--neg)' : 'var(--accent)',
+            borderColor: item.tone === 'danger' ? '#f8717128' : item.tone === 'warning' ? '#d4a84028' : '#60a5fa28',
+            background: item.tone === 'danger' ? '#f871710c' : item.tone === 'warning' ? '#d4a8400c' : '#60a5fa0c',
             textTransform: 'none',
             letterSpacing: 0,
-            fontSize: 10.5,
+            fontSize: 'var(--fs-xs)',
             padding: '2px 7px',
           }}
           title={`${item.label}: ${item.value}`}
@@ -110,26 +111,26 @@ function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
         bottom: 24,
         right: 24,
         zIndex: 100,
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--gold-dim)',
-        borderRadius: 8,
+        background: 'var(--bg-2)',
+        border: '1px solid var(--accent-dim)',
+        borderRadius: 'var(--r)',
         padding: '12px 18px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        fontSize: 13,
+        fontSize: 'var(--fs-base)',
       }}
     >
-      <span style={{ color: 'var(--green)', fontSize: 16 }}>✓</span>
+      <span style={{ color: 'var(--pos)', fontSize: 'var(--fs-md)' }}>✓</span>
       <div>
         <div style={{ fontWeight: 500, color: 'var(--text)' }}>File auto-ingested</div>
-        <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{banner.filename} · {banner.rows} rows</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>{banner.filename} · {banner.rows} rows</div>
       </div>
       <button
         type="button"
         onClick={() => setBanner(null)}
-        style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+        style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 'var(--fs-md)', lineHeight: 1 }}
       >
         ×
       </button>
@@ -143,6 +144,8 @@ export default function Import() {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<UploadResult | null>(null)
   const [rollingBack, setRollingBack] = useState<number | null>(null)
+  const [rollbackError, setRollbackError] = useState<string | null>(null)
+  const [confirmPending, setConfirmPending] = useState<{ logId: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(
@@ -171,14 +174,19 @@ export default function Import() {
     [refetch],
   )
 
-  const handleRollback = async (logId: number) => {
-    if (!window.confirm('Roll back this import? This will delete all transactions from this import and rebuild the account.')) return
+  const handleRollback = (logId: number) => {
+    setConfirmPending({ logId })
+  }
+
+  const doRollback = async (logId: number) => {
+    setConfirmPending(null)
     setRollingBack(logId)
+    setRollbackError(null)
     try {
       await api.post(`/imports/${logId}/rollback`)
       refetch()
     } catch (error: any) {
-      window.alert(`Rollback failed: ${error.message}`)
+      setRollbackError(`Rollback failed: ${error.message}`)
     } finally {
       setRollingBack(null)
     }
@@ -197,6 +205,23 @@ export default function Import() {
       <h1 className="page-title">Import</h1>
 
       <WatchNotification onNewImport={refetch} />
+
+      {rollbackError && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--bg-2)', border: '1px solid var(--neg)', borderRadius: 'var(--r)', color: 'var(--neg)', fontSize: 'var(--fs-sm)' }}>
+          {rollbackError}
+        </div>
+      )}
+
+      {confirmPending && (
+        <Confirm
+          message="Roll back this import?"
+          detail="All transactions from this file will be removed. The account remains; only this import's data is undone."
+          destructive
+          confirmLabel="Roll back"
+          onConfirm={() => doRollback(confirmPending.logId)}
+          onCancel={() => setConfirmPending(null)}
+        />
+      )}
 
       <div className="grid-2 import-top-grid mb-32" style={{ gridTemplateColumns: '1fr 380px', alignItems: 'start' }}>
         <div>
@@ -231,15 +256,15 @@ export default function Import() {
           </div>
 
           {result && (
-            <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--red)' : 'var(--gold-dim)' }}>
+            <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--neg)' : 'var(--accent-dim)' }}>
               {result.status === 'error' ? (
-                <div style={{ color: 'var(--red)', fontSize: 14 }}>Error: {result.error}</div>
+                <div style={{ color: 'var(--neg)', fontSize: 'var(--fs-base)' }}>Error: {result.error}</div>
               ) : (
-                <div style={{ fontSize: 14 }}>
+                <div style={{ fontSize: 'var(--fs-base)' }}>
                   <div style={{ fontWeight: 500, marginBottom: 8 }}>
                     {result.status === 'success' ? '✓' : '·'} {result.institution || 'Unknown institution'}
                   </div>
-                  <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                  <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-base)' }}>
                     {result.rows_imported} rows imported · {result.rows_skipped} skipped (duplicates)
                   </div>
                   <div className="flex-between" style={{ marginTop: 12, gap: 12, alignItems: 'start' }}>
@@ -270,8 +295,8 @@ export default function Import() {
               ['Rollback', 'Made a mistake? Click "Rollback" on any import to undo it.'],
             ].map(([title, desc]) => (
               <div key={title}>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.55 }}>{desc}</div>
+                <div style={{ fontSize: 'var(--fs-base)', fontWeight: 500, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.55 }}>{desc}</div>
               </div>
             ))}
           </div>
@@ -300,21 +325,21 @@ export default function Import() {
                 const statusLabel = isDuplicateOnly ? 'duplicate' : log.status === 'rolled_back' ? 'rolled back' : log.status
                 const statusColor =
                   log.status === 'error'
-                    ? 'var(--red)'
+                    ? 'var(--neg)'
                     : isDuplicateOnly
                       ? 'var(--text-2)'
                       : log.status === 'success'
-                        ? 'var(--green)'
+                        ? 'var(--pos)'
                         : 'var(--text-3)'
 
                 return (
                   <tr key={log.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{log.filename}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)' }}>{log.filename}</td>
                     <td style={{ color: 'var(--text-2)' }}>{log.institution_name ?? '—'}</td>
                     <td>
                       <span
                         style={{
-                          fontSize: 11,
+                          fontSize: 'var(--fs-xs)',
                           fontWeight: 500,
                           textTransform: 'uppercase',
                           letterSpacing: '0.4px',
@@ -324,7 +349,7 @@ export default function Import() {
                         {statusLabel}
                       </span>
                       {log.status === 'error' && log.error_message && (
-                        <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-3)', maxWidth: 280, lineHeight: 1.35 }}>
+                        <div style={{ marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-3)', maxWidth: 280, lineHeight: 1.35 }}>
                           {log.error_message}
                         </div>
                       )}
@@ -332,7 +357,7 @@ export default function Import() {
                     <td><QualityBadges source={log} /></td>
                     <td className="num" style={{ textAlign: 'right' }}>{log.rows_imported}</td>
                     <td className="num" style={{ textAlign: 'right', color: 'var(--text-3)' }}>{log.rows_skipped}</td>
-                    <td className="num" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                    <td className="num" style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>
                       {log.created_at ? new Date(log.created_at).toLocaleDateString() : '—'}
                     </td>
                     <td>

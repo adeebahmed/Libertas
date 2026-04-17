@@ -15,7 +15,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
     <div className="card stat-cell">
       <div className="lbl">{label}</div>
       <div className="val num-mid num" style={{ color: color ?? 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
@@ -32,9 +32,9 @@ export default function TaxesPage() {
       <h1 className="page-title">Taxes</h1>
 
       {noIncome && (
-        <div className="card mb-24" style={{ borderColor: 'var(--gold-dim)', background: 'rgba(201,169,110,0.05)' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-            Add your income in <a href="/settings" style={{ color: 'var(--gold)' }}>Settings</a> to see your tax estimate. Go to Settings → Income &amp; Tax.
+        <div className="card mb-24" style={{ borderColor: 'var(--accent-dim)', background: 'rgba(201,169,110,0.05)' }}>
+          <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
+            Add your income in <a href="/settings" style={{ color: 'var(--accent)' }}>Settings</a> to see your tax estimate. Go to Settings → Income &amp; Tax.
           </div>
         </div>
       )}
@@ -49,7 +49,7 @@ export default function TaxesPage() {
             <StatCard label="Total Income" value={usd(estimate.total_income)} />
             <StatCard label="AGI" value={usd(estimate.agi)} sub={`−${usd(estimate.standard_deduction)} std deduction`} />
             <StatCard label="Taxable Income" value={usd(estimate.taxable_income)} />
-            <StatCard label="Effective Rate" value={pct(estimate.effective_rate)} color={estimate.effective_rate > 30 ? 'var(--red)' : 'var(--text)'} />
+            <StatCard label="Effective Rate" value={pct(estimate.effective_rate)} color={estimate.effective_rate > 30 ? 'var(--neg)' : 'var(--text)'} />
           </div>
 
           <div className="card mb-32" style={{ padding: 0 }}>
@@ -76,7 +76,7 @@ export default function TaxesPage() {
                 )}
                 <tr style={{ fontWeight: 600 }}>
                   <td>Total estimated tax</td>
-                  <td className="num" style={{ textAlign: 'right', color: 'var(--red)' }}>{usd(estimate.total_estimated_tax)}</td>
+                  <td className="num" style={{ textAlign: 'right', color: 'var(--neg)' }}>{usd(estimate.total_estimated_tax)}</td>
                 </tr>
                 <tr>
                   <td style={{ color: 'var(--text-2)' }}>Quarterly payment (est.)</td>
@@ -98,12 +98,12 @@ export default function TaxesPage() {
                 <StatCard
                   label="Harvestable Losses"
                   value={usd(harvest.total_harvestable_loss)}
-                  color="var(--red)"
+                  color="var(--neg)"
                 />
                 <StatCard
                   label="Est. Tax Savings"
                   value={usd(harvest.estimated_tax_savings)}
-                  color="var(--green)"
+                  color="var(--pos)"
                 />
               </div>
               <div className="card" style={{ padding: 0 }}>
@@ -127,18 +127,18 @@ export default function TaxesPage() {
                         <td className="num" style={{ textAlign: 'right' }}>{o.quantity.toFixed(4)}</td>
                         <td className="num" style={{ textAlign: 'right' }}>{usd(o.cost_basis)}</td>
                         <td className="num" style={{ textAlign: 'right' }}>{usd(o.market_value)}</td>
-                        <td className="num" style={{ textAlign: 'right', color: 'var(--red)' }}>{usd(o.unrealized_loss)}</td>
-                        <td className="num" style={{ textAlign: 'right', color: 'var(--red)' }}>{o.loss_pct.toFixed(1)}%</td>
+                        <td className="num" style={{ textAlign: 'right', color: 'var(--neg)' }}>{usd(o.unrealized_loss)}</td>
+                        <td className="num" style={{ textAlign: 'right', color: 'var(--neg)' }}>{o.loss_pct.toFixed(1)}%</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-3)' }}>{harvest.note}</div>
+              <div style={{ marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>{harvest.note}</div>
             </>
           ) : (
             <div className="card">
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>No significant tax-loss harvesting opportunities in your taxable accounts right now.</div>
+              <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>No significant tax-loss harvesting opportunities in your taxable accounts right now.</div>
             </div>
           )}
         </div>
@@ -151,18 +151,18 @@ export default function TaxesPage() {
           {recs.recommendations.map(r => (
             <div key={r.type} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{r.type}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 'var(--fs-base)' }}>{r.type}</span>
                   <span style={{
-                    fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px',
-                    color: r.priority === 'high' ? 'var(--red)' : r.priority === 'medium' ? 'var(--gold)' : 'var(--text-3)',
+                    fontSize: 'var(--fs-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px',
+                    color: r.priority === 'high' ? 'var(--neg)' : r.priority === 'medium' ? 'var(--accent)' : 'var(--text-3)',
                   }}>{r.priority}</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>{r.reason}</div>
+                <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)', lineHeight: 1.55 }}>{r.reason}</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 2 }}>2024 limit</div>
-                <div className="num" style={{ fontSize: 14 }}>{usd(r.limit_2024)}</div>
+                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', marginBottom: 2 }}>2024 limit</div>
+                <div className="num" style={{ fontSize: 'var(--fs-base)' }}>{usd(r.limit_2024)}</div>
               </div>
             </div>
           ))}

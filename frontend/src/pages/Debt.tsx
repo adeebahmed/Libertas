@@ -2,10 +2,7 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { DebtResponse, DebtAccount } from '../types'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, CartesianGrid,
-} from 'recharts'
+import { TerminalBarChart } from '../components/Chart'
 
 const TYPE_LABEL: Record<string, string> = {
   credit_card: 'Credit Card',
@@ -15,10 +12,10 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  credit_card: '#c95f52',
-  student_loan: '#6a9fc0',
-  auto_loan: '#d4a840',
-  personal_loan: '#9b85c4',
+  credit_card: 'var(--neg)',
+  student_loan: 'var(--text)',
+  auto_loan: 'var(--accent)',
+  personal_loan: 'var(--text-2)',
 }
 
 function fmt(n: number) {
@@ -86,7 +83,7 @@ export default function DebtPage() {
         <div className="empty">
           <div className="empty-icon">◌</div>
           <div className="empty-title">No debt accounts</div>
-          <div className="empty-sub">Add accounts with type credit_card, student_loan, auto_loan, or personal_loan</div>
+          <div className="empty-sub">Add Credit Card, Student Loan, Auto Loan, or Personal Loan accounts.</div>
         </div>
       ) : (
         <>
@@ -95,7 +92,7 @@ export default function DebtPage() {
             <div className="grid-4 mb-24">
               <div className="card stat-cell">
                 <div className="lbl">Total Debt</div>
-                <div className="val num-large" style={{ color: 'var(--red)' }}>{fmt(summary.total_balance)}</div>
+                <div className="val num-large" style={{ color: 'var(--neg)' }}>{fmt(summary.total_balance)}</div>
               </div>
               <div className="card stat-cell">
                 <div className="lbl">Min Payments / mo</div>
@@ -103,7 +100,7 @@ export default function DebtPage() {
               </div>
               <div className="card stat-cell">
                 <div className="lbl">Highest APR</div>
-                <div className="val num-mid num" style={{ color: summary.highest_rate > 15 ? 'var(--red)' : 'var(--text)' }}>
+                <div className="val num-mid num" style={{ color: summary.highest_rate > 15 ? 'var(--neg)' : 'var(--text)' }}>
                   {summary.highest_rate.toFixed(2)}%
                 </div>
               </div>
@@ -118,28 +115,13 @@ export default function DebtPage() {
             {/* Balance by account */}
             <div className="card">
               <div className="section-label mb-16">Balance by Account</div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={barData} barCategoryGap="30%">
-                  <XAxis dataKey="name" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
-                  <Tooltip
-                    formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}
-                    labelStyle={{ color: 'var(--text-3)' }}
-                  />
-                  <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
-                    {barData.map((entry, i) => (
-                      <rect key={i} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <TerminalBarChart data={barData} dataKey="balance" height={200} formatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
             </div>
 
             {/* Debt by type breakdown */}
             <div className="card">
               <div className="section-label mb-16">By Type</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
                 {Object.entries(
                   debts.reduce((acc, d) => {
                     acc[d.type] = (acc[d.type] ?? 0) + d.balance
@@ -150,13 +132,13 @@ export default function DebtPage() {
                   return (
                     <div key={type}>
                       <div className="flex-between mb-8">
-                        <span style={{ fontSize: 13, color: TYPE_COLOR[type] ?? 'var(--text-2)' }}>
+                        <span style={{ fontSize: 'var(--fs-base)', color: TYPE_COLOR[type] ?? 'var(--text-2)' }}>
                           {TYPE_LABEL[type] ?? type}
                         </span>
-                        <span className="num" style={{ fontSize: 13, color: 'var(--text)' }}>{fmt(bal)}</span>
+                        <span className="num" style={{ fontSize: 'var(--fs-base)', color: 'var(--text)' }}>{fmt(bal)}</span>
                       </div>
-                      <div style={{ height: 4, background: 'var(--bg-elevated)', borderRadius: 2 }}>
-                        <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 2 }} />
+                      <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 'var(--r-sm)' }}>
+                        <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 'var(--r-sm)' }} />
                       </div>
                     </div>
                   )
@@ -192,16 +174,16 @@ export default function DebtPage() {
                           {TYPE_LABEL[d.type] ?? d.type}
                         </span>
                       </td>
-                      <td className="num" style={{ textAlign: 'right', color: 'var(--red)' }}>{fmt(d.balance)}</td>
+                      <td className="num" style={{ textAlign: 'right', color: 'var(--neg)' }}>{fmt(d.balance)}</td>
                       <td style={{ textAlign: 'right' }}>
                         {e ? (
                           <input
                             value={e.interest_rate}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], interest_rate: ev.target.value } }))}
-                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 'var(--fs-base)', fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
-                          <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--red)' : 'var(--text)' }}>
+                          <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--neg)' : 'var(--text)' }}>
                             {d.interest_rate > 0 ? `${d.interest_rate.toFixed(2)}%` : '—'}
                           </span>
                         )}
@@ -211,7 +193,7 @@ export default function DebtPage() {
                           <input
                             value={e.minimum_payment}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], minimum_payment: ev.target.value } }))}
-                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 'var(--fs-base)', fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num">{d.minimum_payment > 0 ? fmt(d.minimum_payment) : '—'}</span>
