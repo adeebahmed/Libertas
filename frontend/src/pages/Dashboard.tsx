@@ -139,13 +139,13 @@ export default function Dashboard() {
           </div>
 
           {recommendation ? (
-            <div className="card" style={{ borderColor: `${tone}55`, borderLeft: `3px solid ${tone}`, marginBottom: 0 }}>
+            <div style={{ borderLeft: `2px solid ${tone}`, paddingLeft: 'var(--s-4)', marginBottom: 0 }}>
               <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
                 <div>
-                  <div className="section-label mb-8">Top recommendation</div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--fs-lg)', marginBottom: 6 }}>{recommendation.title}</div>
-                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-base)', lineHeight: 1.55 }}>{recommendation.description}</div>
-                  <div style={{ marginTop: 10, fontSize: 'var(--fs-base)', color: 'var(--text)', lineHeight: 1.5 }}>{recommendation.action}</div>
+                  <div className="section-label mb-8">Top insight</div>
+                  <div style={{ fontWeight: 500, fontSize: 'var(--fs-md)', marginBottom: 6 }}>{recommendation.title}</div>
+                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>{recommendation.description}</div>
+                  <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>{recommendation.action}</div>
                 </div>
                 <button
                   className="btn btn-sm"
@@ -157,11 +157,8 @@ export default function Dashboard() {
               </div>
             </div>
           ) : insightsInitialLoading ? (
-            <div className="card" style={{ marginBottom: 0 }}>
-              <div className="empty" style={{ padding: 'var(--s-6) var(--s-5)' }}>
-                <span className="spinner" aria-label="Loading recommendation" />
-                <div className="empty-sub" style={{ marginTop: 10 }}>Loading recommendation…</div>
-              </div>
+            <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
+              Loading insight…
             </div>
           ) : (
             <div />
@@ -266,55 +263,41 @@ export default function Dashboard() {
             <div className="empty-sub" style={{ marginTop: 10 }}>Loading accounts…</div>
           </div>
         ) : groupedAccounts.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-            {groupedAccounts.map((group) => (
-              <div key={group.title}>
-                <div style={{ marginBottom: 8, color: 'var(--text-3)', fontSize: 'var(--fs-xs)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                  {group.title}
-                </div>
-                <div className="grid-auto" style={{ gap: 'var(--s-2)' }}>
-                  {group.items.map((account) => {
-                    const toneValue = stalenessTone(account.last_updated)
-                    const toneColor = toneValue === 'fresh' ? 'var(--pos)' : toneValue === 'aging' ? 'var(--accent)' : 'var(--neg)'
-
-                    return (
-                      <button
-                        key={account.id}
-                        className="card"
-                        onClick={() => navigate(`/accounts?accountId=${account.id}`)}
-                        style={{
-                          textAlign: 'left',
-                          padding: 'var(--s-4)',
-                          display: 'grid',
-                          gridTemplateColumns: '1fr auto',
-                          gap: 12,
-                          alignItems: 'center',
-                          color: 'var(--text)',
-                          font: 'inherit',
-                          background: 'linear-gradient(135deg, rgba(255,255,255,0.015), rgba(255,255,255,0.005))',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--r)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600, marginBottom: 4 }}>{account.name}</div>
-                          <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)', textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="num" style={{ fontSize: 'var(--fs-base)' }}>{usd(account.balance)}</div>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', marginTop: 3 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 'var(--r-round)', background: toneColor, display: 'inline-block' }} />
-                            {formatDate(account.last_updated)}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Type</th>
+                <th style={{ textAlign: 'right' }}>Balance</th>
+                <th style={{ textAlign: 'right' }}>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedAccounts.flatMap((group) =>
+                group.items.map((account) => {
+                  const toneValue = stalenessTone(account.last_updated)
+                  const toneColor = toneValue === 'fresh' ? 'var(--pos)' : toneValue === 'aging' ? 'var(--accent)' : 'var(--neg)'
+                  return (
+                    <tr
+                      key={account.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/accounts?accountId=${account.id}`)}
+                    >
+                      <td style={{ fontWeight: 500 }}>{account.name}</td>
+                      <td style={{ color: 'var(--text-3)', textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</td>
+                      <td className="num" style={{ textAlign: 'right' }}>{usd(account.balance)}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: toneColor, display: 'inline-block', flexShrink: 0 }} />
+                          <span className="num" style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}>{formatDate(account.last_updated)}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         ) : (
           <div className="empty">
             <div className="empty-title">No accounts yet</div>
