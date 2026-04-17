@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import CommandPalette from './components/CommandPalette'
+import { ThemeProvider } from './theme'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Import from './pages/Import'
@@ -40,21 +40,12 @@ const ROUTE_TITLES: Array<{ path: string; title: string; exact?: boolean }> = [
 export default function App() {
   const location = useLocation()
 
-  const [theme, setTheme] = useState<'onyx' | 'chalk'>(() =>
-    (localStorage.getItem('libertas-theme') as 'onyx' | 'chalk') ?? 'onyx'
-  )
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('libertas-theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => setTheme(t => t === 'onyx' ? 'chalk' : 'onyx')
   const activeTitle = ROUTE_TITLES.find((route) => (
     route.exact ? location.pathname === route.path : location.pathname.startsWith(route.path)
   ))?.title ?? 'Libertas'
 
   return (
+    <ThemeProvider>
     <div className="app">
       <header className="mobile-topbar">
         <div className="mobile-topbar-brand">
@@ -70,9 +61,6 @@ export default function App() {
           </a>
         </div>
         <div className="mobile-topbar-actions">
-          <button className="btn btn-sm" onClick={toggleTheme} title="Switch theme">
-            {theme === 'onyx' ? 'Chalk' : 'Onyx'}
-          </button>
           <NavLink to="/import" className="sidebar-import-btn">
             <IconUpload size={13} />
             Import
@@ -123,17 +111,20 @@ export default function App() {
           ))}
         </div>
         <div className="sidebar-footer">
-          <div className="sidebar-hotkey">
-            <span>Press</span>
+          <div className="sidebar-cmd-hint">
+            <span>Commands</span>
             <kbd>⌘K</kbd>
           </div>
-          <NavLink to="/import" className="sidebar-import-btn">
-            <IconUpload size={13} />
-            Import
-          </NavLink>
-          <NavLink to="/settings" className="sidebar-icon-btn" title="Settings">
-            <IconGear size={14} />
-          </NavLink>
+          <div className="sidebar-footer-row">
+            <NavLink to="/import" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
+              <IconUpload size={13} />
+              <span>Import</span>
+            </NavLink>
+            <NavLink to="/settings" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
+              <IconGear size={13} />
+              <span>Settings</span>
+            </NavLink>
+          </div>
         </div>
       </nav>
       <CommandPalette />
@@ -144,11 +135,7 @@ export default function App() {
             <span className="app-header-rule" aria-hidden="true" />
             <span>{activeTitle}</span>
           </div>
-          <div className="app-header-actions">
-            <button className="btn btn-sm" onClick={toggleTheme} title="Switch theme">
-              {theme === 'onyx' ? 'Chalk' : 'Onyx'}
-            </button>
-          </div>
+          <div className="app-header-actions" />
         </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />
@@ -163,5 +150,6 @@ export default function App() {
         </Routes>
       </main>
     </div>
+    </ThemeProvider>
   )
 }

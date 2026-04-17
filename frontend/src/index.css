@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
 
 :root {
   /* Surface */
@@ -53,24 +54,59 @@
 
 }
 
-/* ── Chalk theme (warm light) ─────────────────────────── */
-[data-theme="chalk"] {
-  --bg:             #fafaf8;
-  --bg-1:           #f4f3ef;
-  --bg-2:           #eceae4;
-  --bg-elev:        #e4e2db;
-  --border:         #dedad0;
-  --border-strong:  #c8c5bb;
-  --border-focus:   #a09d94;
-  --text:           #1a1917;
-  --text-2:         #4a4744;
-  --text-3:         #7a7774;
-  --text-mute:      #b0ada6;
-  --accent:         #c07c10;
-  --accent-dim:     #f0e2c0;
-  --pos:            #15803d;
-  --neg:            #dc2626;
-  --focus-ring:     #ccc9bf;
+/* ── Retro theme (original blue) ──────────────────────── */
+[data-theme="retro"] {
+  --bg:            #060b14;
+  --bg-1:          #0c1526;
+  --bg-2:          #121d31;
+  --bg-elev:       #121d31;
+  --border:        #223757;
+  --border-strong: #2f4d76;
+  --border-focus:  #3a5d8f;
+
+  --text:          #edf3ff;
+  --text-2:        #b8c9e4;
+  --text-3:        #7f99bc;
+  --text-mute:     #5a7199;
+
+  --accent:        #68afff;
+  --accent-dim:    rgba(47, 141, 255, 0.2);
+  --pos:           #51d09a;
+  --neg:           #ff7d81;
+  --focus-ring:    #2f8dff;
+
+  --font-sans: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-mono: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+}
+
+[data-theme="retro"] body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(47, 141, 255, 0.18), transparent 26%),
+    radial-gradient(circle at 90% 6%, rgba(71, 170, 255, 0.14), transparent 24%),
+    linear-gradient(180deg, #050a13 0%, #06101d 30%, #060b14 100%);
+}
+
+[data-theme="retro"] .sidebar {
+  background: linear-gradient(180deg, rgba(13, 23, 41, 0.9), rgba(9, 16, 30, 0.95));
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="retro"] .sidebar-logo {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+[data-theme="retro"] .sidebar-section a.active,
+[data-theme="retro"] .mobile-nav a.active {
+  background: linear-gradient(130deg, rgba(47, 141, 255, 0.18), rgba(47, 141, 255, 0.06));
+  color: var(--accent);
+}
+
+[data-theme="retro"] a:hover {
+  color: #cfe6ff;
 }
 
 *,
@@ -236,34 +272,72 @@ button {
 }
 
 .sidebar-footer {
-  padding: 14px 10px 0;
+  padding: 12px 10px 4px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: 8px;
 }
 
-.sidebar-hotkey {
+.sidebar-cmd-hint {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-2);
-  padding: 6px 2px 10px;
+  padding: 2px 4px 2px 6px;
   color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.sidebar-hotkey kbd {
-  border: 1px solid var(--border-strong);
+.sidebar-cmd-hint kbd {
+  border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 2px 6px;
+  padding: 1px 6px;
   background: var(--bg-1);
   color: var(--text-2);
-  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
 }
+
+.sidebar-footer-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.sidebar-footer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  text-decoration: none;
+}
+
+.sidebar-footer-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-1);
+}
+
+.sidebar-footer-btn.active {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-1);
+}
+
+.sidebar-footer-btn svg { flex-shrink: 0; opacity: 0.8; }
 
 .sidebar-import-btn {
   display: inline-flex;

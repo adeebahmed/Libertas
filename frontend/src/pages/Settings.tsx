@@ -3,6 +3,7 @@ import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, Institution, IntegrationConnection } from '../types'
 import Confirm from '../components/Confirm'
+import { useTheme, type Theme } from '../theme'
 
 type SeedDemoResponse = {
   ok: boolean
@@ -236,9 +237,25 @@ export default function Settings() {
 
   const ACCOUNT_TYPES = ['brokerage', 'crypto', 'savings', 'hsa', 'roth_ira', '401k', 'checking', 'credit_card', 'student_loan', 'auto_loan', 'personal_loan']
 
+  const { theme, setTheme } = useTheme()
+
   return (
     <div>
       <h1 className="page-title">Settings</h1>
+
+      {/* ── Appearance ── */}
+      <div className="section-label mb-16">Appearance</div>
+      <div className="card mb-32">
+        <div className="grid-3">
+          <div className="field">
+            <label>Theme</label>
+            <select value={theme} onChange={e => setTheme(e.target.value as Theme)}>
+              <option value="onyx">Onyx (dark)</option>
+              <option value="retro">Retro (blue)</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* ── General ── */}
       <div className="section-label mb-16">General</div>
