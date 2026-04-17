@@ -81,10 +81,10 @@ export default function Dashboard() {
   const [pinnedTitle, setPinnedTitle] = useState<string | null>(() => localStorage.getItem('dashboardPinnedInsight'))
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
 
-  const { data: nw } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
-  const { data: history } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
-  const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
-  const { data: insights } = useApi<Insight[]>(() => api.get('/insights'), [])
+  const { data: nw, loading: nwLoading, error: nwError } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
+  const { data: history, loading: historyLoading, error: historyError } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
+  const { data: accounts, loading: accountsLoading, error: accountsError } = useApi<Account[]>(() => api.get('/accounts'), [])
+  const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -128,6 +128,10 @@ export default function Dashboard() {
   const tone = recommendation?.priority === 'high' ? 'var(--red)' : recommendation?.priority === 'medium' ? 'var(--gold)' : 'var(--green)'
 
   const historyReady = history && history.length > 0
+  const netWorthLoading = nwLoading && !nw
+  const historyInitialLoading = historyLoading && !history
+  const accountsInitialLoading = accountsLoading && !accounts
+  const insightsInitialLoading = insightsLoading && !insights
 
   return (
     <div>
@@ -135,13 +139,23 @@ export default function Dashboard() {
         <div className="dashboard-hero-grid">
           <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
-            <div className="num-hero mb-8">{nw ? usd(nw.net_worth) : '$—'}</div>
+            <div className="num-hero mb-8">
+              {netWorthLoading ? <span className="spinner" aria-label="Loading net worth" style={{ width: 30, height: 30, borderWidth: 3 }} /> : nw ? usd(nw.net_worth) : '$—'}
+            </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>
-              <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                30d: {nw?.delta_30d != null ? `${nw.delta_30d >= 0 ? '+' : ''}${usd(nw.delta_30d)} (${pct(nw.delta_30d_pct)})` : '—'}
-              </span>
-              <span style={{ color: 'var(--text-3)' }}>Last updated: {formatDate(nw?.last_updated)}</span>
+              {nwError ? (
+                <span style={{ color: 'var(--red)', fontWeight: 600 }}>Unable to load net worth.</span>
+              ) : netWorthLoading ? (
+                <span style={{ color: 'var(--text-3)' }}>Loading latest balances…</span>
+              ) : (
+                <>
+                  <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                    30d: {nw?.delta_30d != null ? `${nw.delta_30d >= 0 ? '+' : ''}${usd(nw.delta_30d)} (${pct(nw.delta_30d_pct)})` : '—'}
+                  </span>
+                  <span style={{ color: 'var(--text-3)' }}>Last updated: {formatDate(nw?.last_updated)}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -161,6 +175,13 @@ export default function Dashboard() {
                 >
                   {pinnedTitle === recommendation.title ? 'Unpin' : 'Pin'}
                 </button>
+              </div>
+            </div>
+          ) : insightsInitialLoading ? (
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="empty" style={{ padding: '28px 18px' }}>
+                <span className="spinner" aria-label="Loading recommendation" />
+                <div className="empty-sub" style={{ marginTop: 10 }}>Loading recommendation…</div>
               </div>
             </div>
           ) : (
@@ -191,7 +212,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {historyReady ? (
+          {historyError ? (
+            <div className="empty">
+              <div className="empty-title">Chart unavailable</div>
+              <div className="empty-sub">Net worth history could not be loaded.</div>
+            </div>
+          ) : historyInitialLoading ? (
+            <div className="empty">
+              <span className="spinner" aria-label="Loading chart" />
+              <div className="empty-sub" style={{ marginTop: 10 }}>Loading net worth history…</div>
+            </div>
+          ) : historyReady ? (
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={history} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <defs>
@@ -221,7 +252,17 @@ export default function Dashboard() {
 
         <div className="card">
           <div className="section-label mb-16">Allocation (incl. liabilities)</div>
-          {allocationData.length > 0 ? (
+          {nwError ? (
+            <div className="empty">
+              <div className="empty-title">Allocation unavailable</div>
+              <div className="empty-sub">Current balances could not be loaded.</div>
+            </div>
+          ) : netWorthLoading ? (
+            <div className="empty">
+              <span className="spinner" aria-label="Loading allocation" />
+              <div className="empty-sub" style={{ marginTop: 10 }}>Loading allocation…</div>
+            </div>
+          ) : allocationData.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={170}>
                 <PieChart>
@@ -258,10 +299,20 @@ export default function Dashboard() {
             <div className="section-label mb-8">Account overview</div>
             <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Grouped for fast scanning. Click any account for detail view.</div>
           </div>
-          <button className="btn btn-primary" onClick={() => navigate('/accounts')}>Quick add</button>
+          <button className="btn btn-primary" onClick={() => navigate('/accounts')}>Manage accounts</button>
         </div>
 
-        {groupedAccounts.length > 0 ? (
+        {accountsError ? (
+          <div className="empty">
+            <div className="empty-title">Accounts unavailable</div>
+            <div className="empty-sub">Account balances could not be loaded.</div>
+          </div>
+        ) : accountsInitialLoading ? (
+          <div className="empty">
+            <span className="spinner" aria-label="Loading accounts" />
+            <div className="empty-sub" style={{ marginTop: 10 }}>Loading accounts…</div>
+          </div>
+        ) : groupedAccounts.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {groupedAccounts.map((group) => (
               <div key={group.title}>
