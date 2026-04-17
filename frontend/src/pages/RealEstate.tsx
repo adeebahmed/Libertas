@@ -9,7 +9,7 @@ function usd(n: number) {
 
 function LTVBar({ ltv }: { ltv: number }) {
   const clamped = Math.min(ltv, 100)
-  const color = ltv > 80 ? 'var(--red)' : ltv > 60 ? 'var(--gold)' : 'var(--green)'
+  const color = ltv > 80 ? 'var(--neg)' : ltv > 60 ? 'var(--accent)' : 'var(--pos)'
   return (
     <div style={{ marginTop: 12 }}>
       <div className="flex-between mb-8" style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
@@ -119,7 +119,7 @@ export default function RealEstatePage() {
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Equity</div>
-                  <div className="num" style={{ color: 'var(--green)', fontWeight: 500 }}>{usd(p.equity)}</div>
+                  <div className="num" style={{ color: 'var(--pos)', fontWeight: 500 }}>{usd(p.equity)}</div>
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Purchased</div>

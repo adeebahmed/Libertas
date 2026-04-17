@@ -17,7 +17,7 @@ function usdFull(n: number) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
       <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
@@ -90,7 +90,7 @@ export default function RetirementPage() {
         <>
           {/* On-track status */}
           {plan.on_track && (
-            <div className="card mb-24" style={{ borderTop: `3px solid ${plan.on_track.on_track ? 'var(--green)' : 'var(--red)'}` }}>
+            <div className="card mb-24" style={{ borderTop: `3px solid ${plan.on_track.on_track ? 'var(--pos)' : 'var(--neg)'}` }}>
               <div className="flex-between mb-16">
                 <div>
                   <div className="section-label mb-4">Retirement Projection</div>
@@ -101,7 +101,7 @@ export default function RetirementPage() {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{
                     fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
-                    color: plan.on_track.on_track ? 'var(--green)' : 'var(--red)',
+                    color: plan.on_track.on_track ? 'var(--pos)' : 'var(--neg)',
                     marginBottom: 4,
                   }}>
                     {plan.on_track.on_track ? '✓ On Track' : '⚠ Behind'}
@@ -120,7 +120,7 @@ export default function RetirementPage() {
                 </div>
                 <div>
                   <div className="section-label mb-4">Projected at Retirement</div>
-                  <div className="num-mid" style={{ color: plan.on_track.on_track ? 'var(--green)' : 'var(--red)' }}>
+                  <div className="num-mid" style={{ color: plan.on_track.on_track ? 'var(--pos)' : 'var(--neg)' }}>
                     {usdFull(plan.on_track.projected_at_retirement)}
                   </div>
                 </div>
@@ -130,7 +130,7 @@ export default function RetirementPage() {
                 </div>
               </div>
               {!plan.on_track.on_track && plan.needed_monthly_contribution && (
-                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 6, fontSize: 13, color: 'var(--text-2)' }}>
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-2)', borderRadius: 6, fontSize: 13, color: 'var(--text-2)' }}>
                   To hit your target by retirement: contribute <strong style={{ color: 'var(--text)' }}>{usdFull(plan.needed_monthly_contribution)}/mo</strong> (vs current {usdFull(plan.monthly_contribution)}/mo)
                 </div>
               )}
@@ -166,10 +166,10 @@ export default function RetirementPage() {
                 <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                 <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={plan.target} stroke="var(--gold)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--gold)', fontSize: 11 }} />
-                <Line type="monotone" dataKey="Conservative" stroke="var(--green-chart)" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="Moderate"     stroke="var(--gold-chart)" strokeWidth={2}   dot={false} />
-                <Line type="monotone" dataKey="Aggressive"   stroke="var(--red-chart)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                <ReferenceLine y={plan.target} stroke="var(--accent)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--accent)', fontSize: 11 }} />
+                <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
+                <Line type="monotone" dataKey="Aggressive"   stroke="var(--neg)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -198,9 +198,9 @@ export default function RetirementPage() {
           {finals && scenarios && (
             <div className="grid-3 mb-24">
               {([
-                ['Conservative', finals.conservative, 'var(--green-chart)', conservative],
-                ['Moderate',     finals.moderate,     'var(--gold-chart)', moderate],
-                ['Aggressive',   finals.aggressive,   'var(--red-chart)', aggressive],
+                ['Conservative', finals.conservative, 'var(--pos)', conservative],
+                ['Moderate',     finals.moderate,     'var(--accent)', moderate],
+                ['Aggressive',   finals.aggressive,   'var(--neg)', aggressive],
               ] as const).map(([name, val, color, rate]) => (
                 <div key={name} className="card" style={{ borderTop: `3px solid ${color}`, paddingTop: 18 }}>
                   <div className="section-label mb-8">{name} · {rate}% / yr</div>
@@ -228,9 +228,9 @@ export default function RetirementPage() {
                   <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Conservative" stroke="var(--green-chart)" strokeWidth={1.5} dot={false} />
-                  <Line type="monotone" dataKey="Moderate"     stroke="var(--gold-chart)" strokeWidth={2}   dot={false} />
-                  <Line type="monotone" dataKey="Aggressive"   stroke="var(--red-chart)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
+                  <Line type="monotone" dataKey="Aggressive"   stroke="var(--neg)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

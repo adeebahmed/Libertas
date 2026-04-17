@@ -18,10 +18,10 @@ type UploadResult = {
 
 type QualityKey = 'rows_failed' | 'parse_errors' | 'potential_transfers'
 
-const QUALITY_META: Record<QualityKey, { label: string; tone: 'red' | 'gold' | 'blue' }> = {
-  rows_failed: { label: 'Failed rows', tone: 'red' },
-  parse_errors: { label: 'Parse errors', tone: 'gold' },
-  potential_transfers: { label: 'Transfer warnings', tone: 'blue' },
+const QUALITY_META: Record<QualityKey, { label: string; tone: 'danger' | 'warning' | 'info' }> = {
+  rows_failed: { label: 'Failed rows', tone: 'danger' },
+  parse_errors: { label: 'Parse errors', tone: 'warning' },
+  potential_transfers: { label: 'Transfer warnings', tone: 'info' },
 }
 
 function qualityItems(source: Partial<Record<QualityKey, number | null | undefined>>) {
@@ -31,7 +31,7 @@ function qualityItems(source: Partial<Record<QualityKey, number | null | undefin
       if (value == null || value <= 0) return null
       return { key, label: QUALITY_META[key].label, tone: QUALITY_META[key].tone, value }
     })
-    .filter((item): item is { key: QualityKey; label: string; tone: 'red' | 'gold' | 'blue'; value: number } => item !== null)
+    .filter((item): item is { key: QualityKey; label: string; tone: 'danger' | 'warning' | 'info'; value: number } => item !== null)
 }
 
 function QualityBadges({ source }: { source: Partial<Record<QualityKey, number | null | undefined>> }) {
@@ -45,9 +45,9 @@ function QualityBadges({ source }: { source: Partial<Record<QualityKey, number |
           key={item.key}
           className="tag"
           style={{
-            color: item.tone === 'red' ? 'var(--red)' : item.tone === 'gold' ? 'var(--gold)' : 'var(--blue-bright)',
-            borderColor: item.tone === 'red' ? '#f8717128' : item.tone === 'gold' ? '#d4a84028' : '#60a5fa28',
-            background: item.tone === 'red' ? '#f871710c' : item.tone === 'gold' ? '#d4a8400c' : '#60a5fa0c',
+            color: item.tone === 'danger' ? 'var(--neg)' : 'var(--accent)',
+            borderColor: item.tone === 'danger' ? '#f8717128' : item.tone === 'warning' ? '#d4a84028' : '#60a5fa28',
+            background: item.tone === 'danger' ? '#f871710c' : item.tone === 'warning' ? '#d4a8400c' : '#60a5fa0c',
             textTransform: 'none',
             letterSpacing: 0,
             fontSize: 10.5,
@@ -110,8 +110,8 @@ function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
         bottom: 24,
         right: 24,
         zIndex: 100,
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--gold-dim)',
+        background: 'var(--bg-2)',
+        border: '1px solid var(--accent-dim)',
         borderRadius: 8,
         padding: '12px 18px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
@@ -121,7 +121,7 @@ function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
         fontSize: 13,
       }}
     >
-      <span style={{ color: 'var(--green)', fontSize: 16 }}>✓</span>
+      <span style={{ color: 'var(--pos)', fontSize: 16 }}>✓</span>
       <div>
         <div style={{ fontWeight: 500, color: 'var(--text)' }}>File auto-ingested</div>
         <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{banner.filename} · {banner.rows} rows</div>
@@ -172,7 +172,7 @@ export default function Import() {
   )
 
   const handleRollback = async (logId: number) => {
-    if (!window.confirm('Roll back this import? This will delete all transactions from this import and rebuild the account.')) return
+    if (!window.confirm("Roll back this import? All transactions from this file will be removed. The account remains; only this import's data is undone.")) return
     setRollingBack(logId)
     try {
       await api.post(`/imports/${logId}/rollback`)
@@ -231,9 +231,9 @@ export default function Import() {
           </div>
 
           {result && (
-            <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--red)' : 'var(--gold-dim)' }}>
+            <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--neg)' : 'var(--accent-dim)' }}>
               {result.status === 'error' ? (
-                <div style={{ color: 'var(--red)', fontSize: 14 }}>Error: {result.error}</div>
+                <div style={{ color: 'var(--neg)', fontSize: 14 }}>Error: {result.error}</div>
               ) : (
                 <div style={{ fontSize: 14 }}>
                   <div style={{ fontWeight: 500, marginBottom: 8 }}>
@@ -300,11 +300,11 @@ export default function Import() {
                 const statusLabel = isDuplicateOnly ? 'duplicate' : log.status === 'rolled_back' ? 'rolled back' : log.status
                 const statusColor =
                   log.status === 'error'
-                    ? 'var(--red)'
+                    ? 'var(--neg)'
                     : isDuplicateOnly
                       ? 'var(--text-2)'
                       : log.status === 'success'
-                        ? 'var(--green)'
+                        ? 'var(--pos)'
                         : 'var(--text-3)'
 
                 return (

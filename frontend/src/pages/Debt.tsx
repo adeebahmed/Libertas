@@ -15,10 +15,10 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  credit_card: 'var(--red-chart)',
-  student_loan: 'var(--blue-chart)',
-  auto_loan: 'var(--gold-chart)',
-  personal_loan: 'var(--purple-chart)',
+  credit_card: 'var(--neg)',
+  student_loan: 'var(--text)',
+  auto_loan: 'var(--accent)',
+  personal_loan: 'var(--text-2)',
 }
 
 function fmt(n: number) {
@@ -86,7 +86,7 @@ export default function DebtPage() {
         <div className="empty">
           <div className="empty-icon">◌</div>
           <div className="empty-title">No debt accounts</div>
-          <div className="empty-sub">Add accounts with type credit_card, student_loan, auto_loan, or personal_loan</div>
+          <div className="empty-sub">Add Credit Card, Student Loan, Auto Loan, or Personal Loan accounts.</div>
         </div>
       ) : (
         <>
@@ -95,7 +95,7 @@ export default function DebtPage() {
             <div className="grid-4 mb-24">
               <div className="card stat-cell">
                 <div className="lbl">Total Debt</div>
-                <div className="val num-large" style={{ color: 'var(--red)' }}>{fmt(summary.total_balance)}</div>
+                <div className="val num-large" style={{ color: 'var(--neg)' }}>{fmt(summary.total_balance)}</div>
               </div>
               <div className="card stat-cell">
                 <div className="lbl">Min Payments / mo</div>
@@ -103,7 +103,7 @@ export default function DebtPage() {
               </div>
               <div className="card stat-cell">
                 <div className="lbl">Highest APR</div>
-                <div className="val num-mid num" style={{ color: summary.highest_rate > 15 ? 'var(--red)' : 'var(--text)' }}>
+                <div className="val num-mid num" style={{ color: summary.highest_rate > 15 ? 'var(--neg)' : 'var(--text)' }}>
                   {summary.highest_rate.toFixed(2)}%
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function DebtPage() {
                   <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
                   <Tooltip
                     formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}
+                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}
                     labelStyle={{ color: 'var(--text-3)' }}
                   />
                   <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
@@ -155,7 +155,7 @@ export default function DebtPage() {
                         </span>
                         <span className="num" style={{ fontSize: 13, color: 'var(--text)' }}>{fmt(bal)}</span>
                       </div>
-                      <div style={{ height: 4, background: 'var(--bg-elevated)', borderRadius: 2 }}>
+                      <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 2 }}>
                         <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 2 }} />
                       </div>
                     </div>
@@ -192,16 +192,16 @@ export default function DebtPage() {
                           {TYPE_LABEL[d.type] ?? d.type}
                         </span>
                       </td>
-                      <td className="num" style={{ textAlign: 'right', color: 'var(--red)' }}>{fmt(d.balance)}</td>
+                      <td className="num" style={{ textAlign: 'right', color: 'var(--neg)' }}>{fmt(d.balance)}</td>
                       <td style={{ textAlign: 'right' }}>
                         {e ? (
                           <input
                             value={e.interest_rate}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], interest_rate: ev.target.value } }))}
-                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
-                          <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--red)' : 'var(--text)' }}>
+                          <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--neg)' : 'var(--text)' }}>
                             {d.interest_rate > 0 ? `${d.interest_rate.toFixed(2)}%` : '—'}
                           </span>
                         )}
@@ -211,7 +211,7 @@ export default function DebtPage() {
                           <input
                             value={e.minimum_payment}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], minimum_payment: ev.target.value } }))}
-                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num">{d.minimum_payment > 0 ? fmt(d.minimum_payment) : '—'}</span>

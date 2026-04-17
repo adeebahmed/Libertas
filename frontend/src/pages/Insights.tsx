@@ -11,8 +11,8 @@ const CAT_CLASS: Record<string, string> = {
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
-  high: 'var(--red)',
-  medium: 'var(--gold)',
+  high: 'var(--neg)',
+  medium: 'var(--accent)',
   low: 'var(--text-3)',
 }
 
@@ -62,7 +62,7 @@ export default function InsightsPage() {
 
       <div className="tabs mb-24">
         <button className={`tab-btn${tab === 'insights' ? ' active' : ''}`} onClick={() => setTab('insights')}>
-          Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--red)', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{highCount}</span>}
+          Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--neg)', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{highCount}</span>}
         </button>
         <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>Ask Claude</button>
       </div>
@@ -77,8 +77,8 @@ export default function InsightsPage() {
                 onClick={() => setFilter(p)}
                 style={{
                   padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                  border: `1px solid ${filter === p ? (p === 'all' ? 'var(--border)' : PRIORITY_COLOR[p]) : 'var(--border-soft)'}`,
-                  background: filter === p ? 'var(--bg-elevated)' : 'transparent',
+                  border: `1px solid ${filter === p ? (p === 'all' ? 'var(--border)' : PRIORITY_COLOR[p]) : 'var(--border)'}`,
+                  background: filter === p ? 'var(--bg-2)' : 'transparent',
                   color: filter === p ? (p === 'all' ? 'var(--text)' : PRIORITY_COLOR[p]) : 'var(--text-3)',
                   cursor: 'pointer',
                   textTransform: 'capitalize',
@@ -116,7 +116,7 @@ export default function InsightsPage() {
                       {ins.action && (
                         <div style={{
                           marginTop: 10, padding: '8px 10px',
-                          background: 'rgba(59,130,246,0.06)', borderLeft: '2px solid var(--blue)',
+                          background: 'rgba(59,130,246,0.06)', borderLeft: '2px solid var(--accent)',
                           borderRadius: '0 4px 4px 0', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5,
                         }}>
                           {ins.action}
@@ -157,7 +157,7 @@ export default function InsightsPage() {
                     onClick={() => setChatInput(q)}
                     style={{
                       padding: '8px 12px', marginBottom: 8, borderRadius: 6,
-                      border: '1px solid var(--border-soft)', cursor: 'pointer',
+                      border: '1px solid var(--border)', cursor: 'pointer',
                       color: 'var(--text-2)', fontSize: 13,
                     }}
                   >
@@ -172,8 +172,8 @@ export default function InsightsPage() {
                 maxWidth: '80%',
                 padding: '10px 14px',
                 borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                background: m.role === 'user' ? 'rgba(59,130,246,0.18)' : 'var(--bg-elevated)',
-                border: '1px solid var(--border-soft)',
+                background: m.role === 'user' ? 'rgba(59,130,246,0.18)' : 'var(--bg-2)',
+                border: '1px solid var(--border)',
                 fontSize: 13,
                 lineHeight: 1.6,
                 color: 'var(--text)',
@@ -188,7 +188,7 @@ export default function InsightsPage() {
               </div>
             )}
             {chatError && (
-              <div style={{ color: 'var(--red)', fontSize: 13, padding: '8px 12px', background: 'var(--bg-elevated)', borderRadius: 6 }}>
+              <div style={{ color: 'var(--neg)', fontSize: 13, padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 6 }}>
                 {chatError}
               </div>
             )}

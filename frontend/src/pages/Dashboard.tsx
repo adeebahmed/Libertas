@@ -16,13 +16,13 @@ import {
 } from 'recharts'
 
 const PIE_COLORS = [
-  'var(--blue-chart)',
-  'var(--green-chart)',
-  'var(--gold-chart)',
-  'var(--purple-chart)',
-  'var(--cyan-chart)',
-  'var(--red-chart)',
-  'var(--blue-bright-chart)',
+  'var(--text)',
+  'var(--pos)',
+  'var(--accent)',
+  'var(--text-2)',
+  'var(--text-2)',
+  'var(--neg)',
+  'var(--text-2)',
 ]
 const RANGE_OPTIONS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 
@@ -56,12 +56,12 @@ function formatDate(value: string | null | undefined) {
   return d.toLocaleString()
 }
 
-function stalenessTone(lastUpdated: string | null): 'green' | 'gold' | 'red' {
-  if (!lastUpdated) return 'red'
+function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' {
+  if (!lastUpdated) return 'stale'
   const days = Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 86_400_000)
-  if (days < 7) return 'green'
-  if (days < 30) return 'gold'
-  return 'red'
+  if (days < 7) return 'fresh'
+  if (days < 30) return 'aging'
+  return 'stale'
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -69,7 +69,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return (
     <div
       style={{
-        background: 'var(--bg-elevated)',
+        background: 'var(--bg-2)',
         border: '1px solid var(--border)',
         borderRadius: 8,
         padding: '10px 12px',
@@ -133,7 +133,7 @@ export default function Dashboard() {
       .sort((a, b) => b.value - a.value)
   }, [nw])
 
-  const tone = recommendation?.priority === 'high' ? 'var(--red)' : recommendation?.priority === 'medium' ? 'var(--gold)' : 'var(--green)'
+  const tone = recommendation?.priority === 'high' ? 'var(--neg)' : recommendation?.priority === 'medium' ? 'var(--accent)' : 'var(--pos)'
 
   const historyReady = history && history.length > 0
   const netWorthLoading = nwLoading && !nw
@@ -153,12 +153,12 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>
               {nwError ? (
-                <span style={{ color: 'var(--red)', fontWeight: 600 }}>Unable to load net worth.</span>
+                <span style={{ color: 'var(--neg)', fontWeight: 600 }}>Unable to load net worth.</span>
               ) : netWorthLoading ? (
                 <span style={{ color: 'var(--text-3)' }}>Loading latest balances…</span>
               ) : (
                 <>
-                  <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                  <span style={{ color: (nw?.delta_30d ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)', fontWeight: 600 }}>
                     30d: {nw?.delta_30d != null ? `${nw.delta_30d >= 0 ? '+' : ''}${usd(nw.delta_30d)} (${pct(nw.delta_30d_pct)})` : '—'}
                   </span>
                   <span style={{ color: 'var(--text-3)' }}>Last updated: {formatDate(nw?.last_updated)}</span>
@@ -210,8 +210,8 @@ export default function Dashboard() {
                   onClick={() => setRange(opt)}
                   style={{
                     padding: '3px 10px',
-                    borderColor: opt === range ? 'var(--blue)' : 'var(--border-soft)',
-                    color: opt === range ? 'var(--blue-bright)' : 'var(--text-3)',
+                    borderColor: opt === range ? 'var(--accent)' : 'var(--border)',
+                    color: opt === range ? 'var(--accent)' : 'var(--text-3)',
                   }}
                 >
                   {opt}
@@ -235,8 +235,8 @@ export default function Dashboard() {
               <AreaChart data={history} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--blue-chart)" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="var(--blue-chart)" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--text)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--text)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -247,7 +247,7 @@ export default function Dashboard() {
                   tickFormatter={(value) => usd(value, true)}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="net_worth" stroke="var(--blue-chart)" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
+                <Area type="monotone" dataKey="net_worth" stroke="var(--text)" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -301,7 +301,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card mb-24" style={{ borderColor: 'var(--border-soft)' }}>
+      <div className="card mb-24" style={{ borderColor: 'var(--border)' }}>
         <div className="flex-between mb-16">
           <div>
             <div className="section-label mb-8">Account overview</div>
@@ -330,7 +330,7 @@ export default function Dashboard() {
                 <div className="grid-auto" style={{ gap: 10 }}>
                   {group.items.map((account) => {
                     const toneValue = stalenessTone(account.last_updated)
-                    const toneColor = toneValue === 'green' ? 'var(--green)' : toneValue === 'gold' ? 'var(--gold)' : 'var(--red)'
+                    const toneColor = toneValue === 'fresh' ? 'var(--pos)' : toneValue === 'aging' ? 'var(--accent)' : 'var(--neg)'
 
                     return (
                       <button
@@ -347,7 +347,7 @@ export default function Dashboard() {
                           color: 'var(--text)',
                           font: 'inherit',
                           background: 'linear-gradient(135deg, rgba(255,255,255,0.015), rgba(255,255,255,0.005))',
-                          border: '1px solid var(--border-soft)',
+                          border: '1px solid var(--border)',
                           borderRadius: 12,
                           cursor: 'pointer',
                         }}
