@@ -659,6 +659,13 @@ hr {
 .mt-16 { margin-top: 16px; }
 .mt-24 { margin-top: 24px; }
 
+.text-xs   { font-size: var(--fs-xs); }
+.text-sm   { font-size: var(--fs-sm); }
+.text-base { font-size: var(--fs-base); }
+.text-md   { font-size: var(--fs-md); }
+.text-lg   { font-size: var(--fs-lg); }
+.text-xl   { font-size: var(--fs-xl); }
+
 /* ── Toast ── */
 .toast {
   position: fixed;

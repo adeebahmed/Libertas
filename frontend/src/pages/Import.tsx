@@ -36,7 +36,7 @@ function qualityItems(source: Partial<Record<QualityKey, number | null | undefin
 
 function QualityBadges({ source }: { source: Partial<Record<QualityKey, number | null | undefined>> }) {
   const items = qualityItems(source)
-  if (!items.length) return <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
+  if (!items.length) return <span style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>—</span>
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-2)' }}>
@@ -50,7 +50,7 @@ function QualityBadges({ source }: { source: Partial<Record<QualityKey, number |
             background: item.tone === 'danger' ? '#f871710c' : item.tone === 'warning' ? '#d4a8400c' : '#60a5fa0c',
             textTransform: 'none',
             letterSpacing: 0,
-            fontSize: 10.5,
+            fontSize: 'var(--fs-xs)',
             padding: '2px 7px',
           }}
           title={`${item.label}: ${item.value}`}
@@ -118,18 +118,18 @@ function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        fontSize: 13,
+        fontSize: 'var(--fs-base)',
       }}
     >
-      <span style={{ color: 'var(--pos)', fontSize: 16 }}>✓</span>
+      <span style={{ color: 'var(--pos)', fontSize: 'var(--fs-md)' }}>✓</span>
       <div>
         <div style={{ fontWeight: 500, color: 'var(--text)' }}>File auto-ingested</div>
-        <div style={{ color: 'var(--text-3)', fontSize: 12 }}>{banner.filename} · {banner.rows} rows</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)' }}>{banner.filename} · {banner.rows} rows</div>
       </div>
       <button
         type="button"
         onClick={() => setBanner(null)}
-        style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+        style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 'var(--fs-md)', lineHeight: 1 }}
       >
         ×
       </button>
@@ -233,13 +233,13 @@ export default function Import() {
           {result && (
             <div className="card mt-16" style={{ borderColor: result.status === 'error' ? 'var(--neg)' : 'var(--accent-dim)' }}>
               {result.status === 'error' ? (
-                <div style={{ color: 'var(--neg)', fontSize: 14 }}>Error: {result.error}</div>
+                <div style={{ color: 'var(--neg)', fontSize: 'var(--fs-base)' }}>Error: {result.error}</div>
               ) : (
-                <div style={{ fontSize: 14 }}>
+                <div style={{ fontSize: 'var(--fs-base)' }}>
                   <div style={{ fontWeight: 500, marginBottom: 8 }}>
                     {result.status === 'success' ? '✓' : '·'} {result.institution || 'Unknown institution'}
                   </div>
-                  <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                  <div style={{ color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-base)' }}>
                     {result.rows_imported} rows imported · {result.rows_skipped} skipped (duplicates)
                   </div>
                   <div className="flex-between" style={{ marginTop: 12, gap: 12, alignItems: 'start' }}>
@@ -270,8 +270,8 @@ export default function Import() {
               ['Rollback', 'Made a mistake? Click "Rollback" on any import to undo it.'],
             ].map(([title, desc]) => (
               <div key={title}>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.55 }}>{desc}</div>
+                <div style={{ fontSize: 'var(--fs-base)', fontWeight: 500, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.55 }}>{desc}</div>
               </div>
             ))}
           </div>
@@ -309,12 +309,12 @@ export default function Import() {
 
                 return (
                   <tr key={log.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{log.filename}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)' }}>{log.filename}</td>
                     <td style={{ color: 'var(--text-2)' }}>{log.institution_name ?? '—'}</td>
                     <td>
                       <span
                         style={{
-                          fontSize: 11,
+                          fontSize: 'var(--fs-xs)',
                           fontWeight: 500,
                           textTransform: 'uppercase',
                           letterSpacing: '0.4px',
@@ -324,7 +324,7 @@ export default function Import() {
                         {statusLabel}
                       </span>
                       {log.status === 'error' && log.error_message && (
-                        <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--text-3)', maxWidth: 280, lineHeight: 1.35 }}>
+                        <div style={{ marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-3)', maxWidth: 280, lineHeight: 1.35 }}>
                           {log.error_message}
                         </div>
                       )}
@@ -332,7 +332,7 @@ export default function Import() {
                     <td><QualityBadges source={log} /></td>
                     <td className="num" style={{ textAlign: 'right' }}>{log.rows_imported}</td>
                     <td className="num" style={{ textAlign: 'right', color: 'var(--text-3)' }}>{log.rows_skipped}</td>
-                    <td className="num" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                    <td className="num" style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>
                       {log.created_at ? new Date(log.created_at).toLocaleDateString() : '—'}
                     </td>
                     <td>

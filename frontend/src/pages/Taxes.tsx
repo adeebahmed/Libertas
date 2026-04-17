@@ -15,7 +15,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
     <div className="card stat-cell">
       <div className="lbl">{label}</div>
       <div className="val num-mid num" style={{ color: color ?? 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
@@ -33,7 +33,7 @@ export default function TaxesPage() {
 
       {noIncome && (
         <div className="card mb-24" style={{ borderColor: 'var(--accent-dim)', background: 'rgba(201,169,110,0.05)' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+          <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
             Add your income in <a href="/settings" style={{ color: 'var(--accent)' }}>Settings</a> to see your tax estimate. Go to Settings → Income &amp; Tax.
           </div>
         </div>
@@ -134,11 +134,11 @@ export default function TaxesPage() {
                   </tbody>
                 </table>
               </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-3)' }}>{harvest.note}</div>
+              <div style={{ marginTop: 10, fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>{harvest.note}</div>
             </>
           ) : (
             <div className="card">
-              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>No significant tax-loss harvesting opportunities in your taxable accounts right now.</div>
+              <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>No significant tax-loss harvesting opportunities in your taxable accounts right now.</div>
             </div>
           )}
         </div>
@@ -151,18 +151,18 @@ export default function TaxesPage() {
           {recs.recommendations.map(r => (
             <div key={r.type} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{r.type}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 'var(--fs-base)' }}>{r.type}</span>
                   <span style={{
-                    fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px',
+                    fontSize: 'var(--fs-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px',
                     color: r.priority === 'high' ? 'var(--neg)' : r.priority === 'medium' ? 'var(--accent)' : 'var(--text-3)',
                   }}>{r.priority}</span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>{r.reason}</div>
+                <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)', lineHeight: 1.55 }}>{r.reason}</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 2 }}>2024 limit</div>
-                <div className="num" style={{ fontSize: 14 }}>{usd(r.limit_2024)}</div>
+                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', marginBottom: 2 }}>2024 limit</div>
+                <div className="num" style={{ fontSize: 'var(--fs-base)' }}>{usd(r.limit_2024)}</div>
               </div>
             </div>
           ))}

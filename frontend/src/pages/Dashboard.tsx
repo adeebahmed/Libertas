@@ -74,7 +74,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         borderRadius: 'var(--r)',
         padding: '10px 12px',
         fontFamily: 'var(--font-mono)',
-        fontSize: 12,
+        fontSize: 'var(--fs-sm)',
       }}
     >
       <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>{label}</div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
               {netWorthLoading ? <span className="spinner" aria-label="Loading net worth" style={{ width: 30, height: 30, borderWidth: 3 }} /> : nw ? usd(nw.net_worth) : '$—'}
             </div>
 
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', color: 'var(--text-2)', fontSize: 'var(--fs-base)' }}>
               {nwError ? (
                 <span style={{ color: 'var(--neg)', fontWeight: 600 }}>Unable to load net worth.</span>
               ) : netWorthLoading ? (
@@ -172,9 +172,9 @@ export default function Dashboard() {
               <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
                 <div>
                   <div className="section-label mb-8">Top recommendation</div>
-                  <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 6 }}>{recommendation.title}</div>
-                  <div style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55 }}>{recommendation.description}</div>
-                  <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{recommendation.action}</div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--fs-lg)', marginBottom: 6 }}>{recommendation.title}</div>
+                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-base)', lineHeight: 1.55 }}>{recommendation.description}</div>
+                  <div style={{ marginTop: 10, fontSize: 'var(--fs-base)', color: 'var(--text)', lineHeight: 1.5 }}>{recommendation.action}</div>
                 </div>
                 <button
                   className="btn btn-sm"
@@ -239,9 +239,9 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="var(--text)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
                 <YAxis
-                  tick={{ fill: 'var(--text-3)', fontSize: 11 }}
+                  tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => usd(value, true)}
@@ -283,12 +283,12 @@ export default function Dashboard() {
               </ResponsiveContainer>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', marginTop: 8 }}>
                 {allocationData.map((item, i) => (
-                  <div key={item.name} className="flex-between" style={{ fontSize: 12 }}>
+                  <div key={item.name} className="flex-between" style={{ fontSize: 'var(--fs-sm)' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                       <span style={{ width: 8, height: 8, borderRadius: 'var(--r-round)', background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
                       <span style={{ textTransform: 'capitalize', color: 'var(--text-2)' }}>{item.name}</span>
                     </div>
-                    <span className="num" style={{ fontSize: 11 }}>{usd(item.value, true)}</span>
+                    <span className="num" style={{ fontSize: 'var(--fs-xs)' }}>{usd(item.value, true)}</span>
                   </div>
                 ))}
               </div>
@@ -305,7 +305,7 @@ export default function Dashboard() {
         <div className="flex-between mb-16">
           <div>
             <div className="section-label mb-8">Account overview</div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>Grouped for fast scanning. Click any account for detail view.</div>
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>Grouped for fast scanning. Click any account for detail view.</div>
           </div>
           <button className="btn btn-primary" onClick={() => navigate('/accounts')}>Manage accounts</button>
         </div>
@@ -324,7 +324,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
             {groupedAccounts.map((group) => (
               <div key={group.title}>
-                <div style={{ marginBottom: 8, color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                <div style={{ marginBottom: 8, color: 'var(--text-3)', fontSize: 'var(--fs-xs)', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                   {group.title}
                 </div>
                 <div className="grid-auto" style={{ gap: 'var(--s-2)' }}>
@@ -354,11 +354,11 @@ export default function Dashboard() {
                       >
                         <div>
                           <div style={{ fontWeight: 600, marginBottom: 4 }}>{account.name}</div>
-                          <div style={{ color: 'var(--text-3)', fontSize: 12, textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</div>
+                          <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)', textTransform: 'capitalize' }}>{account.type.replace(/_/g, ' ')}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <div className="num" style={{ fontSize: 14 }}>{usd(account.balance)}</div>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                          <div className="num" style={{ fontSize: 'var(--fs-base)' }}>{usd(account.balance)}</div>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 'var(--fs-xs)', color: 'var(--text-3)', marginTop: 3 }}>
                             <span style={{ width: 7, height: 7, borderRadius: 'var(--r-round)', background: toneColor, display: 'inline-block' }} />
                             {formatDate(account.last_updated)}
                           </div>
@@ -378,7 +378,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>Local-first. Your data stays here.</div>
+      <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', marginTop: 8 }}>Local-first. Your data stays here.</div>
     </div>
   )
 }

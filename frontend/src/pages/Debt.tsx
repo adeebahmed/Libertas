@@ -120,11 +120,11 @@ export default function DebtPage() {
               <div className="section-label mb-16">Balance by Account</div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={barData} barCategoryGap="30%">
-                  <XAxis dataKey="name" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
+                  <XAxis dataKey="name" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} width={52} />
                   <Tooltip
                     formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'var(--font-mono)' }}
+                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}
                     labelStyle={{ color: 'var(--text-3)' }}
                   />
                   <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
@@ -150,10 +150,10 @@ export default function DebtPage() {
                   return (
                     <div key={type}>
                       <div className="flex-between mb-8">
-                        <span style={{ fontSize: 13, color: TYPE_COLOR[type] ?? 'var(--text-2)' }}>
+                        <span style={{ fontSize: 'var(--fs-base)', color: TYPE_COLOR[type] ?? 'var(--text-2)' }}>
                           {TYPE_LABEL[type] ?? type}
                         </span>
-                        <span className="num" style={{ fontSize: 13, color: 'var(--text)' }}>{fmt(bal)}</span>
+                        <span className="num" style={{ fontSize: 'var(--fs-base)', color: 'var(--text)' }}>{fmt(bal)}</span>
                       </div>
                       <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 'var(--r-sm)' }}>
                         <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 'var(--r-sm)' }} />
@@ -198,7 +198,7 @@ export default function DebtPage() {
                           <input
                             value={e.interest_rate}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], interest_rate: ev.target.value } }))}
-                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 60, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 'var(--fs-base)', fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num" style={{ color: d.interest_rate > 15 ? 'var(--neg)' : 'var(--text)' }}>
@@ -211,7 +211,7 @@ export default function DebtPage() {
                           <input
                             value={e.minimum_payment}
                             onChange={ev => setEditing(prev => ({ ...prev, [d.account_id]: { ...prev[d.account_id], minimum_payment: ev.target.value } }))}
-                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                            style={{ width: 80, textAlign: 'right', padding: '4px 8px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', color: 'var(--text)', fontSize: 'var(--fs-base)', fontFamily: 'var(--font-mono)', outline: 'none' }}
                           />
                         ) : (
                           <span className="num">{d.minimum_payment > 0 ? fmt(d.minimum_payment) : '—'}</span>

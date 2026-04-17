@@ -12,7 +12,7 @@ function LTVBar({ ltv }: { ltv: number }) {
   const color = ltv > 80 ? 'var(--neg)' : ltv > 60 ? 'var(--accent)' : 'var(--pos)'
   return (
     <div style={{ marginTop: 12 }}>
-      <div className="flex-between mb-8" style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+      <div className="flex-between mb-8" style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
         <span>LTV</span><span>{ltv.toFixed(1)}%</span>
       </div>
       <div style={{ height: 3, background: 'var(--border)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
@@ -50,7 +50,7 @@ export default function RealEstatePage() {
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Real Estate</h1>
           {properties && properties.length > 0 && (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-2)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
               {properties.length} {properties.length === 1 ? 'property' : 'properties'} · {usd(totalEquity)} equity
             </div>
           )}
@@ -103,27 +103,27 @@ export default function RealEstatePage() {
         <div className="grid-auto">
           {properties.map(p => (
             <div key={p.id} className="card">
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16, lineHeight: 1.4 }}>{p.address}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-2) 0', fontSize: 13 }}>
+              <div style={{ fontSize: 'var(--fs-base)', fontWeight: 500, marginBottom: 16, lineHeight: 1.4 }}>{p.address}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-2) 0', fontSize: 'var(--fs-base)' }}>
                 <div>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Value</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Value</div>
                   <div className="num" style={{ fontWeight: 500 }}>{p.effective_value ? usd(p.effective_value) : '—'}</div>
                 </div>
                 <div>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Mortgage</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Mortgage</div>
                   <div className="num" style={{ fontWeight: 500 }}>{p.mortgage_balance ? usd(p.mortgage_balance) : '—'}</div>
                 </div>
                 <div>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Rate</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Rate</div>
                   <div className="num" style={{ fontWeight: 500 }}>{p.mortgage_rate != null ? `${p.mortgage_rate.toFixed(2)}%` : '—'}</div>
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Equity</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Equity</div>
                   <div className="num" style={{ color: 'var(--pos)', fontWeight: 500 }}>{usd(p.equity)}</div>
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Purchased</div>
-                  <div className="num" style={{ fontSize: 13 }}>{p.purchase_price ? usd(p.purchase_price) : '—'}</div>
+                  <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-xs)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Purchased</div>
+                  <div className="num" style={{ fontSize: 'var(--fs-base)' }}>{p.purchase_price ? usd(p.purchase_price) : '—'}</div>
                 </div>
               </div>
               {p.ltv != null && <LTVBar ltv={p.ltv} />}

@@ -17,7 +17,7 @@ function usdFull(n: number) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)' }}>
       <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
@@ -94,19 +94,19 @@ export default function RetirementPage() {
               <div className="flex-between mb-16">
                 <div>
                   <div className="section-label mb-4">Retirement Projection</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                  <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
                     {plan.on_track.years_to_retire} years to retirement · ${plan.monthly_contribution.toLocaleString()}/mo contribution
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{
-                    fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
+                    fontSize: 'var(--fs-sm)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
                     color: plan.on_track.on_track ? 'var(--pos)' : 'var(--neg)',
                     marginBottom: 4,
                   }}>
                     {plan.on_track.on_track ? '✓ On Track' : '⚠ Behind'}
                   </div>
-                  <div className="num" style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                  <div className="num" style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
                     {plan.on_track.on_track
                       ? `${usd(plan.on_track.surplus)} surplus`
                       : `${usd(plan.on_track.shortfall)} shortfall`}
@@ -130,7 +130,7 @@ export default function RetirementPage() {
                 </div>
               </div>
               {!plan.on_track.on_track && plan.needed_monthly_contribution && (
-                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-2)', borderRadius: 'var(--r)', fontSize: 13, color: 'var(--text-2)' }}>
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-2)', borderRadius: 'var(--r)', fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
                   To hit your target by retirement: contribute <strong style={{ color: 'var(--text)' }}>{usdFull(plan.needed_monthly_contribution)}/mo</strong> (vs current {usdFull(plan.monthly_contribution)}/mo)
                 </div>
               )}
@@ -151,7 +151,7 @@ export default function RetirementPage() {
                 </div>
               </div>
               {plan.years_to_target && (
-                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-2)' }}>
+                <div style={{ marginTop: 12, fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
                   At current pace: target reached in ~{plan.years_to_target} years
                 </div>
               )}
@@ -163,10 +163,10 @@ export default function RetirementPage() {
             <div className="section-label mb-16">Growth to target</div>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={planChartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
+                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} tickFormatter={usd} />
                 <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={plan.target} stroke="var(--accent)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--accent)', fontSize: 11 }} />
+                <ReferenceLine y={plan.target} stroke="var(--accent)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--accent)', fontSize: 'var(--fs-xs)' }} />
                 <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
                 <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
                 <Line type="monotone" dataKey="Aggressive"   stroke="var(--neg)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
@@ -204,10 +204,10 @@ export default function RetirementPage() {
               ] as const).map(([name, val, color, rate]) => (
                 <div key={name} className="card" style={{ borderTop: `3px solid ${color}`, paddingTop: 18 }}>
                   <div className="section-label mb-8">{name} · {rate}% / yr</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, letterSpacing: -0.5, color: 'var(--text)', marginBottom: 6 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-2xl)', letterSpacing: -0.5, color: 'var(--text)', marginBottom: 6 }}>
                     {usdFull(val as number)}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
                     in {years} yrs from {usdFull(scenarios.current_balance)}
                   </div>
                 </div>
@@ -225,8 +225,8 @@ export default function RetirementPage() {
             ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={360}>
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                  <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
+                  <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} tickFormatter={usd} />
                   <Tooltip content={<CustomTooltip />} />
                   <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
                   <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
