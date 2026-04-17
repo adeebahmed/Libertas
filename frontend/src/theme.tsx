@@ -25,6 +25,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
+  useEffect(() => {
+    const toggle = () => setTheme(t => t === 'onyx' ? 'retro' : 'onyx')
+    window.addEventListener('libertas:theme-toggle', toggle)
+    return () => window.removeEventListener('libertas:theme-toggle', toggle)
+  }, [])
+
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
