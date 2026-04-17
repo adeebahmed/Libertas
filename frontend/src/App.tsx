@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import CommandPalette from './components/CommandPalette'
 import Dashboard from './pages/Dashboard'
@@ -38,6 +39,17 @@ const ROUTE_TITLES: Array<{ path: string; title: string; exact?: boolean }> = [
 
 export default function App() {
   const location = useLocation()
+
+  const [theme, setTheme] = useState<'onyx' | 'chalk'>(() =>
+    (localStorage.getItem('libertas-theme') as 'onyx' | 'chalk') ?? 'onyx'
+  )
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('libertas-theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(t => t === 'onyx' ? 'chalk' : 'onyx')
   const activeTitle = ROUTE_TITLES.find((route) => (
     route.exact ? location.pathname === route.path : location.pathname.startsWith(route.path)
   ))?.title ?? 'Libertas'
@@ -58,6 +70,9 @@ export default function App() {
           </a>
         </div>
         <div className="mobile-topbar-actions">
+          <button className="btn btn-sm" onClick={toggleTheme} title="Switch theme">
+            {theme === 'onyx' ? 'Chalk' : 'Onyx'}
+          </button>
           <NavLink to="/import" className="sidebar-import-btn">
             <IconUpload size={13} />
             Import
@@ -129,7 +144,11 @@ export default function App() {
             <span className="app-header-rule" aria-hidden="true" />
             <span>{activeTitle}</span>
           </div>
-          <div className="app-header-actions" />
+          <div className="app-header-actions">
+            <button className="btn btn-sm" onClick={toggleTheme} title="Switch theme">
+              {theme === 'onyx' ? 'Chalk' : 'Onyx'}
+            </button>
+          </div>
         </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />

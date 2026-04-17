@@ -53,6 +53,26 @@
 
 }
 
+/* ── Chalk theme (warm light) ─────────────────────────── */
+[data-theme="chalk"] {
+  --bg:             #fafaf8;
+  --bg-1:           #f4f3ef;
+  --bg-2:           #eceae4;
+  --bg-elev:        #e4e2db;
+  --border:         #dedad0;
+  --border-strong:  #c8c5bb;
+  --border-focus:   #a09d94;
+  --text:           #1a1917;
+  --text-2:         #4a4744;
+  --text-3:         #7a7774;
+  --text-mute:      #b0ada6;
+  --accent:         #c07c10;
+  --accent-dim:     #f0e2c0;
+  --pos:            #15803d;
+  --neg:            #dc2626;
+  --focus-ring:     #ccc9bf;
+}
+
 *,
 *::before,
 *::after {
