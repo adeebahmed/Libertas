@@ -116,7 +116,7 @@ export default function InsightsPage() {
                       {ins.action && (
                         <div style={{
                           marginTop: 10, padding: '8px 10px',
-                          background: 'rgba(59,130,246,0.06)', borderLeft: '2px solid var(--accent)',
+                          background: 'var(--bg-2)', borderLeft: '2px solid var(--accent)',
                           borderRadius: 'var(--r)', fontSize: 'var(--fs-sm)', color: 'var(--text-2)', lineHeight: 1.5,
                         }}>
                           {ins.action}
@@ -172,7 +172,7 @@ export default function InsightsPage() {
                 maxWidth: '80%',
                 padding: '10px 14px',
                 borderRadius: 'var(--r)',
-                background: m.role === 'user' ? 'rgba(59,130,246,0.18)' : 'var(--bg-2)',
+                background: m.role === 'user' ? 'var(--bg-elev)' : 'var(--bg-2)',
                 border: '1px solid var(--border)',
                 fontSize: 'var(--fs-base)',
                 lineHeight: 1.6,
