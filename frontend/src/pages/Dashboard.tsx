@@ -71,7 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       style={{
         background: 'var(--bg-2)',
         border: '1px solid var(--border)',
-        borderRadius: 8,
+        borderRadius: 'var(--r)',
         padding: '10px 12px',
         fontFamily: 'var(--font-mono)',
         fontSize: 12,
@@ -169,7 +169,7 @@ export default function Dashboard() {
 
           {recommendation ? (
             <div className="card" style={{ borderColor: `${tone}55`, borderLeft: `3px solid ${tone}`, marginBottom: 0 }}>
-              <div className="flex-between" style={{ alignItems: 'start', gap: 10 }}>
+              <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
                 <div>
                   <div className="section-label mb-8">Top recommendation</div>
                   <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 6 }}>{recommendation.title}</div>
@@ -187,7 +187,7 @@ export default function Dashboard() {
             </div>
           ) : insightsInitialLoading ? (
             <div className="card" style={{ marginBottom: 0 }}>
-              <div className="empty" style={{ padding: '28px 18px' }}>
+              <div className="empty" style={{ padding: 'var(--s-6) var(--s-5)' }}>
                 <span className="spinner" aria-label="Loading recommendation" />
                 <div className="empty-sub" style={{ marginTop: 10 }}>Loading recommendation…</div>
               </div>
@@ -198,11 +198,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, marginBottom: 24 }}>
+      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--s-5)', marginBottom: 24 }}>
         <div className="card">
           <div className="flex-between mb-16" style={{ alignItems: 'center' }}>
             <div className="section-label">Net worth history</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
               {RANGE_OPTIONS.map((opt) => (
                 <button
                   key={opt}
@@ -281,11 +281,11 @@ export default function Dashboard() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', marginTop: 8 }}>
                 {allocationData.map((item, i) => (
                   <div key={item.name} className="flex-between" style={{ fontSize: 12 }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 999, background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
+                      <span style={{ width: 8, height: 8, borderRadius: 'var(--r-round)', background: PIE_COLORS[i % PIE_COLORS.length], display: 'inline-block' }} />
                       <span style={{ textTransform: 'capitalize', color: 'var(--text-2)' }}>{item.name}</span>
                     </div>
                     <span className="num" style={{ fontSize: 11 }}>{usd(item.value, true)}</span>
@@ -321,13 +321,13 @@ export default function Dashboard() {
             <div className="empty-sub" style={{ marginTop: 10 }}>Loading accounts…</div>
           </div>
         ) : groupedAccounts.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
             {groupedAccounts.map((group) => (
               <div key={group.title}>
                 <div style={{ marginBottom: 8, color: 'var(--text-3)', fontSize: 11, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
                   {group.title}
                 </div>
-                <div className="grid-auto" style={{ gap: 10 }}>
+                <div className="grid-auto" style={{ gap: 'var(--s-2)' }}>
                   {group.items.map((account) => {
                     const toneValue = stalenessTone(account.last_updated)
                     const toneColor = toneValue === 'fresh' ? 'var(--pos)' : toneValue === 'aging' ? 'var(--accent)' : 'var(--neg)'
@@ -339,7 +339,7 @@ export default function Dashboard() {
                         onClick={() => navigate(`/accounts?accountId=${account.id}`)}
                         style={{
                           textAlign: 'left',
-                          padding: '14px 16px',
+                          padding: 'var(--s-4)',
                           display: 'grid',
                           gridTemplateColumns: '1fr auto',
                           gap: 12,
@@ -348,7 +348,7 @@ export default function Dashboard() {
                           font: 'inherit',
                           background: 'linear-gradient(135deg, rgba(255,255,255,0.015), rgba(255,255,255,0.005))',
                           border: '1px solid var(--border)',
-                          borderRadius: 12,
+                          borderRadius: 'var(--r)',
                           cursor: 'pointer',
                         }}
                       >
@@ -358,8 +358,8 @@ export default function Dashboard() {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div className="num" style={{ fontSize: 14 }}>{usd(account.balance)}</div>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 999, background: toneColor, display: 'inline-block' }} />
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)', fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: 'var(--r-round)', background: toneColor, display: 'inline-block' }} />
                             {formatDate(account.last_updated)}
                           </div>
                         </div>

@@ -15,8 +15,8 @@ function LTVBar({ ltv }: { ltv: number }) {
       <div className="flex-between mb-8" style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
         <span>LTV</span><span>{ltv.toFixed(1)}%</span>
       </div>
-      <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${clamped}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.4s' }} />
+      <div style={{ height: 3, background: 'var(--border)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
+        <div style={{ width: `${clamped}%`, height: '100%', background: color, borderRadius: 'var(--r-sm)', transition: 'width 0.4s' }} />
       </div>
     </div>
   )
@@ -104,7 +104,7 @@ export default function RealEstatePage() {
           {properties.map(p => (
             <div key={p.id} className="card">
               <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 16, lineHeight: 1.4 }}>{p.address}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 0', fontSize: 13 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-2) 0', fontSize: 13 }}>
                 <div>
                   <div style={{ color: 'var(--text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 2 }}>Value</div>
                   <div className="num" style={{ fontWeight: 500 }}>{p.effective_value ? usd(p.effective_value) : '—'}</div>

@@ -62,7 +62,7 @@ export default function InsightsPage() {
 
       <div className="tabs mb-24">
         <button className={`tab-btn${tab === 'insights' ? ' active' : ''}`} onClick={() => setTab('insights')}>
-          Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--neg)', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{highCount}</span>}
+          Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--neg)', color: '#fff', borderRadius: 'var(--r)', padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{highCount}</span>}
         </button>
         <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>Ask Claude</button>
       </div>
@@ -76,7 +76,7 @@ export default function InsightsPage() {
                 key={p}
                 onClick={() => setFilter(p)}
                 style={{
-                  padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                  padding: '4px 12px', borderRadius: 'var(--r-sm)', fontSize: 12, fontWeight: 500,
                   border: `1px solid ${filter === p ? (p === 'all' ? 'var(--border)' : PRIORITY_COLOR[p]) : 'var(--border)'}`,
                   background: filter === p ? 'var(--bg-2)' : 'transparent',
                   color: filter === p ? (p === 'all' ? 'var(--text)' : PRIORITY_COLOR[p]) : 'var(--text-3)',
@@ -117,7 +117,7 @@ export default function InsightsPage() {
                         <div style={{
                           marginTop: 10, padding: '8px 10px',
                           background: 'rgba(59,130,246,0.06)', borderLeft: '2px solid var(--accent)',
-                          borderRadius: '0 4px 4px 0', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5,
+                          borderRadius: 'var(--r)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5,
                         }}>
                           {ins.action}
                         </div>
@@ -156,7 +156,7 @@ export default function InsightsPage() {
                     key={q}
                     onClick={() => setChatInput(q)}
                     style={{
-                      padding: '8px 12px', marginBottom: 8, borderRadius: 6,
+                      padding: '8px 12px', marginBottom: 8, borderRadius: 'var(--r)',
                       border: '1px solid var(--border)', cursor: 'pointer',
                       color: 'var(--text-2)', fontSize: 13,
                     }}
@@ -171,7 +171,7 @@ export default function InsightsPage() {
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                 maxWidth: '80%',
                 padding: '10px 14px',
-                borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                borderRadius: 'var(--r)',
                 background: m.role === 'user' ? 'rgba(59,130,246,0.18)' : 'var(--bg-2)',
                 border: '1px solid var(--border)',
                 fontSize: 13,
@@ -188,7 +188,7 @@ export default function InsightsPage() {
               </div>
             )}
             {chatError && (
-              <div style={{ color: 'var(--neg)', fontSize: 13, padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 6 }}>
+              <div style={{ color: 'var(--neg)', fontSize: 13, padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 'var(--r)' }}>
                 {chatError}
               </div>
             )}

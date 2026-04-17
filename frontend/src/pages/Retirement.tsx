@@ -17,7 +17,7 @@ function usdFull(n: number) {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
       <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
@@ -130,7 +130,7 @@ export default function RetirementPage() {
                 </div>
               </div>
               {!plan.on_track.on_track && plan.needed_monthly_contribution && (
-                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-2)', borderRadius: 6, fontSize: 13, color: 'var(--text-2)' }}>
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-2)', borderRadius: 'var(--r)', fontSize: 13, color: 'var(--text-2)' }}>
                   To hit your target by retirement: contribute <strong style={{ color: 'var(--text)' }}>{usdFull(plan.needed_monthly_contribution)}/mo</strong> (vs current {usdFull(plan.monthly_contribution)}/mo)
                 </div>
               )}
@@ -178,8 +178,8 @@ export default function RetirementPage() {
 
       {tab === 'scenarios' && (
         <>
-          <div className="card mb-24" style={{ padding: '20px 24px' }}>
-            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 20 }}>
+          <div className="card mb-24" style={{ padding: 'var(--s-5)' }}>
+            <div className="retirement-controls-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--s-5)' }}>
               {[
                 { label: 'Monthly add ($)', value: contribution, set: setContribution, step: 100 },
                 { label: 'Years', value: years, set: setYears, step: 1 },

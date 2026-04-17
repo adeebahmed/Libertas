@@ -39,7 +39,7 @@ function QualityBadges({ source }: { source: Partial<Record<QualityKey, number |
   if (!items.length) return <span style={{ color: 'var(--text-3)', fontSize: 12 }}>—</span>
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--s-2)' }}>
       {items.map((item) => (
         <span
           key={item.key}
@@ -112,7 +112,7 @@ function WatchNotification({ onNewImport }: { onNewImport: () => void }) {
         zIndex: 100,
         background: 'var(--bg-2)',
         border: '1px solid var(--accent-dim)',
-        borderRadius: 8,
+        borderRadius: 'var(--r)',
         padding: '12px 18px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         display: 'flex',

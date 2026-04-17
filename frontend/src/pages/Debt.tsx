@@ -124,7 +124,7 @@ export default function DebtPage() {
                   <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} width={52} />
                   <Tooltip
                     formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, fontFamily: 'var(--font-mono)' }}
+                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'var(--font-mono)' }}
                     labelStyle={{ color: 'var(--text-3)' }}
                   />
                   <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
@@ -139,7 +139,7 @@ export default function DebtPage() {
             {/* Debt by type breakdown */}
             <div className="card">
               <div className="section-label mb-16">By Type</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
                 {Object.entries(
                   debts.reduce((acc, d) => {
                     acc[d.type] = (acc[d.type] ?? 0) + d.balance
@@ -155,8 +155,8 @@ export default function DebtPage() {
                         </span>
                         <span className="num" style={{ fontSize: 13, color: 'var(--text)' }}>{fmt(bal)}</span>
                       </div>
-                      <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 2 }}>
-                        <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 2 }} />
+                      <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 'var(--r-sm)' }}>
+                        <div style={{ height: 4, width: `${pct}%`, background: TYPE_COLOR[type] ?? 'var(--text-3)', borderRadius: 'var(--r-sm)' }} />
                       </div>
                     </div>
                   )
