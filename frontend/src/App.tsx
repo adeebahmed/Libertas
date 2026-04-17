@@ -129,10 +129,7 @@ export default function App() {
             <span className="app-header-rule" aria-hidden="true" />
             <span>{activeTitle}</span>
           </div>
-          <div className="app-header-actions">
-            <NavLink to="/import" className="btn btn-sm">Import</NavLink>
-            <NavLink to="/settings" className="btn btn-sm">Settings</NavLink>
-          </div>
+          <div className="app-header-actions" />
         </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />
