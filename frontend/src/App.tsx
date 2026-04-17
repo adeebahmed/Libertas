@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import { Routes, Route, NavLink } from 'react-router-dom'
 import CommandPalette from './components/CommandPalette'
 import { ThemeProvider } from './theme'
 import Dashboard from './pages/Dashboard'
@@ -25,25 +25,7 @@ const NAV = [
   { to: '/insights',    label: 'Insights',    end: false, icon: <IconSpark /> },
 ]
 
-const ROUTE_TITLES: Array<{ path: string; title: string; exact?: boolean }> = [
-  { path: '/', title: 'Overview', exact: true },
-  { path: '/accounts', title: 'Accounts' },
-  { path: '/debt', title: 'Debt' },
-  { path: '/retirement', title: 'Retirement' },
-  { path: '/real-estate', title: 'Real Estate' },
-  { path: '/taxes', title: 'Taxes' },
-  { path: '/insights', title: 'Insights' },
-  { path: '/import', title: 'Import' },
-  { path: '/settings', title: 'Settings' },
-]
-
 export default function App() {
-  const location = useLocation()
-
-  const activeTitle = ROUTE_TITLES.find((route) => (
-    route.exact ? location.pathname === route.path : location.pathname.startsWith(route.path)
-  ))?.title ?? 'Libertas'
-
   return (
     <ThemeProvider>
     <div className="app">
@@ -129,14 +111,6 @@ export default function App() {
       </nav>
       <CommandPalette />
       <main className="main">
-        <header className="app-header">
-          <div className="app-header-title">
-            <span className="app-header-brand">Libertas</span>
-            <span className="app-header-rule" aria-hidden="true" />
-            <span>{activeTitle}</span>
-          </div>
-          <div className="app-header-actions" />
-        </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />
           <Route path="/accounts"     element={<Accounts />} />
