@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Projection, RetirementPlan } from '../types'
@@ -14,7 +14,7 @@ function usdFull(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
-type Tab = 'scenarios' | 'plan'
+type Tab = 'scenarios' | 'plan' | 'settings'
 
 export default function RetirementPage() {
   const [tab, setTab] = useState<Tab>('plan')
@@ -23,6 +23,33 @@ export default function RetirementPage() {
   const [conservative, setConservative] = useState(4)
   const [moderate, setModerate] = useState(7)
   const [aggressive, setAggressive] = useState(10)
+
+  const { data: settings, refetch: refetchSettings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
+  const [expenses, setExpenses] = useState('')
+  const [risk, setRisk] = useState('moderate')
+  const [birthYear, setBirthYear] = useState('')
+  const [retirementAge, setRetirementAge] = useState('65')
+  const [monthlyContribution, setMonthlyContribution] = useState('')
+  const [retirementTarget, setRetirementTarget] = useState('')
+  const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    if (!settings) return
+    setExpenses(String(settings.monthly_expenses ?? ''))
+    setRisk(String(settings.risk_profile ?? 'moderate'))
+    setBirthYear(String(settings.birth_year ?? ''))
+    setRetirementAge(String(settings.retirement_age ?? '65'))
+    setMonthlyContribution(String(settings.monthly_contribution ?? ''))
+    setRetirementTarget(String(settings.retirement_target_amount ?? ''))
+  }, [settings])
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  const saveSetting = async (key: string, value: unknown) => {
+    await api.put(`/settings/${key}`, { value })
+    refetchSettings()
+    showToast('Saved')
+  }
 
   const qs = `?monthly_contribution=${contribution}&years=${years}&conservative_rate=${conservative / 100}&moderate_rate=${moderate / 100}&aggressive_rate=${aggressive / 100}`
   const { data: scenarios, loading: scenariosLoading } = useApi<Projection>(() => api.get(`/retirement${qs}`), [contribution, years, conservative, moderate, aggressive])
@@ -63,6 +90,7 @@ export default function RetirementPage() {
       <div className="tabs mb-24">
         <button className={`tab-btn${tab === 'plan' ? ' active' : ''}`} onClick={() => setTab('plan')}>Retirement Plan</button>
         <button className={`tab-btn${tab === 'scenarios' ? ' active' : ''}`} onClick={() => setTab('scenarios')}>Scenarios</button>
+        <button className={`tab-btn${tab === 'settings' ? ' active' : ''}`} onClick={() => setTab('settings')}>Settings</button>
       </div>
 
       {tab === 'plan' && planInitialLoading && (
@@ -74,7 +102,6 @@ export default function RetirementPage() {
 
       {tab === 'plan' && plan && (
         <>
-          {/* On-track status */}
           {plan.on_track && (
             <div className="card mb-24" style={{ borderTop: `3px solid ${plan.on_track.on_track ? 'var(--pos)' : 'var(--neg)'}` }}>
               <div className="flex-between mb-16">
@@ -125,7 +152,7 @@ export default function RetirementPage() {
 
           {!plan.on_track && (
             <div className="card mb-24">
-              <div className="empty-sub">Set your birth year, retirement age, and monthly contribution in Settings to see your personalized plan.</div>
+              <div className="empty-sub">Set your birth year, retirement age, and monthly contribution in the <button className="btn btn-sm" style={{ display: 'inline', padding: '2px 8px' }} onClick={() => setTab('settings')}>Settings tab</button> to see your personalized plan.</div>
               <div className="grid-2 mt-16">
                 <div>
                   <div className="section-label mb-4">Current Balance</div>
@@ -144,7 +171,6 @@ export default function RetirementPage() {
             </div>
           )}
 
-          {/* Plan chart */}
           <div className="card">
             <div className="section-label mb-16">Growth to target</div>
             <TerminalLineChart
@@ -225,6 +251,57 @@ export default function RetirementPage() {
           </div>
         </>
       )}
+
+      {tab === 'settings' && (
+        <>
+          <div className="section-label mb-16">Retirement Settings</div>
+          <div className="card mb-32">
+            <div className="grid-4">
+              <div className="field">
+                <label>Birth year</label>
+                <input type="number" value={birthYear} onChange={e => setBirthYear(e.target.value)}
+                  onBlur={() => birthYear !== '' && saveSetting('birth_year', Number(birthYear))} placeholder="e.g. 1988" />
+              </div>
+              <div className="field">
+                <label>Target retirement age</label>
+                <input type="number" value={retirementAge} onChange={e => setRetirementAge(e.target.value)}
+                  onBlur={() => retirementAge !== '' && saveSetting('retirement_age', Number(retirementAge))} placeholder="65" />
+              </div>
+              <div className="field">
+                <label>Monthly contribution ($)</label>
+                <input type="number" value={monthlyContribution} onChange={e => setMonthlyContribution(e.target.value)}
+                  onBlur={() => monthlyContribution !== '' && saveSetting('monthly_contribution', Number(monthlyContribution))} placeholder="e.g. 2000" />
+              </div>
+              <div className="field">
+                <label>Retirement target ($, optional)</label>
+                <input type="number" value={retirementTarget} onChange={e => setRetirementTarget(e.target.value)}
+                  onBlur={() => retirementTarget !== '' && saveSetting('retirement_target_amount', Number(retirementTarget))} placeholder="auto (25× expenses)" />
+              </div>
+            </div>
+          </div>
+
+          <div className="section-label mb-16">General</div>
+          <div className="card mb-32">
+            <div className="grid-3">
+              <div className="field">
+                <label>Monthly expenses ($)</label>
+                <input type="number" value={expenses} onChange={e => setExpenses(e.target.value)}
+                  onBlur={() => expenses !== '' && saveSetting('monthly_expenses', Number(expenses))} />
+              </div>
+              <div className="field">
+                <label>Risk profile</label>
+                <select value={risk} onChange={e => { setRisk(e.target.value); saveSetting('risk_profile', e.target.value) }}>
+                  <option value="conservative">Conservative</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
