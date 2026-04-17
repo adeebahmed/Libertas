@@ -730,23 +730,6 @@ hr {
 ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 
 /* ── Additional modern controls + responsive layout ── */
-.tab {
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tab.active {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: var(--border);
-  color: var(--text);
-}
-
 .dashboard-top-grid,
 .dashboard-bottom-grid,
 .import-top-grid,

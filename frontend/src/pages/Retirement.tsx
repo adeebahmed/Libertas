@@ -39,8 +39,8 @@ export default function RetirementPage() {
   const [aggressive, setAggressive] = useState(10)
 
   const qs = `?monthly_contribution=${contribution}&years=${years}&conservative_rate=${conservative / 100}&moderate_rate=${moderate / 100}&aggressive_rate=${aggressive / 100}`
-  const { data: scenarios } = useApi<Projection>(() => api.get(`/retirement${qs}`), [contribution, years, conservative, moderate, aggressive])
-  const { data: plan } = useApi<RetirementPlan>(() => api.get('/retirement/plan'), [])
+  const { data: scenarios, loading: scenariosLoading } = useApi<Projection>(() => api.get(`/retirement${qs}`), [contribution, years, conservative, moderate, aggressive])
+  const { data: plan, loading: planLoading } = useApi<RetirementPlan>(() => api.get('/retirement/plan'), [])
 
   const chartData = scenarios
     ? scenarios.scenarios.conservative.map((_, i) => ({
@@ -67,15 +67,24 @@ export default function RetirementPage() {
     moderate:     last(scenarios.scenarios.moderate),
     aggressive:   last(scenarios.scenarios.aggressive),
   } : null
+  const planInitialLoading = planLoading && !plan
+  const scenariosInitialLoading = scenariosLoading && !scenarios
 
   return (
     <div>
       <h1 className="page-title">Retirement</h1>
 
       <div className="tabs mb-24">
-        <button className={`tab${tab === 'plan' ? ' active' : ''}`} onClick={() => setTab('plan')}>Retirement Plan</button>
-        <button className={`tab${tab === 'scenarios' ? ' active' : ''}`} onClick={() => setTab('scenarios')}>Scenarios</button>
+        <button className={`tab-btn${tab === 'plan' ? ' active' : ''}`} onClick={() => setTab('plan')}>Retirement Plan</button>
+        <button className={`tab-btn${tab === 'scenarios' ? ' active' : ''}`} onClick={() => setTab('scenarios')}>Scenarios</button>
       </div>
+
+      {tab === 'plan' && planInitialLoading && (
+        <div className="empty">
+          <span className="spinner" aria-label="Loading retirement plan" />
+          <div className="empty-sub" style={{ marginTop: 10 }}>Loading retirement plan…</div>
+        </div>
+      )}
 
       {tab === 'plan' && plan && (
         <>
@@ -208,7 +217,12 @@ export default function RetirementPage() {
 
           <div className="card">
             <div className="section-label mb-16">Growth scenarios</div>
-            {chartData.length > 0 ? (
+            {scenariosInitialLoading ? (
+              <div className="empty">
+                <span className="spinner" aria-label="Loading growth scenarios" />
+                <div className="empty-sub" style={{ marginTop: 10 }}>Loading growth scenarios…</div>
+              </div>
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={360}>
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
                   <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />

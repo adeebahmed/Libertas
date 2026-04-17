@@ -23,7 +23,7 @@ function LTVBar({ ltv }: { ltv: number }) {
 }
 
 export default function RealEstatePage() {
-  const { data: properties, refetch } = useApi<Property[]>(() => api.get('/real-estate'), [])
+  const { data: properties, loading, refetch } = useApi<Property[]>(() => api.get('/real-estate'), [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ address: '', purchase_price: '', purchase_date: '', mortgage_balance: '', mortgage_rate: '', manual_override: '' })
 
@@ -94,7 +94,12 @@ export default function RealEstatePage() {
         </div>
       )}
 
-      {properties && properties.length > 0 ? (
+      {loading && !properties ? (
+        <div className="empty">
+          <span className="spinner" aria-label="Loading properties" />
+          <div className="empty-sub" style={{ marginTop: 10 }}>Loading properties…</div>
+        </div>
+      ) : properties && properties.length > 0 ? (
         <div className="grid-auto">
           {properties.map(p => (
             <div key={p.id} className="card">
