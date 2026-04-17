@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Accounts from './pages/Accounts'
 import Import from './pages/Import'
@@ -23,7 +23,24 @@ const NAV = [
   { to: '/insights',    label: 'Insights',    end: false, icon: <IconSpark /> },
 ]
 
+const ROUTE_TITLES: Array<{ path: string; title: string; exact?: boolean }> = [
+  { path: '/', title: 'Overview', exact: true },
+  { path: '/accounts', title: 'Accounts' },
+  { path: '/debt', title: 'Debt' },
+  { path: '/retirement', title: 'Retirement' },
+  { path: '/real-estate', title: 'Real Estate' },
+  { path: '/taxes', title: 'Taxes' },
+  { path: '/insights', title: 'Insights' },
+  { path: '/import', title: 'Import' },
+  { path: '/settings', title: 'Settings' },
+]
+
 export default function App() {
+  const location = useLocation()
+  const activeTitle = ROUTE_TITLES.find((route) => (
+    route.exact ? location.pathname === route.path : location.pathname.startsWith(route.path)
+  ))?.title ?? 'Libertas'
+
   return (
     <div className="app">
       <header className="mobile-topbar">
@@ -73,7 +90,7 @@ export default function App() {
             rel="noreferrer"
             title="Open Libertas GitHub Pages site"
           >
-            <span className="logo-mark">L</span>ibertas
+            Libertas
           </a>
         </div>
         <div className="sidebar-section">
@@ -90,6 +107,10 @@ export default function App() {
           ))}
         </div>
         <div className="sidebar-footer">
+          <div className="sidebar-hotkey">
+            <span>Press</span>
+            <kbd>⌘K</kbd>
+          </div>
           <NavLink to="/import" className="sidebar-import-btn">
             <IconUpload size={13} />
             Import
@@ -100,6 +121,17 @@ export default function App() {
         </div>
       </nav>
       <main className="main">
+        <header className="app-header">
+          <div className="app-header-title">
+            <span className="app-header-brand">Libertas</span>
+            <span className="app-header-rule" aria-hidden="true" />
+            <span>{activeTitle}</span>
+          </div>
+          <div className="app-header-actions">
+            <NavLink to="/import" className="btn btn-sm">Import</NavLink>
+            <NavLink to="/settings" className="btn btn-sm">Settings</NavLink>
+          </div>
+        </header>
         <Routes>
           <Route path="/"             element={<Dashboard />} />
           <Route path="/accounts"     element={<Accounts />} />
