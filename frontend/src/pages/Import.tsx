@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { ImportLog } from '../types'
+import Confirm from '../components/Confirm'
 
 type UploadResult = {
   id?: number
@@ -143,6 +144,8 @@ export default function Import() {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<UploadResult | null>(null)
   const [rollingBack, setRollingBack] = useState<number | null>(null)
+  const [rollbackError, setRollbackError] = useState<string | null>(null)
+  const [confirmPending, setConfirmPending] = useState<{ logId: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback(
@@ -171,14 +174,19 @@ export default function Import() {
     [refetch],
   )
 
-  const handleRollback = async (logId: number) => {
-    if (!window.confirm("Roll back this import? All transactions from this file will be removed. The account remains; only this import's data is undone.")) return
+  const handleRollback = (logId: number) => {
+    setConfirmPending({ logId })
+  }
+
+  const doRollback = async (logId: number) => {
+    setConfirmPending(null)
     setRollingBack(logId)
+    setRollbackError(null)
     try {
       await api.post(`/imports/${logId}/rollback`)
       refetch()
     } catch (error: any) {
-      window.alert(`Rollback failed: ${error.message}`)
+      setRollbackError(`Rollback failed: ${error.message}`)
     } finally {
       setRollingBack(null)
     }
@@ -197,6 +205,23 @@ export default function Import() {
       <h1 className="page-title">Import</h1>
 
       <WatchNotification onNewImport={refetch} />
+
+      {rollbackError && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--bg-2)', border: '1px solid var(--neg)', borderRadius: 'var(--r)', color: 'var(--neg)', fontSize: 'var(--fs-sm)' }}>
+          {rollbackError}
+        </div>
+      )}
+
+      {confirmPending && (
+        <Confirm
+          message="Roll back this import?"
+          detail="All transactions from this file will be removed. The account remains; only this import's data is undone."
+          destructive
+          confirmLabel="Roll back"
+          onConfirm={() => doRollback(confirmPending.logId)}
+          onCancel={() => setConfirmPending(null)}
+        />
+      )}
 
       <div className="grid-2 import-top-grid mb-32" style={{ gridTemplateColumns: '1fr 380px', alignItems: 'start' }}>
         <div>
