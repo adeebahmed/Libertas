@@ -2,10 +2,7 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { DebtResponse, DebtAccount } from '../types'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, CartesianGrid,
-} from 'recharts'
+import { TerminalBarChart } from '../components/Chart'
 
 const TYPE_LABEL: Record<string, string> = {
   credit_card: 'Credit Card',
@@ -118,22 +115,7 @@ export default function DebtPage() {
             {/* Balance by account */}
             <div className="card">
               <div className="section-label mb-16">Balance by Account</div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={barData} barCategoryGap="30%">
-                  <XAxis dataKey="name" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} width={52} />
-                  <Tooltip
-                    formatter={(v: number) => [fmt(v), 'Balance']}
-                    contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}
-                    labelStyle={{ color: 'var(--text-3)' }}
-                  />
-                  <Bar dataKey="balance" radius={[4, 4, 0, 0]}>
-                    {barData.map((entry, i) => (
-                      <rect key={i} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <TerminalBarChart data={barData} dataKey="balance" height={200} formatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
             </div>
 
             {/* Debt by type breakdown */}

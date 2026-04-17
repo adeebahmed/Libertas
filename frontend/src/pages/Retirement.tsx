@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Projection, RetirementPlan } from '../types'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { TerminalLineChart } from '../components/Chart'
 
 function usd(n: number) {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
@@ -12,20 +12,6 @@ function usd(n: number) {
 
 function usdFull(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-sm)' }}>
-      <div style={{ color: 'var(--text-3)', marginBottom: 6 }}>Year {label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
-          {p.name}: {usdFull(p.value)}
-        </div>
-      ))}
-    </div>
-  )
 }
 
 type Tab = 'scenarios' | 'plan'
@@ -161,17 +147,17 @@ export default function RetirementPage() {
           {/* Plan chart */}
           <div className="card">
             <div className="section-label mb-16">Growth to target</div>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={planChartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} tickFormatter={usd} />
-                <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={plan.target} stroke="var(--accent)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--accent)', fontSize: 'var(--fs-xs)' }} />
-                <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
-                <Line type="monotone" dataKey="Aggressive"   stroke="var(--neg)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+            <TerminalLineChart
+              data={planChartData}
+              height={320}
+              formatter={usd}
+              reference={{ y: plan.target, label: 'Target' }}
+              series={[
+                { dataKey: 'Conservative', stroke: 'var(--pos)' },
+                { dataKey: 'Moderate', stroke: 'var(--accent)', strokeWidth: 2 },
+                { dataKey: 'Aggressive', stroke: 'var(--neg)', strokeDasharray: '4 2' },
+              ]}
+            />
           </div>
         </>
       )}
@@ -223,16 +209,16 @@ export default function RetirementPage() {
                 <div className="empty-sub" style={{ marginTop: 10 }}>Loading growth scenarios…</div>
               </div>
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <LineChart data={chartData} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
-                  <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} tickFormatter={usd} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Conservative" stroke="var(--pos)" strokeWidth={1.5} dot={false} />
-                  <Line type="monotone" dataKey="Moderate"     stroke="var(--accent)" strokeWidth={2}   dot={false} />
-                  <Line type="monotone" dataKey="Aggressive"   stroke="var(--neg)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
-                </LineChart>
-              </ResponsiveContainer>
+              <TerminalLineChart
+                data={chartData}
+                height={360}
+                formatter={usd}
+                series={[
+                  { dataKey: 'Conservative', stroke: 'var(--pos)' },
+                  { dataKey: 'Moderate', stroke: 'var(--accent)', strokeWidth: 2 },
+                  { dataKey: 'Aggressive', stroke: 'var(--neg)', strokeDasharray: '4 2' },
+                ]}
+              />
             ) : (
               <div className="empty"><div className="empty-sub">Adjust parameters above</div></div>
             )}

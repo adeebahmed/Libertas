@@ -3,17 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, BalanceSnapshot, Insight, NetWorth } from '../types'
-import {
-  Area,
-  AreaChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { TerminalAreaChart, TerminalDonut } from '../components/Chart'
 
 const PIE_COLORS = [
   'var(--text)',
@@ -62,25 +52,6 @@ function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' 
   if (days < 7) return 'fresh'
   if (days < 30) return 'aging'
   return 'stale'
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div
-      style={{
-        background: 'var(--bg-2)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--r)',
-        padding: '10px 12px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--fs-sm)',
-      }}
-    >
-      <div style={{ color: 'var(--text-3)', marginBottom: 4 }}>{label}</div>
-      <div style={{ color: 'var(--text)' }}>{usd(payload[0].value)}</div>
-    </div>
-  )
 }
 
 export default function Dashboard() {
@@ -231,25 +202,7 @@ export default function Dashboard() {
               <div className="empty-sub" style={{ marginTop: 10 }}>Loading net worth history…</div>
             </div>
           ) : historyReady ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={history} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--text)" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="var(--text)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value) => usd(value, true)}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="net_worth" stroke="var(--text)" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <TerminalAreaChart data={history} dataKey="net_worth" height={250} formatter={(value) => usd(value, true)} />
           ) : (
             <div className="empty">
               <div className="empty-title">No chart data</div>
@@ -272,15 +225,7 @@ export default function Dashboard() {
             </div>
           ) : allocationData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={170}>
-                <PieChart>
-                  <Pie data={allocationData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={76} paddingAngle={2}>
-                    {allocationData.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+              <TerminalDonut data={allocationData} colors={PIE_COLORS} size={170} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', marginTop: 8 }}>
                 {allocationData.map((item, i) => (
                   <div key={item.name} className="flex-between" style={{ fontSize: 'var(--fs-sm)' }}>

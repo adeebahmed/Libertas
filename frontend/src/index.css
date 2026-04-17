@@ -707,6 +707,27 @@ hr {
 }
 .recharts-tooltip-wrapper { font-family: var(--font-mono) !important; }
 
+.chart-tooltip {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  padding: var(--s-2) var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.chart-tooltip-label {
+  color: var(--text-3);
+  margin-bottom: var(--s-1);
+}
+
+.terminal-donut {
+  display: block;
+  font-family: var(--font-mono);
+}
+
 /* ── Tabs ── */
 .tabs {
   display: flex;
