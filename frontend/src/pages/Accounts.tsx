@@ -328,6 +328,7 @@ function ModalShell({
 export default function Accounts() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: accounts, loading: accountsLoading, refetch: refetchAccounts } = useApi<Account[]>(() => api.get('/accounts'), [])
+  const { data: institutions, refetch: refetchInstitutions } = useApi<{ id: number; name: string; export_url: string | null; file_pattern: string | null }[]>(() => api.get('/accounts/institutions'), [])
   const { data: debtData, refetch: refetchDebts } = useApi<DebtResponse>(() => api.get('/debt'), [])
   const [selectedId, setSelectedId] = useState<number | null>(() => {
     const value = searchParams.get('accountId')
@@ -391,6 +392,7 @@ export default function Accounts() {
   const [saving, setSaving] = useState(false)
   const [plaidBusy, setPlaidBusy] = useState(false)
   const [plaidMessage, setPlaidMessage] = useState<string>('')
+  const [newInst, setNewInst] = useState({ name: '', export_url: '', file_pattern: '' })
   const [confirmPending, setConfirmPending] = useState<{ message: string; detail?: string; onConfirm: () => Promise<void> } | null>(null)
 
   function withConfirm(message: string, detail: string | undefined, action: () => Promise<void>) {
@@ -582,6 +584,20 @@ export default function Accounts() {
       last_price: holding.last_price == null ? '' : String(holding.last_price),
     })
     setModal({ kind: 'holding', mode: 'edit', account, holding })
+  }
+
+  async function addInstitution() {
+    if (!newInst.name) return
+    await api.post('/accounts/institutions', { name: newInst.name, export_url: newInst.export_url || null, file_pattern: newInst.file_pattern || null })
+    setNewInst({ name: '', export_url: '', file_pattern: '' })
+    await refetchInstitutions()
+  }
+
+  async function removeInstitution(id: number, name: string) {
+    withConfirm(`Remove ${name}?`, 'Accounts using this institution may lose their institution link.', async () => {
+      await api.delete('/accounts/institutions/' + id)
+      await refetchInstitutions()
+    })
   }
 
   async function refreshAll() {
@@ -1149,6 +1165,43 @@ export default function Accounts() {
         </div>
       </div>
 
+      {/* ── Institutions ── */}
+      <div className="section-label mb-16" style={{ marginTop: 40 }}>Institutions</div>
+      <div className="card mb-32" style={{ padding: 0 }}>
+        {institutions && institutions.length > 0 && (
+          <table className="tbl">
+            <thead>
+              <tr><th>Name</th><th>File Pattern</th><th>Export URL</th><th></th></tr>
+            </thead>
+            <tbody>
+              {institutions.map(i => (
+                <tr key={i.id}>
+                  <td style={{ fontWeight: 500 }}>{i.name}</td>
+                  <td style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-3)' }}>{i.file_pattern ?? '—'}</td>
+                  <td>{i.export_url ? <a href={i.export_url} target="_blank" rel="noopener">↗ Open</a> : '—'}</td>
+                  <td><button className="btn btn-sm" onClick={() => removeInstitution(i.id, i.name)}>Remove</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div style={{ padding: '16px 20px', borderTop: institutions?.length ? '1px solid var(--border)' : 'none', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Name</label>
+            <input value={newInst.name} onChange={e => setNewInst(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Fidelity" />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Export URL</label>
+            <input value={newInst.export_url} onChange={e => setNewInst(p => ({ ...p, export_url: e.target.value }))} placeholder="https://…" />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>File pattern</label>
+            <input value={newInst.file_pattern} onChange={e => setNewInst(p => ({ ...p, file_pattern: e.target.value }))} placeholder="Fidelity_*.csv" />
+          </div>
+          <button className="btn btn-primary" onClick={addInstitution} disabled={!newInst.name}>Add</button>
+        </div>
+      </div>
+
       {confirmPending && (
         <Confirm
           message={confirmPending.message}
@@ -1189,8 +1242,11 @@ export default function Accounts() {
                 </select>
               </div>
               <div className="field">
-                <label>Institution ID</label>
-                <input value={accountDraft.institution_id} onChange={(e) => setAccountDraft((draft) => ({ ...draft, institution_id: e.target.value }))} placeholder="Leave blank for none" />
+                <label>Institution</label>
+                <select value={accountDraft.institution_id} onChange={(e) => setAccountDraft((draft) => ({ ...draft, institution_id: e.target.value }))}>
+                  <option value="">None</option>
+                  {(institutions ?? []).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                </select>
               </div>
               <div className="field">
                 <label>Currency</label>
