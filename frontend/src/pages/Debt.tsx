@@ -15,10 +15,10 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  credit_card: '#c95f52',
-  student_loan: '#6a9fc0',
-  auto_loan: '#d4a840',
-  personal_loan: '#9b85c4',
+  credit_card: 'var(--red-chart)',
+  student_loan: 'var(--blue-chart)',
+  auto_loan: 'var(--gold-chart)',
+  personal_loan: 'var(--purple-chart)',
 }
 
 function fmt(n: number) {

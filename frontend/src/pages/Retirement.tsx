@@ -158,9 +158,9 @@ export default function RetirementPage() {
                 <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                 <Tooltip content={<CustomTooltip />} />
                 <ReferenceLine y={plan.target} stroke="var(--gold)" strokeDasharray="4 2" label={{ value: 'Target', fill: 'var(--gold)', fontSize: 11 }} />
-                <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
-                <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="Conservative" stroke="var(--green-chart)" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="Moderate"     stroke="var(--gold-chart)" strokeWidth={2}   dot={false} />
+                <Line type="monotone" dataKey="Aggressive"   stroke="var(--red-chart)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -189,9 +189,9 @@ export default function RetirementPage() {
           {finals && scenarios && (
             <div className="grid-3 mb-24">
               {([
-                ['Conservative', finals.conservative, '#5cad7a', conservative],
-                ['Moderate',     finals.moderate,     '#d4a840', moderate],
-                ['Aggressive',   finals.aggressive,   '#c95f52', aggressive],
+                ['Conservative', finals.conservative, 'var(--green-chart)', conservative],
+                ['Moderate',     finals.moderate,     'var(--gold-chart)', moderate],
+                ['Aggressive',   finals.aggressive,   'var(--red-chart)', aggressive],
               ] as const).map(([name, val, color, rate]) => (
                 <div key={name} className="card" style={{ borderTop: `3px solid ${color}`, paddingTop: 18 }}>
                   <div className="section-label mb-8">{name} · {rate}% / yr</div>
@@ -214,9 +214,9 @@ export default function RetirementPage() {
                   <XAxis dataKey="year" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={usd} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="Conservative" stroke="#5cad7a" strokeWidth={1.5} dot={false} />
-                  <Line type="monotone" dataKey="Moderate"     stroke="#d4a840" strokeWidth={2}   dot={false} />
-                  <Line type="monotone" dataKey="Aggressive"   stroke="#c95f52" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  <Line type="monotone" dataKey="Conservative" stroke="var(--green-chart)" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="Moderate"     stroke="var(--gold-chart)" strokeWidth={2}   dot={false} />
+                  <Line type="monotone" dataKey="Aggressive"   stroke="var(--red-chart)" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

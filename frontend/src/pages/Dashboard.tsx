@@ -15,7 +15,15 @@ import {
   YAxis,
 } from 'recharts'
 
-const PIE_COLORS = ['#3b82f6', '#34d399', '#d4a840', '#a78bfa', '#22d3ee', '#f87171', '#60a5fa']
+const PIE_COLORS = [
+  'var(--blue-chart)',
+  'var(--green-chart)',
+  'var(--gold-chart)',
+  'var(--purple-chart)',
+  'var(--cyan-chart)',
+  'var(--red-chart)',
+  'var(--blue-bright-chart)',
+]
 const RANGE_OPTIONS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 
 const GROUPS: Array<{ title: string; types: string[] }> = [
@@ -227,8 +235,8 @@ export default function Dashboard() {
               <AreaChart data={history} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--blue-chart)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--blue-chart)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -239,7 +247,7 @@ export default function Dashboard() {
                   tickFormatter={(value) => usd(value, true)}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="net_worth" stroke="#3b82f6" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
+                <Area type="monotone" dataKey="net_worth" stroke="var(--blue-chart)" strokeWidth={1.6} fill="url(#blueGrad)" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (

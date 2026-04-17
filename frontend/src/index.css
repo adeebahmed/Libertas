@@ -21,6 +21,16 @@
   --red: #ff7d81;
   --purple: #9caeff;
   --cyan: #59d4df;
+  --amber: #e0906a;
+  --gold-warm: #e0c06a;
+
+  --blue-chart: var(--blue);
+  --green-chart: var(--green);
+  --gold-chart: var(--gold);
+  --red-chart: var(--red);
+  --purple-chart: var(--purple);
+  --cyan-chart: var(--cyan);
+  --blue-bright-chart: var(--blue-bright);
 
   --font-serif: 'Fraunces', Georgia, serif;
   --font-sans: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
@@ -584,9 +594,9 @@ hr {
 .insight-card.trend      { border-left-color: var(--gold); }
 .insight-card.retirement { border-left-color: var(--green); }
 .insight-card.debt       { border-left-color: var(--red); }
-.insight-card.tax        { border-left-color: #e0c06a; }
+.insight-card.tax        { border-left-color: var(--gold-warm); }
 .insight-card.behavioral { border-left-color: var(--purple); }
-.insight-card.estate     { border-left-color: #e0906a; }
+.insight-card.estate     { border-left-color: var(--amber); }
 .insight-card.info       { border-left-color: var(--border); }
 
 .insight-cat {
@@ -603,9 +613,9 @@ hr {
 .insight-card.trend      .insight-cat { color: var(--gold); }
 .insight-card.retirement .insight-cat { color: var(--green); }
 .insight-card.debt       .insight-cat { color: var(--red); }
-.insight-card.tax        .insight-cat { color: #e0c06a; }
+.insight-card.tax        .insight-cat { color: var(--gold-warm); }
 .insight-card.behavioral .insight-cat { color: var(--purple); }
-.insight-card.estate     .insight-cat { color: #e0906a; }
+.insight-card.estate     .insight-cat { color: var(--amber); }
 .insight-card.info       .insight-cat { color: var(--text-3); }
 
 .insight-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
