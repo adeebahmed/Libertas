@@ -36,7 +36,8 @@ Use `/` (Overview) to verify:
 - Net worth trend and recent delta
 - Allocation chart
 - Account cards and freshness indicators
-- News panel
+- Collapsed hero live tape: ticker -> related headline -> position signal
+- News context and actionability in the tape stream
 
 If values look stale, run `Settings` → `Refresh prices`.
 

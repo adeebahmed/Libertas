@@ -65,7 +65,7 @@ hero:
 <section class="lp-section lp-highlight">
   <p class="lp-kicker">Now shipping</p>
   <h2>Built for real-world messiness.</h2>
-  <p class="lp-copy">Current updates improve confidence and control: manual account workflows, import quality warnings, rollback safety, debt payoff details, and freshness indicators.</p>
+  <p class="lp-copy">Current updates improve confidence and control: manual account workflows, import quality warnings, rollback safety, debt payoff details, freshness indicators, and a collapsed Overview live tape that groups ticker -> related headline -> position signal.</p>
 </section>
 
 <section class="lp-section lp-highlight">

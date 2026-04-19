@@ -1,0 +1,169 @@
+{
+  "created_at": "2026-04-17T06:14:10.022069",
+  "version": "1",
+  "institutions": [
+    {
+      "id": 1,
+      "name": "Chase",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 2,
+      "name": "Coinbase",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 3,
+      "name": "Fidelity",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 4,
+      "name": "Schwab",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 5,
+      "name": "Marcus",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 6,
+      "name": "Navient",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 7,
+      "name": "ToyotaFinancial",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 8,
+      "name": "Vanguard",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    },
+    {
+      "id": 9,
+      "name": "POWERPLUS",
+      "export_url": null,
+      "file_pattern": null,
+      "column_mapping": null,
+      "importer_preset": "generic",
+      "notes": null
+    }
+  ],
+  "accounts": [
+    {
+      "id": 1,
+      "name": "Chase Checking",
+      "type": "checking",
+      "institution_id": 1,
+      "currency": "USD"
+    },
+    {
+      "id": 2,
+      "name": "Coinbase Crypto",
+      "type": "crypto",
+      "institution_id": 2,
+      "currency": "USD"
+    },
+    {
+      "id": 3,
+      "name": "Fidelity Roth Ira",
+      "type": "roth_ira",
+      "institution_id": 3,
+      "currency": "USD"
+    },
+    {
+      "id": 4,
+      "name": "Schwab Brokerage",
+      "type": "brokerage",
+      "institution_id": 4,
+      "currency": "USD"
+    },
+    {
+      "id": 5,
+      "name": "Chase Credit Card",
+      "type": "credit_card",
+      "institution_id": 1,
+      "currency": "USD"
+    },
+    {
+      "id": 6,
+      "name": "Fidelity Brokerage",
+      "type": "brokerage",
+      "institution_id": 3,
+      "currency": "USD"
+    },
+    {
+      "id": 7,
+      "name": "Marcus Savings",
+      "type": "savings",
+      "institution_id": 5,
+      "currency": "USD"
+    },
+    {
+      "id": 8,
+      "name": "Navient Student Loan",
+      "type": "student_loan",
+      "institution_id": 6,
+      "currency": "USD"
+    },
+    {
+      "id": 9,
+      "name": "ToyotaFinancial Auto Loan",
+      "type": "auto_loan",
+      "institution_id": 7,
+      "currency": "USD"
+    },
+    {
+      "id": 10,
+      "name": "Vanguard 401K",
+      "type": "401k",
+      "institution_id": 8,
+      "currency": "USD"
+    },
+    {
+      "id": 11,
+      "name": "POWERPLUS Checking",
+      "type": "checking",
+      "institution_id": 9,
+      "currency": "USD"
+    }
+  ],
+  "settings": {
+    "monthly_expenses": -3
+  }
+}

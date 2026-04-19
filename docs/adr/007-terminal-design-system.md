@@ -13,7 +13,7 @@ Reference direction: Bloomberg Terminal × Linear — near-monochrome, data-firs
 
 ## Decision
 
-Replace the visual system wholesale. Backend unchanged. New features excluded from scope (except ⌘K palette, which is part of the keyboard-first mandate).
+Replace the visual system wholesale. Backend unchanged. New features excluded from scope (except the command palette, which is part of the keyboard-first mandate).
 
 ### Token system
 
@@ -63,5 +63,5 @@ Trade-offs:
 
 ## Follow-ups
 
-- ADR-008 covers the ⌘K command palette and keyboard navigation system built alongside this redesign.
+- ADR-008 covers the `/` command palette trigger and keyboard navigation system built alongside this redesign.
 - Light mode is out of scope for now; if added, it should be a second `:root[data-theme="light"]` block — no component-level changes.

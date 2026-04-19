@@ -11,9 +11,9 @@ The Terminal design direction (ADR-007) mandated keyboard-first as a non-negotia
 
 ## Decision
 
-### ⌘K Command Palette
+### Command Palette Trigger
 
-A full-screen overlay triggered by `⌘K` (macOS) / `Ctrl+K` (Windows/Linux). Visual: 560px wide, centered, 40% from top. Black background, 1px `--border-strong` border, Geist Mono input, 36px result rows, keyboard arrow navigation, Enter fires the selected command.
+A full-screen overlay triggered by `/` when focus is outside an input/select/textarea/contenteditable element. Visual: 560px wide, centered, 40% from top. Black background, 1px `--border-strong` border, Geist Mono input, 36px result rows, keyboard arrow navigation, Enter fires the selected command.
 
 Focus is trapped inside the palette while open. Escape closes. The palette is mounted at the App root so it's reachable from any page.
 
@@ -34,12 +34,34 @@ Linear-style two-key chord sequences, active when focus is outside any input:
 |---|---|
 | `g d` | Dashboard |
 | `g a` | Accounts |
-| `g r` | Retirement |
+| `g r` | Real Estate |
 | `g s` | Settings |
-| `/` | Focus search input on current page |
-| `?` | Open keyboard help overlay |
+| `?` | Open command palette |
 
 Chords are implemented via a shared `useHotkeys` hook registered once in App. The hook ignores events when an `<input>`, `<textarea>`, or `contenteditable` element has focus.
+
+### Single-key page navigation
+
+Global single-key navigation (outside editable fields) is handled in `App.tsx`:
+
+| Key | Destination |
+|---|---|
+| `o` | Overview |
+| `a` | Accounts |
+| `d` | Debt |
+| `r` | Retirement |
+| `e` | Real Estate |
+| `t` | Taxes |
+| `i` | Insights |
+| `m` | Import |
+| `s` | Settings |
+
+Sidebar controls:
+
+| Key | Action |
+|---|---|
+| `ArrowLeft` | Collapse sidebar |
+| `ArrowRight` | Expand sidebar |
 
 ### Implementation
 
@@ -47,9 +69,9 @@ Chords are implemented via a shared `useHotkeys` hook registered once in App. Th
 - `frontend/src/hooks/useHotkeys.ts` — chord + single-key registration
 - Mounted in `frontend/src/App.tsx`
 
-No third-party hotkey library. The hook uses `keydown` listeners with a 500ms chord timeout — if the second key doesn't arrive within 500ms, the sequence resets.
+No third-party hotkey library. The hook uses `keydown` listeners with a 900ms chord timeout — if the second key doesn't arrive within 900ms, the sequence resets.
 
-Sidebar footer shows `Press ⌘K` in mono `--text-3` as a persistent discoverability hint.
+Sidebar footer shows `Press /` in mono `--text-3` as a persistent discoverability hint.
 
 ## Consequences
 
@@ -61,7 +83,7 @@ Positive:
 Trade-offs:
 - Chord sequences conflict with browser shortcuts if not carefully scoped; the focus guard (skip when input active) handles most cases but is not exhaustive.
 - Command list is statically registered; dynamic commands (e.g., jump to a specific account) require a more sophisticated registry in future.
-- `?` help overlay is registered but the overlay content is minimal at launch.
+- `?` opens the same command palette and is currently redundant with `/`.
 
 ## Follow-ups
 

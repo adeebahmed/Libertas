@@ -44,7 +44,7 @@ All routes are mounted under `/api`.
 - `/taxes` estimate, harvesting opportunities, entity recommendations
 - `/insights` deterministic rules + optional Claude chat
 - `/news` cached RSS/news aggregation with refresh endpoint
-- `/dashboard` overview market tape payloads for collapsed hero UX
+- `/dashboard` overview market tape payload for collapsed hero, sequenced as ticker -> related news -> position signal
 - `/backups` local backup creation and download
 - `/prices` holdings price refresh + status
 - `/settings` local key-value configuration storage

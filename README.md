@@ -13,19 +13,20 @@ Libertas is a self-hosted personal finance dashboard built for people who want t
   &nbsp;
   <img src="docs/public/screenshots/overview-retro.png" width="48%" alt="Retro theme" />
 </p>
-<p align="center"><em>✦ Onyx (left) · Retro (right) — toggle anytime in Settings ✦</em></p>
+<p align="center"><em>✦ Onyx (left) · Retro (right) — both include the live ticker -> news -> signal tape on collapsed Overview ✦</em></p>
 
 ---
 
 ## ✨ What you get
 
 - 📊 **Net worth dashboard** — history, range controls, 30-day delta, account drill-in
+- 📰 **Live market tape** — collapsed Overview cycles ticker -> related headline -> position signal
 - 🏦 **Full account coverage** — brokerages, banks, crypto, real estate, debt, retirement
 - 🧠 **Insights engine** — 15 deterministic rules, runs 100% offline, no AI required
 - 🔥 **Retirement planner** — 5 FIRE types, projections, contribution tracking
 - 🧮 **Tax estimates + debt payoff** — built-in calculators
 - 🔐 **At-rest encryption** — AES-256-GCM on all sensitive fields in SQLite
-- ⌨️ **Keyboard-driven** — `/` command palette, `g d` / `g a` / `g r` / `g s` chord nav
+- ⌨️ **Keyboard-driven** — `/` command palette, chord nav (`g d` dashboard, `g a` accounts, `g r` real estate, `g s` settings)
 - 🎨 **Two themes** — Onyx (terminal black + amber) and Retro (deep navy + blue glow)
 - 🤖 **Optional AI chat** — Claude API key unlocks portfolio Q&A and guided insights
 - 🔗 **Optional sync** — Plaid and Google Sheets CSV feeds, fully opt-in
