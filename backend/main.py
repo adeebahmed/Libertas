@@ -15,7 +15,7 @@ except ImportError:
 from .database import init_db, SessionLocal
 from .services.encryption import load_key_on_startup
 from .importers.ingest import ingest_file
-from .models import Account
+from .models import Account, ImportLog
 from .routers import accounts, imports, prices, real_estate, snapshots, insights, settings, watcher, debt
 from .routers import retirement, taxes, news, backups
 from .routers import integrations
@@ -81,6 +81,7 @@ def health():
 @app.on_event("startup")
 async def on_startup():
     init_db()
+    _clean_stale_demo_import_errors()
     db = SessionLocal()
     try:
         load_key_on_startup(db)
@@ -158,5 +159,32 @@ def _bootstrap_demo_data_if_empty():
             )
     except Exception as e:
         logger.warning(f"Demo bootstrap failed: {e}")
+    finally:
+        db.close()
+
+
+def _clean_stale_demo_import_errors():
+    """
+    Remove noisy historical demo fixture errors from Import History so users
+    only see actionable import failures for their own files.
+    """
+    db = SessionLocal()
+    try:
+        stale_rows = (
+            db.query(ImportLog)
+            .filter(
+                ImportLog.status == "error",
+                ImportLog.filename.in_(DEMO_FILENAMES),
+                ImportLog.filepath.isnot(None),
+                ImportLog.filepath.ilike("%/data/watch/%"),
+            )
+        )
+        removed = stale_rows.count()
+        if removed > 0:
+            stale_rows.delete(synchronize_session=False)
+            db.commit()
+            logger.info("Removed %s stale demo import ENOENT log rows", removed)
+    except Exception as e:
+        logger.warning(f"Cleanup of stale demo import errors failed: {e}")
     finally:
         db.close()
