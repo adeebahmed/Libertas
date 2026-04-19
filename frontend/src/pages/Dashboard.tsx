@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
@@ -73,14 +73,12 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [range, setRange] = useState<(typeof RANGE_OPTIONS)[number]>('6M')
   const [heroCollapsed, setHeroCollapsed] = useState(true)
-  const [heroReservedHeight, setHeroReservedHeight] = useState<number | null>(null)
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
   const [chatInput, setChatInput] = useState('')
   const [chatReply, setChatReply] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState('')
   const [now, setNow] = useState(() => new Date())
-  const heroShellRef = useRef<HTMLDivElement | null>(null)
 
   const { data: nw, loading: nwLoading, error: nwError } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history, loading: historyLoading, error: historyError } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
@@ -179,29 +177,17 @@ export default function Dashboard() {
   const historyInitialLoading = historyLoading && !history
   const accountsInitialLoading = accountsLoading && !accounts
   const insightsInitialLoading = insightsLoading && !insights
-  const heroCenterLift = heroCollapsed && heroReservedHeight ? Math.max(heroReservedHeight - 48, 0) : 0
-
-  const toggleHero = () => {
-    if (!heroCollapsed) {
-      const expandedHeight = heroShellRef.current?.getBoundingClientRect().height ?? 0
-      if (expandedHeight > 0) {
-        setHeroReservedHeight(Math.round(expandedHeight))
-      }
-    }
-    setHeroCollapsed((v) => !v)
-  }
-
   return (
     <div>
       <div
-        ref={heroShellRef}
+        data-testid="dashboard-hero-shell"
         className={`dashboard-hero-shell mb-24${heroCollapsed ? ' is-collapsed' : ''}`}
-        style={heroCollapsed && heroReservedHeight ? { minHeight: `${heroReservedHeight}px` } : undefined}
       >
         <button
           type="button"
+          data-testid="dashboard-hero-toggle"
           className="dashboard-hero-toggle"
-          onClick={toggleHero}
+          onClick={() => setHeroCollapsed((v) => !v)}
           aria-expanded={!heroCollapsed}
           aria-label={heroCollapsed ? 'Expand net worth and top insight' : 'Collapse net worth and top insight'}
           title={heroCollapsed ? 'Expand overview' : 'Collapse overview'}
@@ -250,14 +236,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <section
-        className={`overview-chat-stage mb-24${heroCollapsed ? ' is-expanded' : ''}`}
-        style={{ '--hero-center-lift': `${heroCenterLift}px` } as CSSProperties}
-      >
+      <section data-testid="overview-chat-stage" className={`overview-chat-stage mb-24${heroCollapsed ? ' is-expanded' : ''}`}>
         <div className={`overview-chat-center${heroCollapsed ? ' is-emphasis' : ''}`}>
-          <h2 className="overview-chat-greeting">{greeting}, {userName}</h2>
+          <h2 className="overview-chat-greeting" data-testid="overview-chat-greeting">{greeting}, {userName}</h2>
           <p className="overview-chat-sub">{vibeLine}</p>
-          <div className="overview-chat-prompts">
+          <div className="overview-chat-prompts" data-testid="overview-chat-prompts">
             {promptPills.map((prompt) => (
               <button
                 key={prompt}
@@ -282,6 +265,7 @@ export default function Dashboard() {
         </div>
 
         <form
+          data-testid="overview-chat-composer"
           className="overview-chat-composer"
           onSubmit={(e) => {
             e.preventDefault()
@@ -299,7 +283,7 @@ export default function Dashboard() {
         </form>
       </section>
 
-      <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--s-5)', marginBottom: 24 }}>
+      <div data-testid="dashboard-top-grid" className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--s-5)', marginBottom: 24 }}>
         <div className="card">
           <div className="flex-between mb-16" style={{ alignItems: 'center' }}>
             <div className="section-label">Net worth history</div>

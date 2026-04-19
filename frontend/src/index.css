@@ -575,8 +575,8 @@ button {
 }
 
 .dashboard-hero-shell.is-collapsed {
-  min-height: 40px;
-  border-bottom-color: transparent;
+  min-height: 52px;
+  border-bottom-color: var(--border);
 }
 
 .dashboard-hero-summary {
@@ -606,7 +606,9 @@ button {
 }
 
 .overview-chat-stage.is-expanded {
-  padding-top: 18px;
+  min-height: calc(100vh - 116px);
+  padding-top: 36px;
+  padding-bottom: 28px;
 }
 
 .overview-chat-center {
@@ -617,7 +619,7 @@ button {
 }
 
 .overview-chat-center.is-emphasis {
-  transform: translateY(calc(-1 * var(--hero-center-lift, 0px))) scale(1.065);
+  transform: scale(1.03);
 }
 
 .overview-chat-greeting {
