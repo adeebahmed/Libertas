@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Account, BalanceSnapshot, Insight, NetWorth } from '../types'
+import type { Account, BalanceSnapshot, DashboardTape, Insight, NetWorth } from '../types'
 import { TerminalAreaChart, TerminalDonut } from '../components/Chart'
+import DashboardMarketTape from '../components/DashboardMarketTape'
 import { simplifyInsightCopy } from '../utils/insightCopy'
 
 const PIE_COLORS = [
@@ -85,6 +86,7 @@ export default function Dashboard() {
   const { data: accounts, loading: accountsLoading, error: accountsError } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
   const { data: settings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
+  const { data: tape, loading: tapeLoading } = useApi<DashboardTape>(() => api.get('/dashboard/tape'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -194,6 +196,7 @@ export default function Dashboard() {
         >
           {heroCollapsed ? '▾' : '▴'}
         </button>
+        <DashboardMarketTape data={tape} loading={tapeLoading} visible={heroCollapsed} />
         <div className="dashboard-hero-grid">
           <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
