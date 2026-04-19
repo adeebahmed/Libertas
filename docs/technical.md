@@ -1,43 +1,82 @@
-# Technical Docs
+# Technical Overview
 
-This section is intentionally secondary to the product experience.
+This page reflects the current implementation state as of April 2026.
 
-If you want implementation details, architecture decisions, and engineering context, start here.
+## Runtime topology
 
-## Architecture Decision Records
+- Backend: FastAPI app on `:8000`
+- Frontend: Vite dev server on `:5173`/`:5174`
+- Database: SQLite at `data/libertas.db`
+- Watch folder: `data/watch/` for auto-detected imports
+- Docs: VitePress static site on GitHub Pages
 
-- [ADR-001 — Finance Dashboard Design](/adr/001-finance-dashboard-design)
-- [ADR-002 — Data Ingestion Strategy](/adr/002-data-ingestion-strategy)
-- [ADR-002 — Taxes Page](/adr/002-taxes-page)
-- [ADR-003 — News Feed Integration](/adr/003-news-feed)
-- [ADR-004 — User Profile and AI-Powered Guidance](/adr/004-user-profile-and-ai-guidance)
-- [ADR-005 — Versioned Backups and Rollback](/adr/005-versioned-backups)
+Run locally:
 
-## Runtime Overview
+```bash
+./start.sh
+```
 
-- Backend: FastAPI + SQLAlchemy + SQLite
-- Frontend: Vite + React + TypeScript
-- Docs: VitePress deployed via GitHub Pages
-- Local run: `./start.sh`
+## Frontend architecture
 
-## API Surface (High-Level)
+- React 18 + TypeScript + React Router
+- Theme context with two UI themes: `onyx` and `retro`
+- Major routes:
+  - `/` Overview dashboard
+  - `/accounts`
+  - `/import`
+  - `/debt`
+  - `/retirement`
+  - `/real-estate`
+  - `/taxes`
+  - `/insights`
+  - `/settings`
 
-Primary routers are mounted under `/api` and include:
+## Backend API map
 
-- accounts
-- snapshots
-- imports
-- watcher
-- debt
-- retirement
-- taxes
-- insights
-- news
-- backups
-- settings
-- prices
-- real-estate
+All routes are mounted under `/api`.
 
-## Product-First Note
+- `/accounts` account + institution CRUD, transactions, holdings, performance
+- `/snapshots` current + historical net worth and snapshot recording
+- `/imports` upload, preview, rollback
+- `/watcher` watch-folder import logs and latest import event
+- `/debt` debt summary, strategies, payoff chart, extra payment simulation
+- `/retirement` projections and personalized plan endpoint
+- `/taxes` estimate, harvesting opportunities, entity recommendations
+- `/insights` deterministic rules + optional Claude chat
+- `/news` cached RSS/news aggregation with refresh endpoint
+- `/backups` local backup creation and download
+- `/prices` holdings price refresh + status
+- `/settings` local key-value configuration storage
+- `/real-estate` property CRUD + valuation refresh
+- `/integrations` optional Plaid and Sheets sync endpoints
 
-If you are evaluating Libertas as a user, start at the [home page](/) for value and feature overview.
+## Data ingest model
+
+Current ingest paths:
+
+1. Manual account/transaction updates in-app
+2. CSV/Excel uploads or watch-folder ingestion
+3. Optional Plaid connection
+4. Optional Google Sheets CSV feeds
+
+Source precedence and provenance fields are used to support deterministic dedupe/merge behavior across sources.
+
+## Security model
+
+- Local-first storage by default
+- At-rest encryption for sensitive text fields (ADR-010)
+- Key modes:
+  - macOS Keychain (default)
+  - user passphrase (Argon2id-derived key)
+- AI features are optional and key-gated
+
+See [Security & Encryption](/security) for full details.
+
+## ADR coverage
+
+Architecture decisions live in [ADR Index](/adr/), including:
+
+- Foundational app design (ADR-001)
+- Multi-source ingest direction (ADR-002, ADR-009)
+- Dashboard completion milestones (ADR-006)
+- Encryption at rest (ADR-010)

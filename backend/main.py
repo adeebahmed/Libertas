@@ -13,6 +13,7 @@ except ImportError:
     pass
 
 from .database import init_db, SessionLocal
+from .services.encryption import load_key_on_startup
 from .importers.ingest import ingest_file
 from .models import Account
 from .routers import accounts, imports, prices, real_estate, snapshots, insights, settings, watcher, debt
@@ -78,6 +79,11 @@ def health():
 @app.on_event("startup")
 async def on_startup():
     init_db()
+    db = SessionLocal()
+    try:
+        load_key_on_startup(db)
+    finally:
+        db.close()
     is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
     disable_watcher = os.getenv("LIBERTAS_DISABLE_WATCHER") == "1" or is_test
     disable_scheduler = os.getenv("LIBERTAS_DISABLE_INTEGRATION_SCHEDULER") == "1" or is_test
