@@ -540,6 +540,7 @@ button {
   padding: 0 38px 24px 0;
   border-bottom: 1px solid var(--border);
   overflow-anchor: none;
+  transition: border-color 220ms ease;
 }
 
 .dashboard-hero-shell.is-collapsed .dashboard-hero-grid {
@@ -575,6 +576,7 @@ button {
 
 .dashboard-hero-shell.is-collapsed {
   min-height: 40px;
+  border-bottom-color: transparent;
 }
 
 .dashboard-hero-summary {
