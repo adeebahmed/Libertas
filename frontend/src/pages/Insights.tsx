@@ -50,7 +50,13 @@ export default function InsightsPage() {
       setChatMessages([...newMessages, { role: 'assistant', content: reply }])
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     } catch (e: any) {
-      setChatError(e.message?.includes('400') ? 'Claude API key not configured. Add it in Settings.' : e.message)
+      const raw = e.message || ''
+      const colonIdx = raw.indexOf(': ')
+      let detail = raw
+      if (colonIdx !== -1) {
+        try { detail = JSON.parse(raw.slice(colonIdx + 2)).detail ?? raw } catch { detail = raw.slice(colonIdx + 2) }
+      }
+      setChatError(detail)
       setChatMessages(newMessages)
     } finally {
       setChatLoading(false)

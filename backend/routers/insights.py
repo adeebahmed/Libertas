@@ -519,5 +519,12 @@ The user's portfolio summary:
 
 Give concise, actionable advice. Be direct. Max 3 paragraphs."""
 
-    reply = await ai.chat([{"role": "user", "content": question}], system=system)
+    try:
+        reply = await ai.chat([{"role": "user", "content": question}], system=system)
+    except ValueError as exc:
+        from fastapi import HTTPException
+        raise HTTPException(502, str(exc))
+    except Exception as exc:
+        from fastapi import HTTPException
+        raise HTTPException(502, f"Claude API unreachable: {exc}")
     return {"reply": reply}

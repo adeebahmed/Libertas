@@ -29,6 +29,7 @@ KNOWN_KEYS = {
     "monthly_expenses",
     "risk_profile",
     "claude_api_key",
+    "claude_model",
     "plaid_client_id",
     "plaid_secret",
     "news_api_key",

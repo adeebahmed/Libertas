@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import CommandPalette from './components/CommandPalette'
 import { ThemeProvider } from './theme'
 import Dashboard from './pages/Dashboard'
@@ -17,16 +17,35 @@ import {
 } from './components/Icons'
 
 const NAV = [
-  { to: '/',             label: 'Overview',    end: true,  icon: <IconGrid /> },
-  { to: '/accounts',    label: 'Accounts',    end: false, icon: <IconWallet /> },
-  { to: '/debt',        label: 'Debt',        end: false, icon: <IconTrendDown /> },
-  { to: '/retirement',  label: 'Retirement',  end: false, icon: <IconBarChart /> },
-  { to: '/real-estate', label: 'Real Estate', end: false, icon: <IconHouse /> },
-  { to: '/taxes',       label: 'Taxes',       end: false, icon: <IconReceipt /> },
-  { to: '/insights',    label: 'Insights',    end: false, icon: <IconSearch /> },
+  { to: '/',             label: 'Overview',    end: true,  icon: <IconGrid />,      hotkey: 'o' },
+  { to: '/accounts',    label: 'Accounts',    end: false, icon: <IconWallet />,    hotkey: 'a' },
+  { to: '/debt',        label: 'Debt',        end: false, icon: <IconTrendDown />, hotkey: 'd' },
+  { to: '/retirement',  label: 'Retirement',  end: false, icon: <IconBarChart />,  hotkey: 'r' },
+  { to: '/real-estate', label: 'Real Estate', end: false, icon: <IconHouse />,     hotkey: 'e', hotkeyIndex: 5 },
+  { to: '/taxes',       label: 'Taxes',       end: false, icon: <IconReceipt />,   hotkey: 't' },
+  { to: '/insights',    label: 'Insights',    end: false, icon: <IconSearch />,    hotkey: 'i' },
 ]
 
+const FOOTER_NAV = [
+  { to: '/import',   label: 'Import',   hotkey: 'm', icon: <IconUpload size={13} /> },
+  { to: '/settings', label: 'Settings', hotkey: 's', icon: <IconGear size={13} /> },
+]
+
+function NavLabel({ label, hotkey, hotkeyIndex }: { label: string; hotkey?: string; hotkeyIndex?: number }) {
+  if (!hotkey) return <span>{label}</span>
+  const idx = hotkeyIndex !== undefined ? hotkeyIndex : label.toLowerCase().indexOf(hotkey)
+  if (idx === -1) return <span>{label}</span>
+  return (
+    <span>
+      {label.slice(0, idx)}
+      <u style={{ textDecorationThickness: '1px', textUnderlineOffset: '2px' }}>{label[idx]}</u>
+      {label.slice(idx + 1)}
+    </span>
+  )
+}
+
 export default function App() {
+  const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem('libertas:sidebar-collapsed') === '1'
@@ -43,6 +62,7 @@ export default function App() {
       return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable
     }
 
+    const allNav = [...NAV, ...FOOTER_NAV]
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return
       const key = event.key
@@ -52,6 +72,12 @@ export default function App() {
       } else if (key === 'ArrowRight' || key === 'Right') {
         event.preventDefault()
         setSidebarCollapsed(false)
+      } else {
+        const match = allNav.find(n => n.hotkey === key.toLowerCase())
+        if (match) {
+          event.preventDefault()
+          navigate(match.to)
+        }
       }
     }
 
@@ -144,7 +170,7 @@ export default function App() {
               className={({ isActive }) => (isActive ? 'active' : '')}
             >
               {n.icon}
-              <span>{n.label}</span>
+              <NavLabel label={n.label} hotkey={n.hotkey} hotkeyIndex={'hotkeyIndex' in n ? n.hotkeyIndex : undefined} />
             </NavLink>
           ))}
         </div>
@@ -154,14 +180,12 @@ export default function App() {
             <kbd>Press /</kbd>
           </div>
           <div className="sidebar-footer-row">
-            <NavLink to="/import" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
-              <IconUpload size={13} />
-              <span>Import</span>
-            </NavLink>
-            <NavLink to="/settings" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
-              <IconGear size={13} />
-              <span>Settings</span>
-            </NavLink>
+            {FOOTER_NAV.map((n) => (
+              <NavLink key={n.to} to={n.to} className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>
+                {n.icon}
+                <NavLabel label={n.label} hotkey={n.hotkey} />
+              </NavLink>
+            ))}
           </div>
         </div>
       </nav>
