@@ -529,22 +529,23 @@ button {
   grid-template-columns: minmax(0, 1fr) minmax(560px, 1fr);
   gap: 18px;
   align-items: stretch;
-  max-height: 420px;
+  max-height: 300px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height 0.24s ease, opacity 0.2s ease, transform 0.2s ease;
+  transition: max-height 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease, transform 220ms ease;
 }
 
 .dashboard-hero-shell {
   position: relative;
   padding: 0 38px 24px 0;
   border-bottom: 1px solid var(--border);
+  overflow-anchor: none;
 }
 
 .dashboard-hero-shell.is-collapsed .dashboard-hero-grid {
   max-height: 0;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px);
   pointer-events: none;
 }
 
@@ -599,16 +600,22 @@ button {
   justify-content: space-between;
   padding: 36px 0 28px;
   border-bottom: 1px solid var(--border);
+  overflow-anchor: none;
 }
 
 .overview-chat-stage.is-expanded {
-  min-height: calc(100vh - 200px + var(--chat-compensation, 0px));
-  padding-top: 16px;
+  padding-top: 18px;
 }
 
 .overview-chat-center {
   width: min(100%, 980px);
   margin: 0 auto;
+  transform-origin: top center;
+  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.overview-chat-center.is-emphasis {
+  transform: translateY(calc(-1 * var(--hero-center-lift, 0px))) scale(1.065);
 }
 
 .overview-chat-greeting {
@@ -721,6 +728,10 @@ button {
   .overview-chat-composer .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .overview-chat-center.is-emphasis {
+    transform: none;
   }
 }
 

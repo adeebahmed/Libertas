@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
@@ -71,17 +71,16 @@ function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' 
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const heroShellRef = useRef<HTMLDivElement>(null)
   const [range, setRange] = useState<(typeof RANGE_OPTIONS)[number]>('6M')
-  const [heroCollapsed, setHeroCollapsed] = useState<boolean>(() => localStorage.getItem('dashboardHeroCollapsed') === '1')
-  const [heroExpandedHeight, setHeroExpandedHeight] = useState(0)
-  const [heroCollapsedHeight, setHeroCollapsedHeight] = useState(0)
+  const [heroCollapsed, setHeroCollapsed] = useState(true)
+  const [heroReservedHeight, setHeroReservedHeight] = useState<number | null>(null)
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
   const [chatInput, setChatInput] = useState('')
   const [chatReply, setChatReply] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState('')
   const [now, setNow] = useState(() => new Date())
+  const heroShellRef = useRef<HTMLDivElement | null>(null)
 
   const { data: nw, loading: nwLoading, error: nwError } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history, loading: historyLoading, error: historyError } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
@@ -105,31 +104,6 @@ export default function Dashboard() {
     })
     return sorted[rotationSeed % sorted.length]
   }, [insights, rotationSeed])
-
-  useEffect(() => {
-    localStorage.setItem('dashboardHeroCollapsed', heroCollapsed ? '1' : '0')
-  }, [heroCollapsed])
-
-  useEffect(() => {
-    const node = heroShellRef.current
-    if (!node) return
-
-    const measure = () => {
-      const h = Math.round(node.getBoundingClientRect().height)
-      if (heroCollapsed) {
-        setHeroCollapsedHeight((prev) => (h > 0 ? h : prev))
-      } else {
-        setHeroExpandedHeight((prev) => (h > 0 ? h : prev))
-      }
-    }
-
-    measure()
-
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [heroCollapsed])
 
   const allocationData = useMemo(() => {
     if (!nw) return []
@@ -205,17 +179,29 @@ export default function Dashboard() {
   const historyInitialLoading = historyLoading && !history
   const accountsInitialLoading = accountsLoading && !accounts
   const insightsInitialLoading = insightsLoading && !insights
-  const chatCompensation = heroCollapsed && heroExpandedHeight > 0 && heroCollapsedHeight > 0
-    ? Math.max(heroExpandedHeight - heroCollapsedHeight, 0)
-    : 0
+  const heroCenterLift = heroCollapsed && heroReservedHeight ? Math.max(heroReservedHeight - 48, 0) : 0
+
+  const toggleHero = () => {
+    if (!heroCollapsed) {
+      const expandedHeight = heroShellRef.current?.getBoundingClientRect().height ?? 0
+      if (expandedHeight > 0) {
+        setHeroReservedHeight(Math.round(expandedHeight))
+      }
+    }
+    setHeroCollapsed((v) => !v)
+  }
 
   return (
     <div>
-      <div ref={heroShellRef} className={`dashboard-hero-shell mb-24${heroCollapsed ? ' is-collapsed' : ''}`}>
+      <div
+        ref={heroShellRef}
+        className={`dashboard-hero-shell mb-24${heroCollapsed ? ' is-collapsed' : ''}`}
+        style={heroCollapsed && heroReservedHeight ? { minHeight: `${heroReservedHeight}px` } : undefined}
+      >
         <button
           type="button"
           className="dashboard-hero-toggle"
-          onClick={() => setHeroCollapsed((v) => !v)}
+          onClick={toggleHero}
           aria-expanded={!heroCollapsed}
           aria-label={heroCollapsed ? 'Expand net worth and top insight' : 'Collapse net worth and top insight'}
           title={heroCollapsed ? 'Expand overview' : 'Collapse overview'}
@@ -266,9 +252,9 @@ export default function Dashboard() {
 
       <section
         className={`overview-chat-stage mb-24${heroCollapsed ? ' is-expanded' : ''}`}
-        style={heroCollapsed ? ({ '--chat-compensation': `${chatCompensation}px` } as Record<string, string>) : undefined}
+        style={{ '--hero-center-lift': `${heroCenterLift}px` } as CSSProperties}
       >
-        <div className="overview-chat-center">
+        <div className={`overview-chat-center${heroCollapsed ? ' is-emphasis' : ''}`}>
           <h2 className="overview-chat-greeting">{greeting}, {userName}</h2>
           <p className="overview-chat-sub">{vibeLine}</p>
           <div className="overview-chat-prompts">
