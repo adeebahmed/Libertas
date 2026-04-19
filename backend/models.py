@@ -1,20 +1,45 @@
 from sqlalchemy import Column, Integer, Text, Float, DateTime, Date, ForeignKey, JSON, Boolean
+from sqlalchemy import types
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from .database import Base
+from .services.encryption import get_active_key, encrypt_value, decrypt_value, PREFIX
+
+
+class EncryptedText(types.TypeDecorator):
+    impl = types.Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        key = get_active_key()
+        if key is None:
+            return str(value)
+        return PREFIX + encrypt_value(str(value), key)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str) and value.startswith(PREFIX):
+            key = get_active_key()
+            if key is None:
+                return "[encrypted]"
+            return decrypt_value(value[len(PREFIX):], key)
+        return value
 
 
 class Institution(Base):
     __tablename__ = "institutions"
 
     id = Column(Integer, primary_key=True)
-    name = Column(Text, nullable=False)
-    export_url = Column(Text)
+    name = Column(EncryptedText, nullable=False)
+    export_url = Column(EncryptedText)
     file_pattern = Column(Text)
     column_mapping = Column(JSON)
     importer_preset = Column(Text, default="generic")
-    notes = Column(Text)
+    notes = Column(EncryptedText)
 
     accounts = relationship("Account", back_populates="institution")
 
@@ -23,12 +48,12 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(Integer, primary_key=True)
-    name = Column(Text, nullable=False)
+    name = Column(EncryptedText, nullable=False)
     type = Column(Text, nullable=False)
     institution_id = Column(Integer, ForeignKey("institutions.id"))
     currency = Column(Text, default="USD")
     created_at = Column(DateTime, server_default=func.now())
-    external_id = Column(Text)
+    external_id = Column(EncryptedText)
     sync_source = Column(Text)
     source_kind = Column(Text)
     source_record_id = Column(Text)
@@ -48,7 +73,7 @@ class Holding(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
-    symbol = Column(Text, nullable=False)
+    symbol = Column(EncryptedText, nullable=False)
     quantity = Column(Float, nullable=False)
     cost_basis = Column(Float)
     last_price = Column(Float)
@@ -66,11 +91,11 @@ class Transaction(Base):
     import_log_id = Column(Integer, ForeignKey("import_log.id"), nullable=True)
     date = Column(Date, nullable=False)
     type = Column(Text, nullable=False)
-    symbol = Column(Text)
+    symbol = Column(EncryptedText)
     quantity = Column(Float)
     price = Column(Float)
     amount = Column(Float)
-    description = Column(Text)
+    description = Column(EncryptedText)
     raw_row = Column(JSON)
     import_hash = Column(Text, unique=True)
     external_id = Column(Text)
@@ -101,7 +126,7 @@ class RealEstate(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), nullable=False)
-    address = Column(Text, nullable=False)
+    address = Column(EncryptedText, nullable=False)
     purchase_price = Column(Float)
     purchase_date = Column(Date)
     zillow_estimate = Column(Float)
@@ -159,7 +184,7 @@ class Setting(Base):
     __tablename__ = "settings"
 
     key = Column(Text, primary_key=True)
-    value = Column(Text)
+    value = Column(EncryptedText)
 
 
 class Backup(Base):
