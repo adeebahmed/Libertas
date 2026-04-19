@@ -4,8 +4,6 @@
 
 Libertas is a self-hosted personal finance dashboard built for people who want the power of tools like Copilot Money or Fey — without handing your financial information to a company.
 
-**Import a CSV. See your net worth. That's it.**
-
 ---
 
 <p align="center">
