@@ -2,7 +2,7 @@
 
 > **Your finances, on your machine.** No subscriptions. No account linking. No cloud. Ever.
 
-Libertas is a self-hosted personal finance dashboard built for people who want the power of tools like Copilot Money or Fey — without handing a company your bank credentials.
+Libertas is a self-hosted personal finance dashboard built for people who want the power of tools like Copilot Money or Fey — without handing your financial information to a company.
 
 **Import a CSV. See your net worth. That's it.**
 
