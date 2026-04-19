@@ -16,7 +16,7 @@ Local-first personal finance dashboard. No SaaS. No cloud sync. No mandatory acc
 - Accounts, holdings, and debt across brokerages, banks, crypto, and real estate
 - Retirement planning (5 FIRE types), tax estimates, debt payoff strategies
 - Rule-based insights engine (15 deterministic rules, fully offline)
-- ⌘K command palette + chord keyboard navigation
+- `/` command palette + chord keyboard navigation (`g d`, `g a`, `g r`, `g s`)
 - At-rest AES-256-GCM encryption on all sensitive fields in SQLite
 - Optional: AI chat (Claude key), Plaid sync, Google Sheets CSV feeds
 
