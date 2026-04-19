@@ -33,8 +33,7 @@ const PHRASE_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\basset class(?:es)?\b/gi, 'money buckets'],
   [/\bequities\b/gi, 'stocks'],
   [/\bliabilities\b/gi, 'debt'],
-  [/\bcontributions?\b/gi, 'money you add'],
-  [/\brecurring monthly contributions?\b/gi, 'monthly adds'],
+  [/\brecurring monthly contributions?\b/gi, 'monthly auto-contributions'],
   [/\bpassive income\b/gi, 'income that comes in without extra work'],
   [/\bretirement readiness\b/gi, 'retirement progress'],
   [/\bfire timeline\b/gi, 'freedom timeline'],
@@ -102,15 +101,14 @@ function tightenSentence(raw: string, maxWords: number) {
 
   const firstSentence = text.split(/[.!?]/).map((s) => s.trim()).filter(Boolean)[0] ?? text
   const words = firstSentence.split(' ').filter(Boolean)
-  const shortened = words.length > maxWords ? `${words.slice(0, maxWords).join(' ')}…` : firstSentence
+  const shortened = words.length > maxWords ? words.slice(0, maxWords).join(' ') : firstSentence
   return addFinalPeriod(shortened)
 }
 
 function simplifyAction(raw: string) {
-  const text = simplifyText(raw)
+  const text = stripSectionHeaders(simplifyText(raw))
   if (!text) return ''
-  if (/^(do this:|next step:)/i.test(text)) return text
-  return `Next step: ${text.charAt(0).toLowerCase()}${text.slice(1)}`
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`
 }
 
 function simplifyTitle(raw: string) {
@@ -135,7 +133,7 @@ export function simplifyInsightCardCopy(insight: Insight): InsightCardCopy {
   const actionSource = simple.action.replace(/^next step:\s*/i, '') || simple.why || simple.description
   return {
     title: simple.title,
-    summary: tightenSentence(simple.description, 8),
-    action: tightenSentence(actionSource, 8),
+    summary: tightenSentence(simple.description, 14),
+    action: simplifyAction(actionSource),
   }
 }

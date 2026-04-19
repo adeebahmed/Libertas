@@ -37,6 +37,10 @@ def _priority(score: float, high: float, medium: float, invert: bool = False) ->
     return "low"
 
 
+def _usd(value: float) -> str:
+    return f"${value:,.0f}"
+
+
 def _aggregate_context(db: Session) -> dict:
     accounts = db.query(Account).all()
     properties = db.query(RealEstate).all()
@@ -135,12 +139,14 @@ def _generate_insights(db: Session) -> list[dict]:
     if ctx["total_assets"] <= 0 and ctx["total_debt"] <= 0:
         return [
             {
-                "title": "Add your first account",
-                "description": "Import or manually add account balances to unlock the dashboard insights engine.",
+                "title": "Add your first account to get started",
+                "description": "Import or manually add account balances to unlock personalized insights.",
                 "category": "Behavioral",
                 "priority": "high",
                 "action": "Go to Accounts and add at least one cash or investment account.",
-                "why": "Insights are deterministic and local-only, but they need portfolio data to evaluate your position.",
+                "why": "Insights are local-only and need portfolio data to give you meaningful guidance.",
+                "icon": "sparkle",
+                "institution_hint": None,
             }
         ]
 
@@ -159,32 +165,55 @@ def _generate_insights(db: Session) -> list[dict]:
     top_holding = max(holdings, key=lambda h: h["market_value"], default=None)
     concentration_pct = (top_holding["market_value"] / total_assets * 100) if top_holding and total_assets else 0.0
     concentration_priority = _priority(concentration_pct, high=40, medium=25)
+    trim_needed = max((top_holding["market_value"] - (0.40 * total_assets)), 0.0) if top_holding else 0.0
+    if top_holding and concentration_pct > 40:
+        conc_title = f"{top_holding['symbol']} makes up {concentration_pct:.0f}% of your portfolio"
+        conc_desc = f"That's a lot in one stock. Spreading out {_usd(trim_needed)} would bring it under 40% and reduce your risk."
+        conc_action = f"Trim {top_holding['symbol']} by {_usd(trim_needed)} and move it into other holdings."
+    elif top_holding and concentration_pct > 25:
+        conc_title = f"{top_holding['symbol']} is {concentration_pct:.0f}% of your portfolio"
+        conc_desc = "Worth watching — if this stock drops sharply it'll have an outsized effect on your balance."
+        conc_action = "Direct new contributions to other holdings until this drops below 25%."
+    else:
+        conc_title = "No single investment dominates your portfolio"
+        conc_desc = "Your largest position is well below 25% of assets — good spread."
+        conc_action = "Keep new deposits spread across your holdings."
     insights.append(
         {
-            "title": "Concentration Risk",
-            "description": (
-                f"Largest position is {top_holding['symbol']} at {concentration_pct:.1f}% of assets."
-                if top_holding
-                else "No concentrated single-name positions detected in tracked holdings."
-            ),
+            "title": conc_title,
+            "description": conc_desc,
             "category": "Risk",
             "priority": concentration_priority,
-            "action": "Keep any single position below 40% by trimming outsized winners over time.",
-            "why": "High concentration increases unsystematic risk and can dominate portfolio volatility.",
+            "action": conc_action,
+            "why": "Putting too much in one stock means a single bad day can hurt your whole portfolio.",
+            "icon": "shield",
+            "institution_hint": "brokerage",
         }
     )
 
     # 2) Liquidity ratio
     liquid_assets = assets_by_type.get("checking", 0) + assets_by_type.get("savings", 0)
     runway_months = liquid_assets / monthly_expenses if monthly_expenses > 0 else 0
+    target_runway = 3 if runway_months < 3 else 6
+    liquidity_gap = max((target_runway * monthly_expenses) - liquid_assets, 0.0)
+    if liquidity_gap > 0:
+        liq_title = f"Your emergency fund covers {runway_months:.1f} months of expenses"
+        liq_desc = f"You have {_usd(liquid_assets)} in cash. Most people aim for {target_runway}–6 months. You're about {_usd(liquidity_gap)} short."
+        liq_action = f"Add {_usd(liquidity_gap)} to savings to reach a {target_runway}-month cushion."
+    else:
+        liq_title = f"Your emergency fund covers {runway_months:.1f} months — you're set"
+        liq_desc = "Your cash cushion is healthy. Keep it steady while you invest new surplus."
+        liq_action = "No action needed. Invest any extra cash above your target buffer."
     insights.append(
         {
-            "title": "Liquidity Ratio (Emergency Fund)",
-            "description": f"Liquid runway is {runway_months:.1f} months ({liquid_assets:,.0f} vs {monthly_expenses:,.0f} monthly expenses).",
+            "title": liq_title,
+            "description": liq_desc,
             "category": "Liquidity",
             "priority": _priority(runway_months, high=0, medium=3, invert=True),
-            "action": "Target 3–6 months of expenses in checking/savings before increasing risk.",
-            "why": "Liquidity protects against forced selling during emergencies and market drawdowns.",
+            "action": liq_action,
+            "why": "A cash cushion means you never have to sell investments in an emergency.",
+            "icon": "umbrella",
+            "institution_hint": "savings",
         }
     )
 
@@ -207,51 +236,93 @@ def _generate_insights(db: Session) -> list[dict]:
     }.get(ctx["risk_profile"], {"equities": 50, "crypto": 8, "cash": 20, "real_estate": 22})
 
     drift = 0.0
-    drift_parts = []
     for bucket, target in targets.items():
         actual = (bucket_totals[bucket] / total_assets * 100) if total_assets else 0.0
-        delta = abs(actual - target)
-        drift += delta
-        drift_parts.append(f"{bucket}: {actual:.0f}% (target {target:.0f}%)")
+        drift += abs(actual - target)
 
+    bucket_diffs = {
+        bucket: ((bucket_totals[bucket] / total_assets * 100) - target) if total_assets else 0.0
+        for bucket, target in targets.items()
+    }
+    over_bucket = max(bucket_diffs.items(), key=lambda item: item[1], default=("cash", 0.0))
+    under_bucket = min(bucket_diffs.items(), key=lambda item: item[1], default=("equities", 0.0))
+    shift_pct = min(max(over_bucket[1], 0.0), max(-under_bucket[1], 0.0))
+    shift_amount = (shift_pct / 100) * total_assets
+
+    over_actual = (bucket_totals[over_bucket[0]] / total_assets * 100) if total_assets else 0.0
+    under_actual = (bucket_totals[under_bucket[0]] / total_assets * 100) if total_assets else 0.0
+
+    if shift_amount > 0:
+        alloc_title = f"Your mix has drifted — {over_bucket[0].replace('_', ' ')} is {over_actual:.0f}%, target {targets[over_bucket[0]]:.0f}%"
+        alloc_desc = f"{under_bucket[0].replace('_', ' ').capitalize()} is low at {under_actual:.0f}% vs your {targets[under_bucket[0]]:.0f}% goal. Moving {_usd(shift_amount)} would rebalance you."
+        alloc_action = f"Move {_usd(shift_amount)} from {over_bucket[0].replace('_', ' ')} into {under_bucket[0].replace('_', ' ')}."
+    else:
+        alloc_title = "Your investment mix is close to your target"
+        alloc_desc = f"Allocation looks good for a {ctx['risk_profile']} profile. Keep directing new money to your lowest bucket."
+        alloc_action = "No rebalance needed. Direct new contributions to your lowest bucket."
     insights.append(
         {
-            "title": "Allocation Drift",
-            "description": "; ".join(drift_parts),
+            "title": alloc_title,
+            "description": alloc_desc,
             "category": "Allocation",
             "priority": _priority(drift, high=35, medium=20),
-            "action": "Rebalance the most off-target bucket first, then reassess monthly.",
-            "why": "Drift compounds over time and can move your risk profile away from intent.",
+            "action": alloc_action,
+            "why": "Drift happens naturally as some investments grow faster than others. Rebalancing keeps your risk level where you want it.",
+            "icon": "pie",
+            "institution_hint": "brokerage",
         }
     )
 
     # 4) Debt-to-income ratio
     dti = (ctx["total_minimum_payment"] / monthly_income * 100) if monthly_income > 0 else 0.0
+    target_min_payment = monthly_income * 0.36 if monthly_income > 0 else 0.0
+    dti_excess_payment = max(ctx["total_minimum_payment"] - target_min_payment, 0.0)
+    if monthly_income <= 0:
+        dti_title = "Add your income to see your debt load"
+        dti_desc = "We can't calculate how much of your income goes to debt payments without knowing what you earn."
+        dti_action = "Go to Settings and add your annual income."
+    elif dti > 36:
+        dti_title = f"Debt payments take up {dti:.0f}% of your income"
+        dti_desc = f"You're above the 36% guideline. Reducing minimum payments by {_usd(dti_excess_payment)}/mo would bring you into a healthier range."
+        dti_action = f"Focus on paying down the highest-interest debt to free up {_usd(dti_excess_payment)}/mo."
+    else:
+        dti_title = f"Debt payments use {dti:.0f}% of your income — within the healthy range"
+        dti_desc = "Under 36% is considered manageable. Avoid taking on new high-interest debt."
+        dti_action = "Keep debt payments stable and avoid new high-interest balances."
     insights.append(
         {
-            "title": "Debt-to-Income Ratio",
-            "description": (
-                f"Estimated DTI is {dti:.1f}% using minimum payments ({ctx['total_minimum_payment']:,.0f}/mo)."
-                if monthly_income > 0
-                else "Set W-2 and 1099 income in Settings to compute DTI accurately."
-            ),
+            "title": dti_title,
+            "description": dti_desc,
             "category": "Debt",
             "priority": _priority(dti, high=36, medium=20),
-            "action": "Keep DTI below 36% and prioritize high-interest balances if above threshold.",
-            "why": "DTI is a core affordability and credit-health metric used by lenders.",
+            "action": dti_action,
+            "why": "The lower your debt payments relative to income, the more you have to save and invest.",
+            "icon": "credit",
+            "institution_hint": "credit_card",
         }
     )
 
     # 5) Asset class diversification
     active_classes = sum(1 for v in bucket_totals.values() if v > 0)
+    missing_classes = [name.replace("_", " ") for name, value in bucket_totals.items() if value <= 0]
+    if active_classes < 3 and missing_classes:
+        div_title = f"Your money is only spread across {active_classes} of 4 asset types"
+        div_desc = f"You're missing {', '.join(missing_classes[:2])}. Broader diversification reduces the impact of any one market going down."
+        div_action = f"Open a starter position in {missing_classes[0]} to add a third asset type."
+    else:
+        div_title = "You're invested across multiple asset types"
+        div_desc = f"You hold {active_classes} out of 4 major asset classes. That's a solid base."
+        div_action = "Keep balancing position sizes as you add new money."
     insights.append(
         {
-            "title": "Asset Class Diversification",
-            "description": f"You currently hold {active_classes} active asset classes.",
+            "title": div_title,
+            "description": div_desc,
             "category": "Risk",
             "priority": "high" if active_classes < 3 else ("medium" if active_classes == 3 else "low"),
-            "action": "Aim for exposure across at least three classes: equities, cash, and one diversifier.",
-            "why": "Diversification lowers dependency on a single market regime.",
+            "action": div_action,
+            "why": "Different asset types tend to move independently — owning a mix softens the blow when one drops.",
+            "icon": "grid",
+            "institution_hint": "brokerage",
         }
     )
 
@@ -264,14 +335,30 @@ def _generate_insights(db: Session) -> list[dict]:
         months = max((date.fromisoformat(date_keys[-1]) - date.fromisoformat(date_keys[0])).days / 30.44, 1)
         growth_monthly = (last_val - first_val) / months
 
+    growth_floor = 1000.0
+    growth_gap = max(growth_floor - growth_monthly, 0.0)
+    if growth_monthly < 0:
+        growth_title = f"Net worth dropped {_usd(abs(growth_monthly))}/mo on average"
+        growth_desc = "Your balance has been shrinking. That's usually spending outpacing income or market losses."
+        growth_action = "Identify the biggest spending leak and cut it this month."
+    elif growth_monthly < growth_floor:
+        growth_title = f"Net worth grew {_usd(growth_monthly)}/mo on average"
+        growth_desc = f"Progress, but there's room to grow. Adding {_usd(growth_gap)}/mo in savings or debt payoff would get you over {_usd(growth_floor)}/mo."
+        growth_action = f"Increase monthly saving or debt payoff by {_usd(growth_gap)} to hit {_usd(growth_floor)}/mo growth."
+    else:
+        growth_title = f"Net worth is growing {_usd(growth_monthly)}/mo — solid pace"
+        growth_desc = "You're building wealth consistently. Keep the momentum."
+        growth_action = "Keep current saving and debt payoff pace."
     insights.append(
         {
-            "title": "Net Worth Growth Rate",
-            "description": f"Estimated net worth trend is {growth_monthly:,.0f} per month based on your snapshot history.",
+            "title": growth_title,
+            "description": growth_desc,
             "category": "Trends",
             "priority": "high" if growth_monthly < 0 else ("medium" if growth_monthly < 1000 else "low"),
-            "action": "Maintain positive monthly net worth momentum through savings consistency and debt reduction.",
-            "why": "Growth rate is a leading indicator for timeline-based planning.",
+            "action": growth_action,
+            "why": "Net worth growth rate is your single best measure of financial progress.",
+            "icon": "trending",
+            "institution_hint": None,
         }
     )
 
@@ -284,18 +371,36 @@ def _generate_insights(db: Session) -> list[dict]:
         years_to_fire = (retirement_target - investable) / (monthly_progress * 12)
 
     readiness_pct = investable / retirement_target * 100
+    target_horizon_years = 20
+    needed_monthly_for_horizon = max((retirement_target - investable) / (target_horizon_years * 12), 0.0)
+    monthly_shortfall = max(needed_monthly_for_horizon - monthly_progress, 0.0)
+
+    if readiness_pct >= 100:
+        ret_title = "You've hit your retirement savings goal"
+        ret_desc = "Your investable assets have reached your target. Consider your withdrawal strategy."
+        ret_action = "Meet with a fee-only advisor to plan distributions."
+    elif years_to_fire is not None:
+        ret_title = f"You're {readiness_pct:.0f}% to your retirement goal — {years_to_fire:.1f} years away"
+        ret_desc = f"At your current pace you'll reach {_usd(retirement_target)} in about {years_to_fire:.1f} years."
+        ret_action = (
+            f"Add {_usd(monthly_shortfall)}/mo to hit your goal in {target_horizon_years} years."
+            if monthly_shortfall > 0
+            else "Current pace supports your timeline. Keep it up."
+        )
+    else:
+        ret_title = f"You're {readiness_pct:.0f}% to your retirement goal"
+        ret_desc = "Start contributing monthly to project a retirement timeline."
+        ret_action = f"Add {_usd(needed_monthly_for_horizon)}/mo to target a {target_horizon_years}-year timeline."
     insights.append(
         {
-            "title": "Retirement Readiness / FIRE Timeline",
-            "description": (
-                f"You are at {readiness_pct:.1f}% of target; projected timeline is {years_to_fire:.1f} years."
-                if years_to_fire is not None
-                else f"You are at {readiness_pct:.1f}% of target. Increase monthly contributions to project a timeline."
-            ),
+            "title": ret_title,
+            "description": ret_desc,
             "category": "Retirement",
             "priority": "high" if readiness_pct < 25 else ("medium" if readiness_pct < 60 else "low"),
-            "action": "Increase recurring monthly contributions to compress your expected FIRE date.",
-            "why": "Timeline projection translates static net worth into actionable pace-to-goal.",
+            "action": ret_action,
+            "why": "Knowing your progress and pace helps you make concrete decisions now.",
+            "icon": "flag",
+            "institution_hint": "401k",
         }
     )
 
@@ -309,98 +414,180 @@ def _generate_insights(db: Session) -> list[dict]:
         .all()
     )
     contributed = sum(abs(float(t.amount or 0)) for t in retirement_contrib if (t.amount or 0) > 0)
-    # Use settings contribution as fallback when transactions are sparse.
     if contributed == 0 and monthly_contribution > 0:
         contributed = monthly_contribution * max(date.today().month, 1)
 
     annual_limit_proxy = 23_500 + 7_000
     contribution_pct = (contributed / annual_limit_proxy * 100) if annual_limit_proxy > 0 else 0.0
+    months_remaining = max(12 - date.today().month + 1, 1)
+    remaining_to_limit = max(annual_limit_proxy - contributed, 0.0)
+    required_monthly = remaining_to_limit / months_remaining if months_remaining > 0 else 0.0
+    monthly_increase = max(required_monthly - monthly_contribution, 0.0)
+
+    if remaining_to_limit <= 0:
+        contrib_title = "You've maxed out this year's tax-free retirement space"
+        contrib_desc = "Great discipline. Your 401(k) and IRA contributions are at the annual limit."
+        contrib_action = "Keep auto-contributions at their current level for next year."
+    else:
+        contrib_title = f"You've used {contribution_pct:.0f}% of this year's tax-free retirement space"
+        contrib_desc = f"You've put in {_usd(contributed)} so far. {_usd(remaining_to_limit)} left to contribute across {months_remaining} months."
+        if monthly_contribution > 0:
+            contrib_action = (
+                f"Bump auto-contributions to {_usd(required_monthly)}/mo "
+                f"(+{_usd(monthly_increase)}/mo from your current {_usd(monthly_contribution)}/mo) to max out by year-end."
+            )
+        else:
+            contrib_action = f"Set auto-contributions to {_usd(required_monthly)}/mo to max out by year-end."
     insights.append(
         {
-            "title": "401k / IRA Contribution Rate",
-            "description": f"Estimated retirement contributions are {contributed:,.0f} YTD ({contribution_pct:.1f}% of annual limits proxy).",
+            "title": contrib_title,
+            "description": contrib_desc,
             "category": "Retirement",
             "priority": "high" if contribution_pct < 25 else ("medium" if contribution_pct < 60 else "low"),
-            "action": "Set auto-contributions that pace toward annual limits by year-end.",
-            "why": "Retirement tax-advantaged space is use-it-or-lose-it each calendar year.",
+            "action": contrib_action,
+            "why": "Tax-free retirement space is use-it-or-lose-it each year. Every unused dollar is a missed tax break.",
+            "icon": "piggy",
+            "institution_hint": "401k",
         }
     )
 
     # 9) Compound growth projection
     projection_10y = investable * (1.06 ** 10) + (monthly_progress * 12) * ((1.06 ** 10 - 1) / 0.06)
+    projection_plus_100 = investable * (1.06 ** 10) + ((monthly_progress + 100) * 12) * ((1.06 ** 10 - 1) / 0.06)
+    gain_from_100 = max(projection_plus_100 - projection_10y, 0.0)
     insights.append(
         {
-            "title": "Compound Growth Projection",
-            "description": f"At 6% annual growth, 10-year projection is {projection_10y:,.0f}.",
+            "title": f"At this pace, your investments could reach {_usd(projection_10y)} in 10 years",
+            "description": f"Assuming 6% average annual growth. Adding just $100/mo more would add {_usd(gain_from_100)} to that number.",
             "category": "Retirement",
             "priority": "low",
-            "action": "Focus on contribution consistency first; compounding amplifies disciplined deposits.",
-            "why": "Long-term outcomes are most sensitive to time in market and sustained contributions.",
+            "action": f"Add $100/mo to auto-investing — it's worth {_usd(gain_from_100)} over 10 years.",
+            "why": "Small consistent increases compound significantly over time.",
+            "icon": "chart",
+            "institution_hint": "brokerage",
         }
     )
 
     # 10) Debt payoff trajectory
     payoff_months = (total_debt / ctx["total_minimum_payment"]) if ctx["total_minimum_payment"] > 0 else None
     payoff_priority = "high" if (payoff_months and payoff_months > 120) else ("medium" if (payoff_months and payoff_months > 48) else "low")
+    target_payoff_months = 48
+    needed_monthly_payment = (total_debt / target_payoff_months) if total_debt > 0 else 0.0
+    extra_to_48 = max(needed_monthly_payment - ctx["total_minimum_payment"], 0.0)
+    if total_debt <= 0:
+        payoff_title = "No debt tracked — or you're debt-free"
+        payoff_desc = "No active debt payoff schedule detected."
+        payoff_action = "Keep it up. If you have debt, add it in Accounts to track payoff progress."
+    elif payoff_months and payoff_months > target_payoff_months:
+        payoff_title = f"At this rate, you'll be debt-free in {payoff_months:.0f} months ({payoff_months / 12:.1f} years)"
+        payoff_desc = f"Adding {_usd(extra_to_48)}/mo to principal would cut that to {target_payoff_months} months."
+        payoff_action = f"Add {_usd(extra_to_48)}/mo to your highest-interest debt payment."
+    else:
+        payoff_title = f"Debt payoff pace looks reasonable — {(payoff_months or 0):.0f} months to go"
+        payoff_desc = "Keep directing extra cash to your highest-rate balance."
+        payoff_action = "Direct any extra cash to your highest-APR balance first."
     insights.append(
         {
-            "title": "Debt Payoff Trajectory",
-            "description": (
-                f"At current minimum payments, debt payoff is ~{payoff_months:.0f} months."
-                if payoff_months is not None and total_debt > 0
-                else "No active debt payoff schedule detected from minimum-payment data."
-            ),
+            "title": payoff_title,
+            "description": payoff_desc,
             "category": "Debt",
             "priority": payoff_priority,
-            "action": "Add targeted extra principal to the highest APR balance to shorten payoff duration.",
-            "why": "Trajectory highlights whether debt is shrinking at a pace aligned with wealth goals.",
+            "action": payoff_action,
+            "why": "Getting out of debt faster frees up cash to invest and build wealth.",
+            "icon": "clock",
+            "institution_hint": "credit_card",
         }
     )
 
     # 11) Total interest burden
     annual_interest = total_debt * (ctx["avg_debt_apr"] / 100)
+    apr_reduction_savings = total_debt * 0.01
+    if annual_interest > 0:
+        interest_title = f"You're paying about {_usd(annual_interest)}/yr in interest"
+        interest_desc = f"At a {ctx['avg_debt_apr']:.1f}% average rate. Each 1% rate reduction saves you {_usd(apr_reduction_savings)}/yr."
+        interest_action = "Refinance or aggressively pay the highest-rate debt first."
+    else:
+        interest_title = "No interest burden detected"
+        interest_desc = "No debt with interest rate data found. Add debt details to track interest costs."
+        interest_action = "Add interest rate details to your debt accounts in Settings."
     insights.append(
         {
-            "title": "Total Interest Burden",
-            "description": f"Estimated annual interest cost is {annual_interest:,.0f} at {ctx['avg_debt_apr']:.1f}% weighted APR.",
+            "title": interest_title,
+            "description": interest_desc,
             "category": "Debt",
             "priority": "high" if annual_interest > 5000 else ("medium" if annual_interest > 1500 else "low"),
-            "action": "Prioritize debt principal payments where APR materially exceeds expected portfolio return.",
-            "why": "Interest drag directly reduces investable cash flow and slows net worth growth.",
+            "action": interest_action,
+            "why": "Interest is money that goes to lenders instead of your savings.",
+            "icon": "percent",
+            "institution_hint": "credit_card",
         }
     )
 
     # 12) Mortgage affordability (LTV)
     avg_ltv = (ctx["mortgage_total"] / ctx["real_estate_value"] * 100) if ctx["real_estate_value"] > 0 else 0.0
+    ltv_paydown_need = max(ctx["mortgage_total"] - (0.80 * ctx["real_estate_value"]), 0.0) if ctx["real_estate_value"] > 0 else 0.0
+    if not ctx["properties"]:
+        ltv_title = "No real estate tracked"
+        ltv_desc = "Add a property in Accounts to track your mortgage and home equity."
+        ltv_action = "Add real estate in Accounts to see your home equity and LTV."
+        ltv_priority = "low"
+    elif avg_ltv > 80 and ltv_paydown_need > 0:
+        ltv_title = f"You owe {avg_ltv:.0f}% of your home's value"
+        ltv_desc = f"Above 80% means you're likely paying PMI. Paying down {_usd(ltv_paydown_need)} would bring you under 80%."
+        ltv_action = f"Make a lump-sum payment of {_usd(ltv_paydown_need)} to cancel PMI and save on monthly costs."
+        ltv_priority = "high" if avg_ltv > 85 else "medium"
+    else:
+        ltv_title = f"Your mortgage is at {avg_ltv:.0f}% of your home's value"
+        ltv_desc = "Under 80% is healthy — you have solid equity and likely no PMI."
+        ltv_action = "Keep paying principal and avoid cash-out refinancing for non-essential expenses."
+        ltv_priority = "low"
     insights.append(
         {
-            "title": "Mortgage Affordability (LTV)",
-            "description": (
-                f"Portfolio real-estate LTV is {avg_ltv:.1f}% across {len(ctx['properties'])} properties."
-                if ctx["properties"]
-                else "No mortgage-backed real-estate positions detected."
-            ),
+            "title": ltv_title,
+            "description": ltv_desc,
             "category": "Risk",
-            "priority": "high" if avg_ltv > 85 else ("medium" if avg_ltv > 70 else "low"),
-            "action": "Aim to keep LTV below 80% to improve refinancing options and reduce risk.",
-            "why": "Lower LTV generally improves borrowing resilience and reduces payment pressure.",
+            "priority": ltv_priority,
+            "action": ltv_action,
+            "why": "Lower LTV means more equity, better borrowing rates, and no PMI payments.",
+            "icon": "house",
+            "institution_hint": "mortgage",
         }
     )
 
     # 13) Savings rate trend
     savings_rate = ((annual_income - (monthly_expenses * 12)) / annual_income * 100) if annual_income > 0 else 0.0
+    target_savings_rate = 20.0
+    monthly_savings_gap = max(((target_savings_rate / 100) * annual_income - (annual_income - monthly_expenses * 12)) / 12, 0.0) if annual_income > 0 else 0.0
+    if annual_income <= 0:
+        savings_title = "Add your income to see your savings rate"
+        savings_desc = "We need your income to calculate how much of it you're keeping."
+        savings_action = "Go to Settings and add your annual income."
+        savings_priority = "medium"
+    elif savings_rate < 10:
+        savings_title = f"You're saving {savings_rate:.0f}% of your income — room to improve"
+        savings_desc = f"Most financial plans target 20%+. Freeing up {_usd(monthly_savings_gap)}/mo would get you there."
+        savings_action = f"Cut {_usd(monthly_savings_gap)}/mo in spending or increase income to hit a 20% savings rate."
+        savings_priority = "high"
+    elif savings_rate < 20:
+        savings_title = f"You're saving {savings_rate:.0f}% of your income — getting there"
+        savings_desc = f"Almost at the 20% goal. {_usd(monthly_savings_gap)}/mo more would get you there."
+        savings_action = f"Find {_usd(monthly_savings_gap)}/mo in spending to cut to hit 20%."
+        savings_priority = "medium"
+    else:
+        savings_title = f"You're saving {savings_rate:.0f}% of your income — great discipline"
+        savings_desc = "Above 20% means you're building wealth faster than most. Keep it up."
+        savings_action = "Keep this margin. Raise it when income increases."
+        savings_priority = "low"
     insights.append(
         {
-            "title": "Savings Rate Trend",
-            "description": (
-                f"Estimated savings rate is {savings_rate:.1f}% from income minus expense settings."
-                if annual_income > 0
-                else "Add income settings to compute savings-rate trend."
-            ),
+            "title": savings_title,
+            "description": savings_desc,
             "category": "Behavioral",
-            "priority": "high" if savings_rate < 10 else ("medium" if savings_rate < 20 else "low"),
-            "action": "Keep savings rate above 20% to accelerate financial freedom planning.",
-            "why": "Savings rate is a controllable input with outsized effect on timeline outcomes.",
+            "priority": savings_priority,
+            "action": savings_action,
+            "why": "Savings rate is the single most controllable factor in how quickly you build wealth.",
+            "icon": "wallet",
+            "institution_hint": "savings",
         }
     )
 
@@ -430,14 +617,30 @@ def _generate_insights(db: Session) -> list[dict]:
     else:
         cv = 0.05 if annual_income > 0 else 0
 
+    stability_buffer_target = 6 if cv > 0.35 else (4 if cv > 0.2 else 3)
+    stability_buffer_gap = max((stability_buffer_target * monthly_expenses) - liquid_assets, 0.0)
+    if cv > 0.35:
+        stab_title = "Your income varies a lot month to month"
+        stab_desc = f"Variable income means you need a bigger cash cushion. You're about {_usd(stability_buffer_gap)} short of a {stability_buffer_target}-month buffer."
+        stab_action = f"Build {_usd(stability_buffer_gap)} more cash to reach a {stability_buffer_target}-month buffer."
+    elif cv > 0.2:
+        stab_title = "Your income is somewhat variable"
+        stab_desc = f"A {stability_buffer_target}-month cash buffer is safer given the variability. Aim to add {_usd(stability_buffer_gap)} more." if stability_buffer_gap > 0 else "Your buffer looks adequate for your income variability."
+        stab_action = f"Keep a {stability_buffer_target}-month cash buffer as your income fluctuates."
+    else:
+        stab_title = "Your income looks steady and predictable"
+        stab_desc = "Low variability means a standard 3-month emergency fund is probably enough for you."
+        stab_action = "Maintain a 3-month buffer. Any extra cash can go toward investing."
     insights.append(
         {
-            "title": "Income Stability / Volatility",
-            "description": f"Income volatility coefficient is {cv:.2f} (lower is more stable).",
+            "title": stab_title,
+            "description": stab_desc,
             "category": "Trends",
             "priority": "high" if cv > 0.35 else ("medium" if cv > 0.2 else "low"),
-            "action": "Maintain a larger emergency buffer when monthly income swings are elevated.",
-            "why": "Income volatility increases planning uncertainty and required liquidity.",
+            "action": stab_action,
+            "why": "Variable income means you need a bigger safety net to avoid being forced into bad financial decisions.",
+            "icon": "pulse",
+            "institution_hint": "savings",
         }
     )
 
@@ -460,14 +663,31 @@ def _generate_insights(db: Session) -> list[dict]:
         earned_income = annual_income
 
     passive_pct = (passive_income / (passive_income + earned_income) * 100) if (passive_income + earned_income) > 0 else 0.0
+    target_passive_pct = 10.0
+    target_passive_annual = ((passive_income + earned_income) * target_passive_pct / 100)
+    passive_gap_annual = max(target_passive_annual - passive_income, 0.0)
+    if passive_pct >= 10:
+        pass_title = f"{passive_pct:.0f}% of your income comes in without active work"
+        pass_desc = "That's a strong passive income base. Reinvesting it keeps that number growing."
+        pass_action = "Reinvest passive income to keep growing this ratio."
+    elif passive_income > 0:
+        pass_title = f"{passive_pct:.0f}% of your income is passive — growing nicely"
+        pass_desc = f"You're earning {_usd(passive_income)}/yr passively. Adding {_usd(passive_gap_annual / 12)}/mo more in dividend or rental income would get you to 10%."
+        pass_action = f"Add {_usd(passive_gap_annual / 12)}/mo in dividend stocks or REITs to reach 10% passive income."
+    else:
+        pass_title = "No passive income tracked yet"
+        pass_desc = "Dividend stocks, REITs, and interest income are ways to start. Even small amounts add up over time."
+        pass_action = "Open a brokerage account and buy a dividend ETF to start building passive income."
     insights.append(
         {
-            "title": "Passive vs Earned Income",
-            "description": f"Passive income represents {passive_pct:.1f}% of tracked income flows.",
+            "title": pass_title,
+            "description": pass_desc,
             "category": "Performance",
             "priority": "low" if passive_pct >= 10 else ("medium" if passive_pct >= 3 else "high"),
-            "action": "Increase compounding assets and yield sources to reduce reliance on earned income.",
-            "why": "A higher passive-income share improves financial flexibility and downside resilience.",
+            "action": pass_action,
+            "why": "Passive income that doesn't depend on your time is the foundation of financial independence.",
+            "icon": "leaf",
+            "institution_hint": "brokerage",
         }
     )
 

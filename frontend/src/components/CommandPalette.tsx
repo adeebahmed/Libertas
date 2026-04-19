@@ -68,6 +68,15 @@ export default function CommandPalette() {
     }))
 
     return [
+      {
+        id: 'theme:toggle',
+        title: 'Toggle theme',
+        meta: 'Switch between themes',
+        run: () => {
+          window.dispatchEvent(new CustomEvent('libertas:theme-toggle'))
+          close()
+        },
+      },
       ...pages,
       {
         id: 'quick:add-transaction',
@@ -89,15 +98,6 @@ export default function CommandPalette() {
         },
       },
       ...timeframes,
-      {
-        id: 'theme:toggle',
-        title: 'Toggle theme',
-        meta: 'Future command registered',
-        run: () => {
-          window.dispatchEvent(new CustomEvent('libertas:theme-toggle'))
-          close()
-        },
-      },
     ]
   }, [navigate])
 

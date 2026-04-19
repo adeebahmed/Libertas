@@ -155,6 +155,8 @@ export interface Insight {
   action: string
   description: string
   why: string
+  icon?: string
+  institution_hint?: string | null
 }
 
 export interface RetirementPlan {

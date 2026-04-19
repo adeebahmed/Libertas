@@ -1,210 +1,147 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
-import type { Insight } from '../types'
-import { simplifyInsightCardCopy } from '../utils/insightCopy'
+import type { Account, Insight } from '../types'
 
-const CAT_CLASS: Record<string, string> = {
-  Risk: 'risk', Performance: 'perf', Allocation: 'alloc',
-  Liquidity: 'liquid', Trends: 'trend', Retirement: 'retirement',
-  Debt: 'debt', Tax: 'tax', Behavioral: 'behavioral', Estate: 'estate',
-  info: 'info',
+const INSTITUTION_LINKS: Array<{ match: RegExp; label: string; url: string; types: string[] }> = [
+  { match: /fidelity/i, label: 'Open Fidelity', url: 'https://digital.fidelity.com/ftgw/digital/transfer/', types: ['401k', 'roth_ira', 'brokerage', 'hsa'] },
+  { match: /schwab/i, label: 'Open Schwab', url: 'https://client.schwab.com/', types: ['401k', 'roth_ira', 'brokerage'] },
+  { match: /vanguard/i, label: 'Open Vanguard', url: 'https://investor.vanguard.com/my-account', types: ['401k', 'roth_ira', 'brokerage'] },
+  { match: /robinhood/i, label: 'Open Robinhood', url: 'https://robinhood.com/', types: ['brokerage', 'crypto'] },
+  { match: /coinbase/i, label: 'Open Coinbase', url: 'https://coinbase.com/', types: ['crypto'] },
+  { match: /chase/i, label: 'Open Chase', url: 'https://secure.chase.com/', types: ['checking', 'savings', 'credit_card'] },
+  { match: /bank of america/i, label: 'Open BofA', url: 'https://bankofamerica.com/', types: ['checking', 'savings', 'credit_card'] },
+  { match: /wells fargo/i, label: 'Open Wells Fargo', url: 'https://wellsfargo.com/', types: ['checking', 'savings', 'credit_card', 'mortgage'] },
+  { match: /ally/i, label: 'Open Ally', url: 'https://ally.com/', types: ['checking', 'savings'] },
+  { match: /marcus/i, label: 'Open Marcus', url: 'https://marcus.com/', types: ['savings'] },
+]
+
+const HINT_ACCOUNT_TYPES: Record<string, string[]> = {
+  savings: ['savings'],
+  checking: ['checking'],
+  brokerage: ['brokerage'],
+  '401k': ['401k', 'roth_ira'],
+  mortgage: ['real_estate'],
+  credit_card: ['credit_card'],
+  crypto: ['crypto'],
 }
 
-const PRIORITY_COLOR: Record<string, string> = {
-  high: 'var(--neg)',
-  medium: 'var(--accent)',
-  low: 'var(--text-3)',
+const ICONS: Record<string, string> = {
+  shield: '🛡',
+  umbrella: '☂',
+  pie: '◔',
+  credit: '💳',
+  grid: '▦',
+  trending: '↗',
+  flag: '⚑',
+  piggy: '◈',
+  chart: '⬡',
+  clock: '◷',
+  percent: '%',
+  house: '⌂',
+  wallet: '▣',
+  pulse: '∿',
+  leaf: '◉',
+  sparkle: '✦',
 }
 
-type Tab = 'insights' | 'chat'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
+function getActionLink(insight: Insight, accounts: Account[] | null | undefined) {
+  if (!insight.institution_hint || !accounts) return null
+  const relevantTypes = HINT_ACCOUNT_TYPES[insight.institution_hint] ?? []
+  const matching = accounts.filter(a => relevantTypes.includes(a.type))
+  for (const account of matching) {
+    const name = account.institution_name ?? ''
+    const link = INSTITUTION_LINKS.find(l => l.match.test(name) && l.types.some(t => relevantTypes.includes(t)))
+    if (link) return link
+  }
+  return null
 }
 
 export default function InsightsPage() {
   const { data: insights, loading, refetch } = useApi<Insight[]>(() => api.get('/insights'), [])
-  const [tab, setTab] = useState<Tab>('insights')
-  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all')
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [chatInput, setChatInput] = useState('')
-  const [chatLoading, setChatLoading] = useState(false)
-  const [chatError, setChatError] = useState('')
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const { data: accounts } = useApi<Account[]>(() => api.get('/accounts'), [])
+  const [filter, setFilter] = useState<'attention' | 'good'>('attention')
 
-  const filtered = insights?.filter(i => filter === 'all' || i.priority === filter) ?? []
-  const highCount = insights?.filter(i => i.priority === 'high').length ?? 0
+  const filtered = insights?.filter(i =>
+    filter === 'attention' ? (i.priority === 'high' || i.priority === 'medium') : i.priority === 'low'
+  ) ?? []
 
-  const sendChat = async () => {
-    const msg = chatInput.trim()
-    if (!msg || chatLoading) return
-    setChatInput('')
-    setChatError('')
-    const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: msg }]
-    setChatMessages(newMessages)
-    setChatLoading(true)
-    try {
-      const { reply } = await api.post<{ reply: string }>('/insights/chat', { message: msg })
-      setChatMessages([...newMessages, { role: 'assistant', content: reply }])
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-    } catch (e: any) {
-      const raw = e.message || ''
-      const colonIdx = raw.indexOf(': ')
-      let detail = raw
-      if (colonIdx !== -1) {
-        try { detail = JSON.parse(raw.slice(colonIdx + 2)).detail ?? raw } catch { detail = raw.slice(colonIdx + 2) }
-      }
-      setChatError(detail)
-      setChatMessages(newMessages)
-    } finally {
-      setChatLoading(false)
-    }
-  }
+  const attentionCount = insights?.filter(i => i.priority === 'high' || i.priority === 'medium').length ?? 0
+  const goodCount = insights?.filter(i => i.priority === 'low').length ?? 0
 
   return (
     <div>
-      <h1 className="page-title">Insights</h1>
+      <h1 className="page-title" style={{ marginBottom: 6 }}>Insights</h1>
 
-      <div className="tabs mb-24">
-        <button className={`tab-btn${tab === 'insights' ? ' active' : ''}`} onClick={() => setTab('insights')}>
-          Insights {highCount > 0 && <span style={{ marginLeft: 6, background: 'var(--neg)', color: '#fff', borderRadius: 'var(--r)', padding: '1px 6px', fontSize: 'var(--fs-xs)', fontWeight: 600 }}>{highCount}</span>}
+      <div className="insights-filter-row">
+        <button
+          onClick={() => setFilter('attention')}
+          className={`insight-filter-btn${filter === 'attention' ? ' active attention' : ''}`}
+        >
+          <span>Needs attention</span>
+          <span className="insight-filter-count">{attentionCount}</span>
         </button>
-        <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>Ask Claude</button>
+        <button
+          onClick={() => setFilter('good')}
+          className={`insight-filter-btn${filter === 'good' ? ' active good' : ''}`}
+        >
+          <span>Looking good</span>
+          <span className="insight-filter-count">{goodCount}</span>
+        </button>
       </div>
 
-      {tab === 'insights' && (
-        <>
-          {/* Priority filter */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {(['all', 'high', 'medium', 'low'] as const).map(p => (
-              <button
-                key={p}
-                onClick={() => setFilter(p)}
-                style={{
-                  padding: '4px 12px', borderRadius: 'var(--r-sm)', fontSize: 'var(--fs-sm)', fontWeight: 500,
-                  border: `1px solid ${filter === p ? (p === 'all' ? 'var(--border)' : PRIORITY_COLOR[p]) : 'var(--border)'}`,
-                  background: filter === p ? 'var(--bg-2)' : 'transparent',
-                  color: filter === p ? (p === 'all' ? 'var(--text)' : PRIORITY_COLOR[p]) : 'var(--text-3)',
-                  cursor: 'pointer',
-                  textTransform: 'capitalize',
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="empty"><div className="empty-sub">Analysing portfolio…</div></div>
-          ) : filtered.length > 0 ? (
-            <div className="grid-auto">
-              {filtered
-                .sort((a, b) => {
-                  const order = { high: 0, medium: 1, low: 2 }
-                  return (order[a.priority] ?? 3) - (order[b.priority] ?? 3)
-                })
-                .map((ins, i) => {
-                  const cls = CAT_CLASS[ins.category] ?? 'info'
-                  const plain = simplifyInsightCardCopy(ins)
-                  return (
-                    <div key={i} className={`insight-card ${cls}`}>
-                      <div className="flex-between mb-8">
-                        <div className="insight-cat">{ins.category}</div>
-                        <span className={`insight-priority insight-priority-${ins.priority}`}>
-                          {ins.priority}
-                        </span>
-                      </div>
-                      <div className="insight-title">{plain.title}</div>
-                      <div className="insight-line">{plain.summary}</div>
-                      <div className="insight-line insight-action">Do: {plain.action}</div>
-                    </div>
-                  )
-                })}
-            </div>
-          ) : (
-            <div className="empty">
-              <div className="empty-icon">◌</div>
-              <div className="empty-title">{filter === 'all' ? 'No insights yet' : `No ${filter}-priority insights`}</div>
-              <div className="empty-sub">Import account data and refresh prices to generate insights</div>
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === 'chat' && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)' }}>
-          <div style={{
-            flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16,
-            padding: '4px 0 16px',
-          }}>
-            {chatMessages.length === 0 && (
-              <div style={{ color: 'var(--text-3)', fontSize: 'var(--fs-base)', lineHeight: 1.6 }}>
-                <div style={{ marginBottom: 12, fontWeight: 500, color: 'var(--text-2)' }}>Ask about your portfolio</div>
-                {[
-                  'Should I pay off my high-interest debt or invest more?',
-                  'Am I on track for retirement?',
-                  'What is my biggest financial risk right now?',
-                  'How can I reduce my tax bill this year?',
-                ].map(q => (
-                  <div
-                    key={q}
-                    onClick={() => setChatInput(q)}
-                    style={{
-                      padding: '8px 12px', marginBottom: 8, borderRadius: 'var(--r)',
-                      border: '1px solid var(--border)', cursor: 'pointer',
-                      color: 'var(--text-2)', fontSize: 'var(--fs-base)',
-                    }}
-                  >
-                    {q}
+      {loading ? (
+        <div className="empty"><div className="empty-sub">Analysing portfolio...</div></div>
+      ) : filtered.length > 0 ? (
+        <div className="grid-auto">
+          {filtered
+            .sort((a, b) => {
+              const order = { high: 0, medium: 1, low: 2 }
+              return (order[a.priority] ?? 3) - (order[b.priority] ?? 3)
+            })
+            .map((ins, i) => {
+              const quickLink = getActionLink(ins, accounts)
+              const icon = ICONS[ins.icon ?? ''] ?? null
+              return (
+                <div key={i} className={`insight-card insight-${ins.priority}`}>
+                  <div className="insight-header">
+                    {icon && <span className="insight-icon">{icon}</span>}
+                    <div className="insight-title">{ins.title}</div>
+                    <span className={`insight-status-dot insight-dot-${ins.priority}`} />
                   </div>
-                ))}
-              </div>
-            )}
-            {chatMessages.map((m, i) => (
-              <div key={i} style={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '80%',
-                padding: '10px 14px',
-                borderRadius: 'var(--r)',
-                background: m.role === 'user' ? 'var(--bg-elev)' : 'var(--bg-2)',
-                border: '1px solid var(--border)',
-                fontSize: 'var(--fs-base)',
-                lineHeight: 1.6,
-                color: 'var(--text)',
-                whiteSpace: 'pre-wrap',
-              }}>
-                {m.content}
-              </div>
-            ))}
-            {chatLoading && (
-              <div style={{ alignSelf: 'flex-start', color: 'var(--text-3)', fontSize: 'var(--fs-base)', padding: '10px 14px' }}>
-                Thinking…
-              </div>
-            )}
-            {chatError && (
-              <div style={{ color: 'var(--neg)', fontSize: 'var(--fs-base)', padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 'var(--r)' }}>
-                {chatError}
-              </div>
-            )}
-            <div ref={chatEndRef} />
+                  <div className="insight-desc">{ins.description}</div>
+                  <div className="insight-footer">
+                    {quickLink ? (
+                      <a
+                        className="insight-cta-btn insight-cta-link"
+                        href={quickLink.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {ins.action}
+                        <span className="insight-link-chip">{quickLink.label} ↗</span>
+                      </a>
+                    ) : (
+                      <div className="insight-cta-btn">{ins.action}</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+        </div>
+      ) : (
+        <div className="empty">
+          <div className="empty-icon">◌</div>
+          <div className="empty-title">
+            {filter === 'attention' ? 'Nothing needs attention right now' : 'No on-track items yet'}
           </div>
-
-          <div style={{ display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-            <input
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
-              placeholder="Ask about your finances…"
-              style={{ flex: 1 }}
-            />
-            <button className="btn btn-primary" onClick={sendChat} disabled={chatLoading || !chatInput.trim()}>
-              Send
-            </button>
-          </div>
+          <div className="empty-sub">Import account data and refresh prices to generate insights</div>
         </div>
       )}
+
+      <div className="mt-24">
+        <button className="btn btn-ghost" onClick={refetch}>Refresh Insights</button>
+      </div>
     </div>
   )
 }

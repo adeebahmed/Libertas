@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
@@ -71,8 +71,11 @@ function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' 
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const heroShellRef = useRef<HTMLDivElement>(null)
   const [range, setRange] = useState<(typeof RANGE_OPTIONS)[number]>('6M')
-  const [pinnedTitle, setPinnedTitle] = useState<string | null>(() => localStorage.getItem('dashboardPinnedInsight'))
+  const [heroCollapsed, setHeroCollapsed] = useState<boolean>(() => localStorage.getItem('dashboardHeroCollapsed') === '1')
+  const [heroExpandedHeight, setHeroExpandedHeight] = useState(0)
+  const [heroCollapsedHeight, setHeroCollapsedHeight] = useState(0)
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
   const [chatInput, setChatInput] = useState('')
   const [chatReply, setChatReply] = useState('')
@@ -100,22 +103,33 @@ export default function Dashboard() {
       const order = { high: 0, medium: 1, low: 2 }
       return (order[a.priority] ?? 3) - (order[b.priority] ?? 3)
     })
-
-    if (pinnedTitle) {
-      const pinned = sorted.find((item) => item.title === pinnedTitle)
-      if (pinned) return pinned
-    }
-
     return sorted[rotationSeed % sorted.length]
-  }, [insights, pinnedTitle, rotationSeed])
+  }, [insights, rotationSeed])
 
   useEffect(() => {
-    if (!pinnedTitle) {
-      localStorage.removeItem('dashboardPinnedInsight')
-      return
+    localStorage.setItem('dashboardHeroCollapsed', heroCollapsed ? '1' : '0')
+  }, [heroCollapsed])
+
+  useEffect(() => {
+    const node = heroShellRef.current
+    if (!node) return
+
+    const measure = () => {
+      const h = Math.round(node.getBoundingClientRect().height)
+      if (heroCollapsed) {
+        setHeroCollapsedHeight((prev) => (h > 0 ? h : prev))
+      } else {
+        setHeroExpandedHeight((prev) => (h > 0 ? h : prev))
+      }
     }
-    localStorage.setItem('dashboardPinnedInsight', pinnedTitle)
-  }, [pinnedTitle])
+
+    measure()
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [heroCollapsed])
 
   const allocationData = useMemo(() => {
     if (!nw) return []
@@ -191,10 +205,23 @@ export default function Dashboard() {
   const historyInitialLoading = historyLoading && !history
   const accountsInitialLoading = accountsLoading && !accounts
   const insightsInitialLoading = insightsLoading && !insights
+  const chatCompensation = heroCollapsed && heroExpandedHeight > 0 && heroCollapsedHeight > 0
+    ? Math.max(heroExpandedHeight - heroCollapsedHeight, 0)
+    : 0
 
   return (
     <div>
-      <div className="mb-24" style={{ paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>
+      <div ref={heroShellRef} className={`dashboard-hero-shell mb-24${heroCollapsed ? ' is-collapsed' : ''}`}>
+        <button
+          type="button"
+          className="dashboard-hero-toggle"
+          onClick={() => setHeroCollapsed((v) => !v)}
+          aria-expanded={!heroCollapsed}
+          aria-label={heroCollapsed ? 'Expand net worth and top insight' : 'Collapse net worth and top insight'}
+          title={heroCollapsed ? 'Expand overview' : 'Collapse overview'}
+        >
+          {heroCollapsed ? '▾' : '▴'}
+        </button>
         <div className="dashboard-hero-grid">
           <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
@@ -220,20 +247,11 @@ export default function Dashboard() {
 
           {recommendation ? (
             <div className="dashboard-top-insight" style={{ borderLeftColor: tone }}>
-              <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ flex: 1 }}>
                   <div className="section-label mb-8">Top insight</div>
                   <div style={{ fontWeight: 500, fontSize: 'var(--fs-md)', marginBottom: 6 }}>{plainRecommendation?.title ?? recommendation.title}</div>
                   <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>{plainRecommendation?.description ?? recommendation.description}</div>
                   <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>{plainRecommendation?.action ?? recommendation.action}</div>
-                </div>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => setPinnedTitle((curr) => (curr === recommendation.title ? null : recommendation.title))}
-                  title="Pin recommendation"
-                >
-                  {pinnedTitle === recommendation.title ? 'Unpin' : 'Pin'}
-                </button>
               </div>
             </div>
           ) : insightsInitialLoading ? (
@@ -246,7 +264,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <section className="overview-chat-stage mb-24">
+      <section
+        className={`overview-chat-stage mb-24${heroCollapsed ? ' is-expanded' : ''}`}
+        style={heroCollapsed ? ({ '--chat-compensation': `${chatCompensation}px` } as Record<string, string>) : undefined}
+      >
         <div className="overview-chat-center">
           <h2 className="overview-chat-greeting">{greeting}, {userName}</h2>
           <p className="overview-chat-sub">{vibeLine}</p>
