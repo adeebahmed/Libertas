@@ -32,6 +32,7 @@ export default function Settings() {
   const { data: settings, refetch: refetchSettings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
 
   const [claudeKey, setClaudeKey] = useState('')
+  const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
   const [newsApiKey, setNewsApiKey] = useState('')
   const [plaidClientId, setPlaidClientId] = useState('')
   const [plaidSecret, setPlaidSecret] = useState('')
@@ -47,6 +48,7 @@ export default function Settings() {
   useEffect(() => {
     if (!settings) return
     setClaudeKey(String(settings.claude_api_key ?? ''))
+    setClaudeModel(String(settings.claude_model ?? 'claude-sonnet-4-6'))
     setNewsApiKey(String(settings.news_api_key ?? ''))
     setPlaidClientId(String(settings.plaid_client_id ?? ''))
     setPlaidSecret(String(settings.plaid_secret ?? ''))
@@ -104,6 +106,14 @@ export default function Settings() {
             <ApiKeyLabel label="Claude API key (optional)" href="https://console.anthropic.com/settings/keys" />
             <input type="password" value={claudeKey} onChange={e => setClaudeKey(e.target.value)}
               onBlur={() => saveSetting('claude_api_key', claudeKey)} placeholder="sk-ant-…" />
+          </div>
+          <div className="field">
+            <label>Claude model</label>
+            <select value={claudeModel} onChange={e => { setClaudeModel(e.target.value); saveSetting('claude_model', e.target.value) }}>
+              <option value="claude-sonnet-4-6">Sonnet 4.6 (default)</option>
+              <option value="claude-haiku-4-5-20251001">Haiku 4.5 (cheapest)</option>
+              <option value="claude-opus-4-6">Opus 4.6 (most capable)</option>
+            </select>
           </div>
           <div className="field">
             <ApiKeyLabel label="News API key (optional)" href="https://newsapi.org/account" />

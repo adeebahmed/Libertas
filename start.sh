@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
+
 DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_LOG="${TMPDIR:-/tmp}/libertas-backend.log"
 
