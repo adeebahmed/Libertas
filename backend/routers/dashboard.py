@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 import json
+import re
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Account, BalanceSnapshot, DebtDetail, Holding, Setting
-from ..services.snapshots import compute_account_balance, net_worth_overview
+from ..models import Account, DebtDetail, Holding, Setting
+from ..services.snapshots import compute_account_balance
 from .insights import _generate_insights
 from .news import _build_ranked_payload
 
@@ -17,9 +18,24 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 MAX_NEWS_ITEMS = 80
 MAX_TICKERS = 5
-MAX_PERSONAL = 4
+MAX_PERSONAL = 5
 NEWS_BLOCK_SIZE = 8
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+TICKER_ALIASES = {
+    "AAPL": ["apple", "iphone", "ipad", "mac"],
+    "MSFT": ["microsoft", "azure", "windows"],
+    "NVDA": ["nvidia", "gpu", "ai chips"],
+    "GOOGL": ["alphabet", "google"],
+    "GOOG": ["alphabet", "google"],
+    "AMZN": ["amazon", "aws"],
+    "META": ["meta", "facebook", "instagram"],
+    "TSLA": ["tesla", "elon musk"],
+    "AMD": ["amd", "advanced micro devices"],
+    "NFLX": ["netflix"],
+    "JPM": ["jpmorgan", "jp morgan"],
+    "BAC": ["bank of america"],
+    "BRK.B": ["berkshire", "warren buffett"],
+}
 
 
 def _get_setting(db: Session, key: str, default):
@@ -30,11 +46,6 @@ def _get_setting(db: Session, key: str, default):
         return json.loads(row.value)
     except Exception:
         return row.value
-
-
-def _money(value: float) -> str:
-    sign = "-" if value < 0 else ""
-    return f"{sign}${abs(value):,.0f}"
 
 
 def _pct(value: float) -> str:
@@ -58,6 +69,7 @@ def _build_news_segment(db: Session) -> list[dict]:
                 "url": url,
                 "source": article.get("source"),
                 "published_at": article.get("published_at"),
+                "summary": article.get("summary"),
             }
         )
         if len(items) >= MAX_NEWS_ITEMS:
@@ -126,29 +138,57 @@ def _build_ticker_segment(db: Session) -> list[dict]:
     return items
 
 
-def _stale_account_count(db: Session, accounts: list[Account], stale_days: int = 7) -> tuple[int, int]:
-    latest_by_account = {
-        account_id: snap_date
-        for account_id, snap_date in (
-            db.query(BalanceSnapshot.account_id, func.max(BalanceSnapshot.date))
-            .group_by(BalanceSnapshot.account_id)
-            .all()
-        )
-    }
-
-    today = date.today()
-    stale = 0
-    for account in accounts:
-        latest = latest_by_account.get(account.id)
-        if latest is None or (today - latest).days > stale_days:
-            stale += 1
-    return stale, len(accounts)
-
-
-def _build_personal_segment(db: Session) -> list[dict]:
-    accounts = db.query(Account).all()
+def _build_position_signals(ticker_items: list[dict]) -> list[dict]:
     items: list[dict] = []
+    for ticker in ticker_items[:MAX_PERSONAL]:
+        symbol = str(ticker.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
 
+        weight = float(ticker.get("portfolio_weight_pct") or 0.0)
+        last_updated_raw = ticker.get("last_updated")
+        stale_days = None
+        if isinstance(last_updated_raw, str) and last_updated_raw:
+            try:
+                ts = datetime.fromisoformat(last_updated_raw.replace("Z", "+00:00"))
+                now = datetime.now(ts.tzinfo or timezone.utc)
+                stale_days = max(0, (now - ts).days)
+            except Exception:
+                stale_days = None
+
+        if stale_days is not None and stale_days >= 3:
+            tone = "negative"
+            label = f"{symbol} signal: price is {stale_days}d old. Action: refresh pricing before making moves."
+        elif weight >= 20:
+            tone = "negative"
+            label = f"{symbol} signal: {weight:.1f}% concentration. Action: consider trimming or rebalancing."
+        elif weight >= 10:
+            tone = "neutral"
+            label = f"{symbol} signal: {weight:.1f}% core position. Action: monitor catalyst risk around headlines."
+        else:
+            tone = "positive"
+            label = f"{symbol} signal: {weight:.1f}% position sizing is controlled. Action: stay disciplined on entries."
+
+        items.append(
+            {
+                "id": f"p-pos-{symbol}",
+                "symbol": symbol,
+                "label": label,
+                "tone": tone,
+                "route": "/accounts",
+            }
+        )
+    return items
+
+
+def _build_personal_segment(db: Session, ticker_items: list[dict]) -> list[dict]:
+    accounts = db.query(Account).all()
+    items: list[dict] = _build_position_signals(ticker_items)
+
+    if items:
+        return items[:MAX_PERSONAL]
+
+    # Fallback when no invested symbols are available.
     insights = _generate_insights(db)
     if insights:
         top = sorted(
@@ -167,41 +207,6 @@ def _build_personal_segment(db: Session) -> list[dict]:
                     "route": "/insights",
                 }
             )
-
-    overview = net_worth_overview(db)
-    delta_30 = overview.get("delta_30d")
-    delta_30_pct = overview.get("delta_30d_pct")
-    if delta_30 is not None:
-        tone = "positive" if delta_30 > 0 else ("negative" if delta_30 < 0 else "neutral")
-        pct_suffix = f" ({_pct(float(delta_30_pct))})" if delta_30_pct is not None else ""
-        items.append(
-            {
-                "id": "p-networth-30d",
-                "label": f"Net worth 30d {'+' if delta_30 >= 0 else ''}{_money(float(delta_30))}{pct_suffix}",
-                "tone": tone,
-                "route": "/insights",
-            }
-        )
-
-    stale_count, total_accounts = _stale_account_count(db, accounts)
-    if total_accounts > 0:
-        if stale_count == 0:
-            stale_label = "Account freshness: all balances updated in the last 7 days."
-            stale_tone = "positive"
-        elif stale_count == total_accounts:
-            stale_label = f"Account freshness: {stale_count}/{total_accounts} accounts may be stale (7d+)."
-            stale_tone = "negative"
-        else:
-            stale_label = f"Account freshness: {stale_count}/{total_accounts} accounts may be stale (7d+)."
-            stale_tone = "neutral"
-        items.append(
-            {
-                "id": "p-stale-accounts",
-                "label": stale_label,
-                "tone": stale_tone,
-                "route": "/accounts",
-            }
-        )
 
     monthly_expenses = float(_get_setting(db, "monthly_expenses", 5000) or 5000)
     monthly_expenses = monthly_expenses if monthly_expenses > 0 else 5000.0
@@ -243,30 +248,99 @@ def _build_personal_segment(db: Session) -> list[dict]:
     return items[:MAX_PERSONAL]
 
 
-def _chunk(items: list[str], size: int):
-    for i in range(0, len(items), size):
-        yield items[i:i + size]
+def _symbol_news_keywords(symbol: str) -> list[str]:
+    normalized = symbol.strip().upper()
+    keys = [normalized.lower(), normalized.replace(".", "").lower()]
+    for alias in TICKER_ALIASES.get(normalized, []):
+        keys.append(alias.lower())
+    # Keep deterministic order while removing duplicates.
+    deduped: list[str] = []
+    seen = set()
+    for key in keys:
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(key)
+    return deduped
+
+
+def _news_relevance_score(symbol: str, news_item: dict) -> int:
+    text = f"{news_item.get('label') or ''} {news_item.get('summary') or ''}".lower()
+    score = 0
+    for kw in _symbol_news_keywords(symbol):
+        # Use boundary checks for short tokens like ticker symbols.
+        if len(kw) <= 5:
+            pattern = rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])"
+            if re.search(pattern, text):
+                score += 6
+        elif kw in text:
+            score += 3
+    return score
+
+
+def _pick_news_for_symbol(symbol: str, news_items: list[dict], used_news_ids: set[str]) -> str | None:
+    best_id = None
+    best_score = -1
+    for news in news_items:
+        news_id = str(news.get("id") or "")
+        if not news_id or news_id in used_news_ids:
+            continue
+        score = _news_relevance_score(symbol, news)
+        if score > best_score:
+            best_score = score
+            best_id = news_id
+
+    # Fallback to next available headline if no explicit match.
+    if best_id is None:
+        for news in news_items:
+            news_id = str(news.get("id") or "")
+            if news_id and news_id not in used_news_ids:
+                return news_id
+    return best_id
 
 
 def _build_sequence(news_items: list[dict], ticker_items: list[dict], personal_items: list[dict]) -> list[dict]:
-    news_ids = [item["id"] for item in news_items]
-    ticker_ids = [item["id"] for item in ticker_items]
-    personal_ids = [item["id"] for item in personal_items]
+    ticker_by_symbol = {
+        str(item.get("symbol") or "").strip().upper(): item
+        for item in ticker_items
+    }
+    personal_by_symbol = {
+        str(item.get("symbol") or "").strip().upper(): item
+        for item in personal_items
+        if item.get("symbol")
+    }
 
     sequence: list[dict] = []
-    if news_ids:
-        for news_chunk in _chunk(news_ids, NEWS_BLOCK_SIZE):
-            for item_id in news_chunk:
-                sequence.append({"kind": "news", "ref_id": item_id})
-            for item_id in ticker_ids:
-                sequence.append({"kind": "ticker", "ref_id": item_id})
-            for item_id in personal_ids:
-                sequence.append({"kind": "personal", "ref_id": item_id})
-    else:
-        for item_id in ticker_ids:
-            sequence.append({"kind": "ticker", "ref_id": item_id})
-        for item_id in personal_ids:
-            sequence.append({"kind": "personal", "ref_id": item_id})
+    used_news_ids: set[str] = set()
+
+    for symbol in [str(item.get("symbol") or "").strip().upper() for item in ticker_items]:
+        ticker = ticker_by_symbol.get(symbol)
+        if not ticker:
+            continue
+        ticker_id = str(ticker.get("id") or "")
+        if not ticker_id:
+            continue
+
+        sequence.append({"kind": "ticker", "ref_id": ticker_id})
+
+        news_id = _pick_news_for_symbol(symbol, news_items, used_news_ids)
+        if news_id:
+            used_news_ids.add(news_id)
+            sequence.append({"kind": "news", "ref_id": news_id})
+
+        personal = personal_by_symbol.get(symbol)
+        if personal:
+            personal_id = str(personal.get("id") or "")
+            if personal_id:
+                sequence.append({"kind": "personal", "ref_id": personal_id})
+
+    # Fallback when no ticker-specific groups could be built.
+    if not sequence:
+        for item in news_items[:NEWS_BLOCK_SIZE]:
+            sequence.append({"kind": "news", "ref_id": item["id"]})
+        for item in ticker_items:
+            sequence.append({"kind": "ticker", "ref_id": item["id"]})
+        for item in personal_items:
+            sequence.append({"kind": "personal", "ref_id": item["id"]})
 
     return sequence
 
@@ -275,7 +349,7 @@ def _build_sequence(news_items: list[dict], ticker_items: list[dict], personal_i
 def get_dashboard_tape(db: Session = Depends(get_db)):
     news_items = _build_news_segment(db)
     ticker_items = _build_ticker_segment(db)
-    personal_items = _build_personal_segment(db)
+    personal_items = _build_personal_segment(db, ticker_items)
     sequence = _build_sequence(news_items, ticker_items, personal_items)
 
     return {

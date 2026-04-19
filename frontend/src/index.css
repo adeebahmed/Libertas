@@ -575,16 +575,16 @@ button {
 }
 
 .dashboard-hero-shell.is-collapsed {
-  min-height: 52px;
+  min-height: 62px;
   border-bottom-color: var(--border);
 }
 
 .dashboard-market-tape {
   position: absolute;
-  top: 7px;
+  top: 4px;
   left: 0;
   right: 40px;
-  min-height: 34px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   z-index: 1;
@@ -616,7 +616,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px;
+  padding: 9px 14px;
 }
 
 .dashboard-market-tape-token {
@@ -633,7 +633,7 @@ button {
 }
 
 .dashboard-market-tape-tag {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--accent) 58%, var(--text-2));
@@ -690,7 +690,7 @@ button {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--bg-2);
-  padding: 6px 14px;
+  padding: 9px 16px;
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
