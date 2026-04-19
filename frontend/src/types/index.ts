@@ -224,6 +224,48 @@ export interface NewsArticle {
   category: string | null
 }
 
+export type MarketTapeTone = 'positive' | 'neutral' | 'negative'
+export type MarketTapeKind = 'news' | 'ticker' | 'personal'
+
+export interface DashboardTapeNewsItem {
+  id: string
+  label: string
+  url: string
+  source: string | null
+  published_at: string | null
+}
+
+export interface DashboardTapeTickerItem {
+  id: string
+  symbol: string
+  price: number | null
+  market_value: number
+  portfolio_weight_pct: number
+  last_updated: string | null
+}
+
+export interface DashboardTapePersonalItem {
+  id: string
+  label: string
+  tone: MarketTapeTone
+  route: '/accounts' | '/insights'
+}
+
+export interface DashboardTapeSequenceItem {
+  kind: MarketTapeKind
+  ref_id: string
+}
+
+export interface DashboardTape {
+  generated_at: string
+  segments: {
+    news: DashboardTapeNewsItem[]
+    tickers: DashboardTapeTickerItem[]
+    personal: DashboardTapePersonalItem[]
+  }
+  sequence: DashboardTapeSequenceItem[]
+}
+
 export interface NetWorth {
   net_worth: number
   previous: number

@@ -575,8 +575,151 @@ button {
 }
 
 .dashboard-hero-shell.is-collapsed {
-  min-height: 52px;
+  min-height: 62px;
   border-bottom-color: var(--border);
+}
+
+.dashboard-market-tape {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 40px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  z-index: 1;
+}
+
+.dashboard-market-tape-viewport {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, var(--bg-2)), color-mix(in srgb, var(--bg-2) 92%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 46%, transparent);
+}
+
+.dashboard-market-tape-track {
+  display: flex;
+  width: max-content;
+  animation: marketTapeScroll var(--tape-duration, 40s) linear infinite;
+  will-change: transform;
+}
+
+.dashboard-market-tape-track:hover,
+.dashboard-market-tape-track:focus-within {
+  animation-play-state: paused;
+}
+
+.dashboard-market-tape-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+}
+
+.dashboard-market-tape-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  border-right: 1px dashed color-mix(in srgb, var(--accent) 32%, var(--border));
+  white-space: nowrap;
+}
+
+.dashboard-market-tape-token:last-child {
+  border-right: none;
+}
+
+.dashboard-market-tape-tag {
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 58%, var(--text-2));
+  font-family: var(--font-mono);
+}
+
+.dashboard-market-tape-link,
+.dashboard-market-tape-btn {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-family: var(--font-sans);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+}
+
+.dashboard-market-tape-link:hover,
+.dashboard-market-tape-btn:hover {
+  color: color-mix(in srgb, var(--accent) 60%, var(--text));
+}
+
+.dashboard-market-tape-link:focus-visible,
+.dashboard-market-tape-btn:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, var(--focus-ring));
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.dashboard-market-tape-meta {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.dashboard-market-tape-symbol {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.dashboard-market-tape-token.personal.tone-positive .dashboard-market-tape-btn {
+  color: color-mix(in srgb, var(--pos) 68%, var(--text));
+}
+
+.dashboard-market-tape-token.personal.tone-negative .dashboard-market-tape-btn {
+  color: color-mix(in srgb, var(--neg) 72%, var(--text));
+}
+
+.dashboard-market-tape-status {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  padding: 9px 16px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+[data-theme="retro"] .dashboard-market-tape-viewport {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, #0f1930), color-mix(in srgb, #0f1930 88%, transparent));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+[data-theme="retro"] .dashboard-market-tape-token {
+  border-right-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+}
+
+[data-theme="retro"] .dashboard-market-tape-link:hover,
+[data-theme="retro"] .dashboard-market-tape-btn:hover {
+  color: #cfe6ff;
+}
+
+@keyframes marketTapeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .dashboard-hero-summary {
@@ -719,6 +862,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-market-tape {
+    right: 40px;
+  }
+
   .overview-chat-stage {
     min-height: auto;
     padding: 24px 0;
@@ -740,6 +887,24 @@ button {
 
   .overview-chat-center.is-emphasis {
     transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-market-tape-viewport,
+  .dashboard-market-tape-viewport.is-reduced-motion {
+    overflow-x: auto;
+  }
+
+  .dashboard-market-tape-track,
+  .dashboard-market-tape-track.is-reduced-motion {
+    animation: none;
+    transform: none;
+  }
+
+  .dashboard-market-tape-run.is-clone,
+  .dashboard-market-tape-track.is-reduced-motion .dashboard-market-tape-run.is-clone {
+    display: none;
   }
 }
 

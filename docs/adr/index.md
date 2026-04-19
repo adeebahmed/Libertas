@@ -13,6 +13,7 @@ This index tracks major product and engineering decisions for Libertas.
 - [ADR-006 — Tier-1 Net Worth Dashboard Completion](/adr/006-tier1-dashboard-completion)
 - [ADR-009 — Optional Plaid + Sheets Integration with Canonical Multi-Source Ingest](/adr/009-optional-plaid-and-sheets-integration)
 - [ADR-010 — At-Rest Encryption](/adr/010-at-rest-encryption)
+- [ADR-011 — Overview Collapsed Market Tape](/adr/011-dashboard-market-tape)
 
 ## Notes
 
