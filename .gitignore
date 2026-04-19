@@ -33,3 +33,4 @@ memory/
 # Superpowers plan scratch files
 docs/superpowers/plans/
 .superpowers/
+.setup-complete

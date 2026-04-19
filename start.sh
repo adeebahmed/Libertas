@@ -50,6 +50,11 @@ ensure_frontend_env() {
   fi
 }
 
+if [ ! -f "$DIR/.setup-complete" ]; then
+  echo "First run detected — running setup..."
+  bash "$DIR/setup.sh"
+fi
+
 ensure_backend_env
 ensure_frontend_env
 UVICORN_CMD=("$DIR/.venv/bin/python" "-m" "uvicorn")
