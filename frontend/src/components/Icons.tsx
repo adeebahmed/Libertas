@@ -68,6 +68,15 @@ export function IconSpark({ size = defaults.size }: IconProps) {
   )
 }
 
+export function IconSearch({ size = defaults.size }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={defaults.strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5 14 14" />
+    </svg>
+  )
+}
+
 export function IconUpload({ size = defaults.size }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={defaults.strokeWidth} strokeLinecap="round" strokeLinejoin="round">

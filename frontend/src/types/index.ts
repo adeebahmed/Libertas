@@ -18,6 +18,12 @@ export interface Account {
   created_at: string | null
   balance: number
   last_updated: string | null
+  sync_source?: string | null
+  source_kind?: string | null
+  source_record_id?: string | null
+  source_priority?: number | null
+  provenance?: Record<string, unknown> | null
+  merge_conflict?: boolean
 }
 
 export interface AccountDetail extends Account {
@@ -62,6 +68,33 @@ export interface Transaction {
   description: string | null
   import_log_id?: number | null
   import_hash?: string | null
+  sync_source?: string | null
+  source_kind?: string | null
+  source_record_id?: string | null
+  source_priority?: number | null
+  canonical_key?: string | null
+  provenance?: Record<string, unknown> | null
+  merge_conflict?: boolean
+}
+
+export interface IntegrationRun {
+  status: string
+  trigger: string
+  started_at: string | null
+  finished_at: string | null
+  details: Record<string, unknown> | null
+}
+
+export interface IntegrationConnection {
+  id: number
+  provider: 'plaid' | 'sheets'
+  name: string
+  status: string
+  config: Record<string, unknown> | null
+  external_item_id: string | null
+  last_sync_at: string | null
+  last_error: string | null
+  last_run: IntegrationRun | null
 }
 
 export interface BalanceSnapshot {

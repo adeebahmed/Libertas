@@ -76,8 +76,11 @@ def get_debts(db: Session = Depends(get_db)):
 
     # DTI
     from ..models import Setting
-    s = db.query(Setting).get("annual_income")
-    annual_income = json.loads(s.value) if s and s.value else None
+    s_w2 = db.query(Setting).get("income_w2")
+    s_1099 = db.query(Setting).get("income_1099")
+    income_w2 = json.loads(s_w2.value) if s_w2 and s_w2.value else 0
+    income_1099 = json.loads(s_1099.value) if s_1099 and s_1099.value else 0
+    annual_income = (income_w2 or 0) + (income_1099 or 0)
     dti = (total_balance / annual_income * 100) if annual_income and annual_income > 0 else None
 
     return {

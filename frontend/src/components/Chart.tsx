@@ -30,11 +30,39 @@ type Reference = {
 
 const chartMargin = { top: 4, right: 4, left: -4, bottom: 0 }
 
+function formatAxisX(value: unknown) {
+  if (value == null) return ''
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(value)
+  }
+  if (typeof value === 'string') {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+    }
+    return value
+  }
+  return String(value)
+}
+
+function formatTooltipLabel(value: unknown) {
+  if (value == null) return ''
+  const date = value instanceof Date ? value : new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
+
 function TerminalTooltip({ active, payload, label, formatter }: any & { formatter?: Formatter }) {
   if (!active || !payload?.length) return null
   return (
     <div className="chart-tooltip">
-      <div className="chart-tooltip-label">{label}</div>
+      <div className="chart-tooltip-label">{formatTooltipLabel(label)}</div>
       {payload.map((item: any) => (
         <div key={item.name ?? item.dataKey} style={{ color: item.color ?? 'var(--text)' }}>
           {(item.name ?? item.dataKey) as string}: {formatter ? formatter(Number(item.value)) : item.value}
@@ -47,7 +75,14 @@ function TerminalTooltip({ active, payload, label, formatter }: any & { formatte
 function ChartAxes({ xKey, formatter }: { xKey: string; formatter?: Formatter }) {
   return (
     <>
-      <XAxis dataKey={xKey} tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }} axisLine={false} tickLine={false} minTickGap={18} />
+      <XAxis
+        dataKey={xKey}
+        tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}
+        tickFormatter={formatAxisX}
+        axisLine={false}
+        tickLine={false}
+        minTickGap={18}
+      />
       <YAxis
         tick={{ fill: 'var(--text-3)', fontSize: 'var(--fs-xs)' }}
         axisLine={false}

@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import asyncio
 import logging
+import os
 
 try:
     from dotenv import load_dotenv
@@ -16,8 +17,10 @@ from .importers.ingest import ingest_file
 from .models import Account
 from .routers import accounts, imports, prices, real_estate, snapshots, insights, settings, watcher, debt
 from .routers import retirement, taxes, news, backups
+from .routers import integrations
 from .routers.prices import refresh_prices
 from .routers.snapshots import record_snapshots
+from .services.integration_scheduler import daily_sync_loop
 from .watchers.folder_watcher import start_watcher
 
 app = FastAPI(title="Libertas", version="0.1.0")
@@ -50,6 +53,7 @@ app.include_router(debt.router)
 app.include_router(taxes.router)
 app.include_router(news.router)
 app.include_router(backups.router)
+app.include_router(integrations.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
 DEMO_FILENAMES = [
@@ -74,10 +78,14 @@ def health():
 @app.on_event("startup")
 async def on_startup():
     init_db()
-    try:
-        start_watcher(str(WATCH_FOLDER))
-    except Exception as e:
-        logger.warning(f"File watcher disabled due to startup error: {e}")
+    is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
+    disable_watcher = os.getenv("LIBERTAS_DISABLE_WATCHER") == "1" or is_test
+    disable_scheduler = os.getenv("LIBERTAS_DISABLE_INTEGRATION_SCHEDULER") == "1" or is_test
+    if not disable_watcher:
+        try:
+            start_watcher(str(WATCH_FOLDER))
+        except Exception as e:
+            logger.warning(f"File watcher disabled due to startup error: {e}")
     _bootstrap_demo_data_if_empty()
     # Mount built frontend AFTER all API routes are registered
     frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
@@ -85,6 +93,8 @@ async def on_startup():
         app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
     # Refresh prices and snapshot after startup ingest (runs in background)
     asyncio.ensure_future(_post_startup_refresh())
+    if not disable_scheduler:
+        asyncio.ensure_future(daily_sync_loop())
 
 
 async def _post_startup_refresh():

@@ -55,6 +55,16 @@ def _apply_sqlite_migrations():
             conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN external_id TEXT")
         if "sync_source" not in ac_cols:
             conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN sync_source TEXT")
+        if "source_kind" not in ac_cols:
+            conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN source_kind TEXT")
+        if "source_record_id" not in ac_cols:
+            conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN source_record_id TEXT")
+        if "source_priority" not in ac_cols:
+            conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN source_priority INTEGER DEFAULT 0")
+        if "provenance" not in ac_cols:
+            conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN provenance JSON")
+        if "merge_conflict" not in ac_cols:
+            conn.exec_driver_sql("ALTER TABLE accounts ADD COLUMN merge_conflict INTEGER DEFAULT 0")
 
         # transactions: Plaid extensibility columns
         tx_cols = col_names("transactions")
@@ -62,6 +72,18 @@ def _apply_sqlite_migrations():
             conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN external_id TEXT")
         if "sync_source" not in tx_cols:
             conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN sync_source TEXT")
+        if "source_kind" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN source_kind TEXT")
+        if "source_record_id" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN source_record_id TEXT")
+        if "source_priority" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN source_priority INTEGER DEFAULT 0")
+        if "canonical_key" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN canonical_key TEXT")
+        if "provenance" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN provenance JSON")
+        if "merge_conflict" not in tx_cols:
+            conn.exec_driver_sql("ALTER TABLE transactions ADD COLUMN merge_conflict INTEGER DEFAULT 0")
 
         # holdings: manual vs csv source flag
         ho_cols = col_names("holdings")
@@ -76,6 +98,16 @@ def _apply_sqlite_migrations():
             conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN parse_errors TEXT")
         if "potential_transfers" not in il_cols:
             conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN potential_transfers INTEGER DEFAULT 0")
+        if "header_drift" not in il_cols:
+            conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN header_drift JSON")
+        if "header_drift_detected" not in il_cols:
+            conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN header_drift_detected INTEGER DEFAULT 0")
+        if "header_drift_added" not in il_cols:
+            conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN header_drift_added JSON")
+        if "header_drift_removed" not in il_cols:
+            conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN header_drift_removed JSON")
+        if "header_drift_order_changed" not in il_cols:
+            conn.exec_driver_sql("ALTER TABLE import_log ADD COLUMN header_drift_order_changed INTEGER DEFAULT 0")
 
         # debt_details: user-entered payoff target date
         dd_cols = col_names("debt_details")

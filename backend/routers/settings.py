@@ -17,6 +17,7 @@ KNOWN_KEYS = {
     "monthly_expenses",
     "risk_profile",
     "claude_api_key",
+    "news_api_key",
     "watch_folder_path",
     "projection_return_rates",
 }
