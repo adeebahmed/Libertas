@@ -1,79 +1,85 @@
 # Libertas
 
-Local-first personal finance dashboard. No SaaS. No cloud sync. No mandatory account linking. Your data stays on your machine.
+> Your finances, on your machine. No subscriptions. No account linking. No cloud.
 
-## Themes
+Libertas is a self-hosted personal finance dashboard built for people who want the power of tools like Copilot Money or Fey — without giving a company access to their bank accounts.
 
-**Onyx** (terminal black + amber) and **Retro** (deep navy + blue glow) — toggle in Settings.
+Import a CSV. See your net worth. Done.
 
-| Onyx | Retro |
-|------|-------|
-| ![Onyx](docs/public/screenshots/overview-onyx.png) | ![Retro](docs/public/screenshots/overview-retro.png) |
+---
 
-## What it does
+<p align="center">
+  <img src="docs/public/screenshots/overview-onyx.png" width="48%" alt="Onyx theme" />
+  &nbsp;
+  <img src="docs/public/screenshots/overview-retro.png" width="48%" alt="Retro theme" />
+</p>
+<p align="center"><em>Onyx (left) · Retro (right) — toggle anytime in Settings</em></p>
 
-- Net worth timeline with snapshot history and range controls
-- Accounts, holdings, and debt across brokerages, banks, crypto, and real estate
-- Retirement planning (5 FIRE types), tax estimates, debt payoff strategies
-- Rule-based insights engine (15 deterministic rules, fully offline)
-- `/` command palette + chord keyboard navigation (`g d`, `g a`, `g r`, `g s`)
-- At-rest AES-256-GCM encryption on all sensitive fields in SQLite
-- Optional: AI chat (Claude key), Plaid sync, Google Sheets CSV feeds
+---
 
-## Quick start
+## What you get
 
-**Requirements:** Python 3.11+, `uv`, `bun`
+- **Net worth dashboard** — history, range controls, 30-day delta, account drill-in
+- **Full account coverage** — brokerages, banks, crypto, real estate, debt, retirement
+- **Insights engine** — 15 deterministic rules, runs 100% offline, no AI required
+- **Retirement planner** — 5 FIRE types, projections, contribution tracking
+- **Tax estimates + debt payoff** — built-in calculators
+- **At-rest encryption** — AES-256-GCM on all sensitive fields in SQLite
+- **Keyboard-driven** — `/` opens command palette, `g d` / `g a` / `g r` / `g s` chord nav
+- **Two themes** — Onyx (terminal black + amber) and Retro (deep navy + blue glow)
+- **Optional AI chat** — Claude API key unlocks portfolio Q&A and guided insights
+- **Optional sync** — Plaid and Google Sheets CSV feeds, fully opt-in
+
+---
+
+## Get running in 60 seconds
+
+**You need:** Python 3.11+, [`uv`](https://github.com/astral-sh/uv), [`bun`](https://bun.sh)
 
 ```bash
+git clone https://github.com/adeebahmed/Libertas.git
+cd Libertas
 ./start.sh
 ```
 
-- Backend API → `http://127.0.0.1:8000`
-- Frontend → `http://127.0.0.1:5173` (or `5174`)
+Open **http://127.0.0.1:5173** — import a CSV or add an account manually and you're in.
 
-Open the frontend URL. Backend must be running but you don't interact with it directly.
+---
+
+## Importing data
+
+Drop a CSV from any of these into the Import page — Libertas auto-detects the format:
+
+**Fidelity · Schwab · Robinhood · Coinbase · Chase · Vanguard**
+
+Or drag any CSV and map columns once. Subsequent imports use saved mappings.
+
+Prefer hands-off? Drop files into `/data/watch/` and the watcher picks them up automatically.
+
+---
 
 ## Optional API keys
 
-Set in **Settings** inside the app (stored locally):
+Set everything in **Settings** inside the app — stored locally in SQLite, never sent anywhere.
 
-| Key | Purpose |
-|-----|---------|
-| Claude API | Insights chat + AI guidance |
-| News API | Market news (falls back to RSS if absent) |
-| Plaid | Optional bank sync |
+| Key | What it unlocks |
+|-----|----------------|
+| Claude API | AI insights chat, guided portfolio analysis |
+| News API | Live market news (falls back to RSS without it) |
+| Plaid | Optional direct bank sync |
 
-## Data ingest
-
-1. Manual entry in-app
-2. CSV/Excel import (drag-and-drop or `/data/watch/` folder auto-detection)
-3. Optional Plaid sync
-4. Optional Google Sheets CSV feed
-
-Built-in presets: Fidelity, Schwab, Robinhood, Coinbase, Chase, Vanguard.
+---
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
-| Backend | FastAPI + SQLAlchemy + SQLite |
-| Frontend | React 18 + TypeScript + Vite + Recharts |
-| Prices | yfinance (stocks) + CoinGecko (crypto) |
-| Docs | VitePress → GitHub Pages |
+FastAPI + SQLAlchemy + SQLite · React 18 + TypeScript + Vite · yfinance + CoinGecko · VitePress docs
+
+---
 
 ## Docs
 
-```bash
-./start-docs.sh   # http://localhost:5173/Libertas/
-```
-
-ADRs in `docs/adr/` cover every major architectural decision (001–010).
-
-## Recapture screenshots
+Full user guide, API key setup, and architecture decisions at the [GitHub Pages site](https://adeebahmed.github.io/Libertas/).
 
 ```bash
-./start.sh                                    # terminal 1
-node frontend/scripts/capture-doc-screenshots.mjs  # terminal 2
+./start-docs.sh   # preview docs locally
 ```
-
-Images write to `docs/public/screenshots/`.
