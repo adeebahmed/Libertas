@@ -15,9 +15,10 @@ hero:
 ---
 
 <div class="lp-trust">
-  <span>Local-first by default</span>
-  <span>No required account linking</span>
-  <span>Decision support, not advisory service</span>
+  <span>🔒 AES-256-GCM encrypted at rest</span>
+  <span>🏠 Local-first by default</span>
+  <span>🚫 No account linking required</span>
+  <span>📡 No telemetry, ever</span>
 </div>
 
 <section class="lp-section lp-split">
@@ -67,12 +68,19 @@ hero:
   <p class="lp-copy">Current updates improve confidence and control: manual account workflows, import quality warnings, rollback safety, debt payoff details, and freshness indicators.</p>
 </section>
 
+<section class="lp-section lp-highlight">
+  <p class="lp-kicker">Privacy by design</p>
+  <h2>Your data never leaves your machine.</h2>
+  <p class="lp-copy">No OAuth tokens. No bank credentials. No cloud sync. Libertas runs entirely on localhost — your financial data is encrypted at rest with AES-256-GCM and stored in a local SQLite file that only you control. Optional integrations (AI chat, Plaid, market news) are explicitly opt-in. Zero telemetry. Zero analytics.</p>
+  <a class="lp-link" href="/security">Read the security model →</a>
+</section>
+
 <section class="lp-section lp-cta">
   <h2>If you want a private, modern money OS, start here.</h2>
   <p>Run Libertas locally and see your full financial picture in minutes.</p>
   <div class="lp-actions">
     <a class="vp-button brand" href="https://github.com/adeebahmed/Libertas">Download Libertas</a>
-    <a class="vp-button alt" href="/technical">Technical docs</a>
+    <a class="vp-button alt" href="/Libertas/security">Security model</a>
   </div>
 </section>
 

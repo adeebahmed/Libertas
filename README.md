@@ -32,6 +32,23 @@ Libertas is a self-hosted personal finance dashboard built for people who want t
 
 ---
 
+## 🔒 Privacy is the product
+
+Most finance apps are built around your data leaving your machine. Libertas is built around the opposite.
+
+| What others do | What Libertas does |
+|---|---|
+| OAuth into your bank | You import a CSV — no credentials, ever |
+| Store your data in the cloud | Everything lives in a local SQLite file |
+| Sell or train on your transactions | Data never leaves `localhost` |
+| Require a subscription to access your own data | Open source, self-hosted, yours to keep |
+
+**At-rest encryption** (AES-256-GCM) protects account names, balances, and all sensitive fields in the local database — even if someone gets physical access to your machine.
+
+All optional integrations (Claude API, Plaid, News API) are explicitly opt-in. Nothing is enabled by default. No telemetry. No analytics. No crash reporting home.
+
+---
+
 ## 🚀 Get running in 60 seconds
 
 **You need:** Python 3.11+, [`uv`](https://github.com/astral-sh/uv), [`bun`](https://bun.sh)
