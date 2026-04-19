@@ -51,6 +51,10 @@ def _wait_for_stable(filepath: str, timeout: float = 10):
 
 def _process_file(filepath: str):
     """Ingest a file and move it to processed/."""
+    if not os.path.isfile(filepath):
+        logger.info(f"Skipping missing watch file: {filepath}")
+        return
+
     db = SessionLocal()
     try:
         log = ingest_file(filepath, db)
