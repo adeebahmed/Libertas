@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { TaxEstimate, TaxHarvestOpportunity } from '../types'
@@ -24,6 +25,27 @@ export default function TaxesPage() {
   const { data: estimate, loading: estLoading } = useApi<TaxEstimate>(() => api.get('/taxes/estimate'), [])
   const { data: harvest } = useApi<{ opportunities: TaxHarvestOpportunity[]; total_harvestable_loss: number; estimated_tax_savings: number; note: string }>(() => api.get('/taxes/harvesting'), [])
   const { data: recs } = useApi<{ recommendations: { type: string; priority: string; reason: string; limit_2024: number }[]; total_income: number; filing_status: string }>(() => api.get('/taxes/entity-recommendations'), [])
+  const { data: settings, refetch: refetchSettings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
+
+  const [incomeW2, setIncomeW2] = useState('')
+  const [income1099, setIncome1099] = useState('')
+  const [filingStatus, setFilingStatus] = useState('single')
+  const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    if (!settings) return
+    setIncomeW2(String(settings.income_w2 ?? ''))
+    setIncome1099(String(settings.income_1099 ?? ''))
+    setFilingStatus(String(settings.tax_filing_status ?? 'single'))
+  }, [settings])
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  const saveSetting = async (key: string, value: unknown) => {
+    await api.put(`/settings/${key}`, { value })
+    refetchSettings()
+    showToast('Saved')
+  }
 
   const noIncome = estimate && estimate.total_income === 0
 
@@ -31,10 +53,36 @@ export default function TaxesPage() {
     <div>
       <h1 className="page-title">Taxes</h1>
 
+      {/* ── Income & Tax ── */}
+      <div className="section-label mb-16">Income &amp; Tax</div>
+      <div className="card mb-32">
+        <div className="grid-3">
+          <div className="field">
+            <label>W-2 income ($/yr)</label>
+            <input type="number" value={incomeW2} onChange={e => setIncomeW2(e.target.value)}
+              onBlur={() => incomeW2 !== '' && saveSetting('income_w2', Number(incomeW2))} placeholder="e.g. 120000" />
+          </div>
+          <div className="field">
+            <label>1099 / freelance income ($/yr)</label>
+            <input type="number" value={income1099} onChange={e => setIncome1099(e.target.value)}
+              onBlur={() => income1099 !== '' && saveSetting('income_1099', Number(income1099))} placeholder="e.g. 30000" />
+          </div>
+          <div className="field">
+            <label>Filing status</label>
+            <select value={filingStatus} onChange={e => { setFilingStatus(e.target.value); saveSetting('tax_filing_status', e.target.value) }}>
+              <option value="single">Single</option>
+              <option value="married_filing_jointly">Married Filing Jointly</option>
+              <option value="married_filing_separately">Married Filing Separately</option>
+              <option value="head_of_household">Head of Household</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {noIncome && (
         <div className="card mb-24" style={{ borderColor: 'var(--accent-dim)', background: 'rgba(201,169,110,0.05)' }}>
           <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text-2)' }}>
-            Add your income in <a href="/settings" style={{ color: 'var(--accent)' }}>Settings</a> to see your tax estimate. Go to Settings → Income &amp; Tax.
+            Add your income above to see your tax estimate.
           </div>
         </div>
       )}
@@ -169,9 +217,11 @@ export default function TaxesPage() {
         </div>
       ) : (
         <div className="empty">
-          <div className="empty-sub">Add income in Settings to see personalized account recommendations.</div>
+          <div className="empty-sub">Add income above to see personalized account recommendations.</div>
         </div>
       )}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }

@@ -32,8 +32,23 @@ def _create_legacy_tables(engine):
 def test_orm_has_phase1_columns():
     assert {'external_id', 'sync_source'}.issubset(set(Account.__table__.columns.keys()))
     assert {'external_id', 'sync_source'}.issubset(set(Transaction.__table__.columns.keys()))
+    assert {'source_kind', 'source_record_id', 'source_priority', 'provenance', 'merge_conflict'}.issubset(
+        set(Account.__table__.columns.keys())
+    )
+    assert {'source_kind', 'source_record_id', 'source_priority', 'canonical_key', 'provenance', 'merge_conflict'}.issubset(
+        set(Transaction.__table__.columns.keys())
+    )
     assert 'source' in set(Holding.__table__.columns.keys())
-    assert {'rows_failed', 'parse_errors', 'potential_transfers'}.issubset(set(ImportLog.__table__.columns.keys()))
+    assert {
+        'rows_failed',
+        'parse_errors',
+        'potential_transfers',
+        'header_drift',
+        'header_drift_detected',
+        'header_drift_added',
+        'header_drift_removed',
+        'header_drift_order_changed',
+    }.issubset(set(ImportLog.__table__.columns.keys()))
     assert 'payoff_date' in set(DebtDetail.__table__.columns.keys())
 
 
@@ -48,10 +63,19 @@ def test_sqlite_migrations_are_idempotent(tmp_path, monkeypatch):
     database._apply_sqlite_migrations()
 
     expected = {
-        'accounts': {'external_id', 'sync_source'},
-        'transactions': {'external_id', 'sync_source'},
+        'accounts': {'external_id', 'sync_source', 'source_kind', 'source_record_id', 'source_priority', 'provenance', 'merge_conflict'},
+        'transactions': {'external_id', 'sync_source', 'source_kind', 'source_record_id', 'source_priority', 'canonical_key', 'provenance', 'merge_conflict'},
         'holdings': {'source'},
-        'import_log': {'rows_failed', 'parse_errors', 'potential_transfers'},
+        'import_log': {
+            'rows_failed',
+            'parse_errors',
+            'potential_transfers',
+            'header_drift',
+            'header_drift_detected',
+            'header_drift_added',
+            'header_drift_removed',
+            'header_drift_order_changed',
+        },
         'debt_details': {'payoff_date'},
         'real_estate': {'mortgage_rate'},
     }

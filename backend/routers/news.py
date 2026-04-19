@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import logging
+import json
+import os
 import re
 import time
 import threading
@@ -10,7 +12,7 @@ from typing import Optional
 import httpx
 
 from ..database import get_db, SessionLocal
-from ..models import NewsCache, Holding, Account
+from ..models import NewsCache, Holding, Account, Setting
 
 router = APIRouter(prefix="/api/news", tags=["news"])
 logger = logging.getLogger(__name__)
@@ -61,6 +63,7 @@ SOURCE_PRIORITY = {
     "AI News": 0,
     "AI Chips": 1,
     "AI Policy": 2,
+    "NewsAPI": 3,
     "Morning Brew": 3,
     "Yahoo Finance": 4,
     "Reuters": 5,
@@ -237,8 +240,91 @@ def _fetch_and_cache(db: Session, strict_relevance: bool = True) -> int:
         except Exception as e:
             logger.warning(f"News fetch failed for {source}: {e}")
 
+    # Optional premium feed: NewsAPI (user-provided key in Settings).
+    try:
+        added += _fetch_newsapi(db, existing_titles, strict_relevance=strict_relevance)
+    except Exception as e:
+        logger.warning(f"NewsAPI fetch failed: {e}")
+
     if added > 0:
         db.commit()
+    return added
+
+
+def _get_news_api_key(db: Session) -> str:
+    env_key = (os.getenv("NEWS_API_KEY") or "").strip()
+    if env_key:
+        return env_key
+    row = db.query(Setting).get("news_api_key")
+    if not row or row.value is None:
+        return ""
+    try:
+        return str(json.loads(row.value) or "").strip()
+    except Exception:
+        return str(row.value).strip()
+
+
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _fetch_newsapi(db: Session, existing_titles: set[str], strict_relevance: bool = True) -> int:
+    key = _get_news_api_key(db)
+    if not key:
+        return 0
+
+    context = _portfolio_context(db)
+    queries: list[tuple[str, dict[str, str]]] = [
+        ("NewsAPI", {"country": "us", "category": "business", "pageSize": "20"}),
+        ("NewsAPI", {"q": "markets OR investing OR inflation OR federal reserve", "language": "en", "sortBy": "publishedAt", "pageSize": "20"}),
+        ("NewsAPI", {"q": "artificial intelligence OR openai OR anthropic OR nvidia", "language": "en", "sortBy": "publishedAt", "pageSize": "20"}),
+    ]
+
+    added = 0
+    headers = {"X-Api-Key": key, "User-Agent": "Libertas-NewsBot/1.0 (+local)"}
+    timeout = httpx.Timeout(8.0, connect=4.0)
+    with httpx.Client(timeout=timeout, headers=headers) as client:
+        for source, params in queries:
+            try:
+                response = client.get("https://newsapi.org/v2/top-headlines" if "country" in params else "https://newsapi.org/v2/everything", params=params)
+                if response.status_code in {401, 403}:
+                    logger.warning("NewsAPI key rejected (401/403). Check news_api_key in Settings.")
+                    return added
+                response.raise_for_status()
+                payload = response.json()
+                for article in payload.get("articles", [])[:18]:
+                    title = (article.get("title") or "").strip()
+                    if not title or title in existing_titles:
+                        continue
+                    url = (article.get("url") or "").strip()
+                    if not url or _is_paywalled_url(url) or not _is_direct_article_url(url):
+                        continue
+                    summary = _strip_html((article.get("description") or "").strip())
+                    text = f"{title} {summary}".lower()
+                    ai_hit = any(keyword in text for keyword in AI_RELEVANCE_KEYWORDS)
+                    if strict_relevance and not _is_relevant(text, context):
+                        continue
+
+                    if len(summary) > 400:
+                        summary = summary[:397] + "…"
+
+                    db.add(NewsCache(
+                        source=source,
+                        title=title,
+                        url=url,
+                        published_at=_parse_iso_datetime(article.get("publishedAt")),
+                        summary=summary or None,
+                        category="ai" if ai_hit else "markets",
+                    ))
+                    existing_titles.add(title)
+                    added += 1
+            except Exception as exc:
+                logger.warning(f"NewsAPI request failed for params {params}: {exc}")
     return added
 
 

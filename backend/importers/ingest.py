@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from ..models import Institution, Account, Transaction, Holding, BalanceSnapshot, ImportLog
 from .analyzer import auto_detect_columns, try_parse_date, try_parse_number, normalize_symbol, classify_transaction_type, ColumnRole
 from .filename_parser import parse_filename
+from ..services.source_ingest import canonical_key_for, source_priority
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,11 @@ def _find_or_create_account(db: Session, institution: Institution, account_type:
         name=f"{institution.name} {account_type.replace('_', ' ').title()}",
         type=account_type,
         institution_id=institution.id,
+        sync_source="csv",
+        source_kind="csv",
+        source_priority=source_priority("csv"),
+        provenance={"winner": "csv"},
+        merge_conflict=0,
     )
     db.add(account)
     db.flush()
@@ -548,6 +554,7 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
         parse_errors: list[dict] = []
         parsed_rows: list[dict] = []
 
+        source_kind = "excel" if os.path.splitext(filepath)[1].lower() in (".xlsx", ".xls") else "csv"
         for row_index, row in enumerate(rows, start=1):
             row_hash = _compute_row_hash(row, filepath)
             if db.query(Transaction).filter(Transaction.import_hash == row_hash).first():
@@ -566,6 +573,16 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
             parsed_row["is_transfer"] = is_transfer
             parsed_rows.append(parsed_row)
 
+            canonical_key = canonical_key_for(
+                source_kind=source_kind,
+                external_id=None,
+                import_hash=row_hash,
+                source_record_id=row_hash,
+                account_id=account.id,
+                tx_date=parsed_row["date"] or date.today(),
+                amount=parsed_row["amount"],
+                description=parsed_row["description"],
+            )
             tx = Transaction(
                 account_id=account.id,
                 import_log_id=log.id,
@@ -578,6 +595,13 @@ def ingest_file(filepath: str, db: Session) -> ImportLog:
                 description=parsed_row["description"],
                 raw_row=row,
                 import_hash=row_hash,
+                sync_source=source_kind,
+                source_kind=source_kind,
+                source_record_id=row_hash,
+                source_priority=source_priority(source_kind),
+                canonical_key=canonical_key,
+                provenance={"winner": source_kind},
+                merge_conflict=0,
             )
             db.add(tx)
             imported += 1

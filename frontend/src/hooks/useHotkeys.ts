@@ -20,8 +20,8 @@ export function useCommandPaletteHotkeys(onOpen: () => void) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const isPaletteShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k'
-      if (!isPaletteShortcut) return
+      if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return
+      if (event.key !== '/') return
 
       event.preventDefault()
       latestOpen.current()

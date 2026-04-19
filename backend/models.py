@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Text, Float, DateTime, Date, ForeignKey, JSON
+from sqlalchemy import Column, Integer, Text, Float, DateTime, Date, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -30,6 +30,11 @@ class Account(Base):
     created_at = Column(DateTime, server_default=func.now())
     external_id = Column(Text)
     sync_source = Column(Text)
+    source_kind = Column(Text)
+    source_record_id = Column(Text)
+    source_priority = Column(Integer, default=0)
+    provenance = Column(JSON)
+    merge_conflict = Column(Boolean, default=False)
 
     institution = relationship("Institution", back_populates="accounts")
     holdings = relationship("Holding", back_populates="account", cascade="all, delete-orphan")
@@ -70,6 +75,12 @@ class Transaction(Base):
     import_hash = Column(Text, unique=True)
     external_id = Column(Text)
     sync_source = Column(Text)
+    source_kind = Column(Text)
+    source_record_id = Column(Text)
+    source_priority = Column(Integer, default=0)
+    canonical_key = Column(Text)
+    provenance = Column(JSON)
+    merge_conflict = Column(Boolean, default=False)
 
     account = relationship("Account", back_populates="transactions")
 
@@ -123,6 +134,11 @@ class ImportLog(Base):
     rows_failed = Column(Integer, default=0)
     parse_errors = Column(Text)
     potential_transfers = Column(Integer, default=0)
+    header_drift = Column(JSON)
+    header_drift_detected = Column(Boolean, default=False)
+    header_drift_added = Column(JSON)
+    header_drift_removed = Column(JSON)
+    header_drift_order_changed = Column(Boolean, default=False)
 
     account = relationship("Account")
 
@@ -166,3 +182,34 @@ class NewsCache(Base):
     fetched_at = Column(DateTime, server_default=func.now())
     summary = Column(Text)
     category = Column(Text)
+
+
+class IntegrationConnection(Base):
+    __tablename__ = "integration_connections"
+
+    id = Column(Integer, primary_key=True)
+    provider = Column(Text, nullable=False)  # plaid | sheets
+    name = Column(Text, nullable=False)
+    status = Column(Text, default="active")  # active | disabled | error | relink_required
+    config_json = Column(JSON)
+    encrypted_secret = Column(Text)
+    external_item_id = Column(Text)
+    cursor = Column(Text)
+    last_sync_at = Column(DateTime)
+    last_error = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class IntegrationRun(Base):
+    __tablename__ = "integration_runs"
+
+    id = Column(Integer, primary_key=True)
+    connection_id = Column(Integer, ForeignKey("integration_connections.id"), nullable=False)
+    trigger = Column(Text, nullable=False)  # manual | scheduled | startup
+    status = Column(Text, default="running")  # running | success | error
+    details = Column(JSON)
+    started_at = Column(DateTime, server_default=func.now())
+    finished_at = Column(DateTime)
+
+    connection = relationship("IntegrationConnection")

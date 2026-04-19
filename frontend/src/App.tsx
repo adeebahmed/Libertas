@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import CommandPalette from './components/CommandPalette'
 import { ThemeProvider } from './theme'
@@ -12,7 +13,7 @@ import TaxesPage from './pages/Taxes'
 import Settings from './pages/Settings'
 import {
   IconGrid, IconWallet, IconTrendDown, IconBarChart,
-  IconHouse, IconReceipt, IconSpark, IconUpload, IconGear,
+  IconHouse, IconReceipt, IconSearch, IconUpload, IconGear, IconChevronLeft,
 } from './components/Icons'
 
 const NAV = [
@@ -22,13 +23,45 @@ const NAV = [
   { to: '/retirement',  label: 'Retirement',  end: false, icon: <IconBarChart /> },
   { to: '/real-estate', label: 'Real Estate', end: false, icon: <IconHouse /> },
   { to: '/taxes',       label: 'Taxes',       end: false, icon: <IconReceipt /> },
-  { to: '/insights',    label: 'Insights',    end: false, icon: <IconSpark /> },
+  { to: '/insights',    label: 'Insights',    end: false, icon: <IconSearch /> },
 ]
 
 export default function App() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('libertas:sidebar-collapsed') === '1'
+  })
+
+  useEffect(() => {
+    window.localStorage.setItem('libertas:sidebar-collapsed', sidebarCollapsed ? '1' : '0')
+  }, [sidebarCollapsed])
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName.toLowerCase()
+      return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return
+      const key = event.key
+      if (key === 'ArrowLeft' || key === 'Left') {
+        event.preventDefault()
+        setSidebarCollapsed(true)
+      } else if (key === 'ArrowRight' || key === 'Right') {
+        event.preventDefault()
+        setSidebarCollapsed(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <ThemeProvider>
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <header className="mobile-topbar">
         <div className="mobile-topbar-brand">
           <a
@@ -69,15 +102,38 @@ export default function App() {
 
       <nav className="sidebar">
         <div className="sidebar-logo">
-          <a
-            className="sidebar-logo-link"
-            href="https://adeebahmed.github.io/Libertas/"
-            target="_blank"
-            rel="noreferrer"
-            title="Open Libertas GitHub Pages site"
-          >
-            Libertas
-          </a>
+          {sidebarCollapsed ? (
+            <button
+              type="button"
+              className="sidebar-logo-link sidebar-logo-expand-btn"
+              onClick={() => setSidebarCollapsed(false)}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <span className="logo-mark">L</span>
+            </button>
+          ) : (
+            <>
+              <a
+                className="sidebar-logo-link"
+                href="https://adeebahmed.github.io/Libertas/"
+                target="_blank"
+                rel="noreferrer"
+                title="Open Libertas GitHub Pages site"
+              >
+                <span><span className="logo-mark">L</span>ibertas</span>
+              </a>
+              <button
+                type="button"
+                className="sidebar-collapse-btn"
+                onClick={() => setSidebarCollapsed(true)}
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <IconChevronLeft size={14} />
+              </button>
+            </>
+          )}
         </div>
         <div className="sidebar-section">
           {NAV.map((n) => (
@@ -88,14 +144,14 @@ export default function App() {
               className={({ isActive }) => (isActive ? 'active' : '')}
             >
               {n.icon}
-              {n.label}
+              <span>{n.label}</span>
             </NavLink>
           ))}
         </div>
         <div className="sidebar-footer">
           <div className="sidebar-cmd-hint">
-            <span>Commands</span>
-            <kbd>⌘K</kbd>
+            <span>{sidebarCollapsed ? '/' : 'Commands'}</span>
+            <kbd>Press /</kbd>
           </div>
           <div className="sidebar-footer-row">
             <NavLink to="/import" className={({ isActive }) => `sidebar-footer-btn${isActive ? ' active' : ''}`}>

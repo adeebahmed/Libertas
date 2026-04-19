@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from ..database import get_db
 from ..models import Account, Institution, Holding, BalanceSnapshot, Transaction
+from ..services.source_ingest import upsert_transaction
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -108,6 +109,13 @@ def _serialize_transaction(t: Transaction) -> dict:
         "description": t.description,
         "import_log_id": t.import_log_id,
         "import_hash": t.import_hash,
+        "sync_source": t.sync_source,
+        "source_kind": t.source_kind,
+        "source_record_id": t.source_record_id,
+        "source_priority": t.source_priority,
+        "canonical_key": t.canonical_key,
+        "provenance": t.provenance,
+        "merge_conflict": bool(t.merge_conflict),
     }
 
 
@@ -187,6 +195,12 @@ def list_accounts(db: Session = Depends(get_db)):
             "created_at": a.created_at.isoformat() if a.created_at else None,
             "balance": balance,
             "last_updated": last_snap.date.isoformat() if last_snap else None,
+            "sync_source": a.sync_source,
+            "source_kind": a.source_kind,
+            "source_record_id": a.source_record_id,
+            "source_priority": a.source_priority,
+            "provenance": a.provenance,
+            "merge_conflict": bool(a.merge_conflict),
         })
     return result
 
@@ -219,6 +233,12 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
         "holdings": holdings,
         "balance": balance,
         "last_updated": last_snap.date.isoformat() if last_snap else None,
+        "sync_source": account.sync_source,
+        "source_kind": account.source_kind,
+        "source_record_id": account.source_record_id,
+        "source_priority": account.source_priority,
+        "provenance": account.provenance,
+        "merge_conflict": bool(account.merge_conflict),
     }
 
 
@@ -319,20 +339,20 @@ def create_account_transaction(account_id: int, data: TransactionCreate, db: Ses
         raise HTTPException(404, "Account not found")
 
     symbol = data.symbol.strip().upper() if data.symbol else None
-    tx = Transaction(
+    tx, _, _ = upsert_transaction(
+        db,
         account_id=account_id,
-        import_log_id=None,
-        date=data.date,
-        type=data.type.strip().lower(),
+        tx_date=data.date,
+        tx_type=data.type.strip().lower(),
         symbol=symbol,
         quantity=data.quantity,
         price=data.price,
         amount=data.amount,
         description=data.description,
+        source_kind="manual",
+        source_record_id=None,
         raw_row=None,
-        import_hash=None,
     )
-    db.add(tx)
     db.commit()
     db.refresh(tx)
     return _serialize_transaction(tx)

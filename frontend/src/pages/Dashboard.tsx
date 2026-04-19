@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Account, BalanceSnapshot, Insight, NetWorth } from '../types'
 import { TerminalAreaChart, TerminalDonut } from '../components/Chart'
+import { simplifyInsightCopy } from '../utils/insightCopy'
 
 const PIE_COLORS = [
   'var(--text)',
@@ -25,8 +26,16 @@ const GROUPS: Array<{ title: string; types: string[] }> = [
 ]
 
 function usd(n: number, compact = false) {
-  if (compact && Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
-  if (compact && Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
+  if (compact) {
+    const abs = Math.abs(n)
+    if (abs >= 1_000) {
+      const compactValue = new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      }).format(abs).replace('.0', '')
+      return `${n < 0 ? '-' : ''}$${compactValue}`
+    }
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -43,7 +52,13 @@ function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleString()
+  return d.toLocaleString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 function stalenessTone(lastUpdated: string | null): 'fresh' | 'aging' | 'stale' {
@@ -59,11 +74,17 @@ export default function Dashboard() {
   const [range, setRange] = useState<(typeof RANGE_OPTIONS)[number]>('6M')
   const [pinnedTitle, setPinnedTitle] = useState<string | null>(() => localStorage.getItem('dashboardPinnedInsight'))
   const [rotationSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000))
+  const [chatInput, setChatInput] = useState('')
+  const [chatReply, setChatReply] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState('')
+  const [now, setNow] = useState(() => new Date())
 
   const { data: nw, loading: nwLoading, error: nwError } = useApi<NetWorth>(() => api.get('/snapshots/current'), [])
   const { data: history, loading: historyLoading, error: historyError } = useApi<BalanceSnapshot[]>(() => api.get(`/snapshots/net-worth?range=${range}`), [range])
   const { data: accounts, loading: accountsLoading, error: accountsError } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
+  const { data: settings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -105,6 +126,65 @@ export default function Dashboard() {
   }, [nw])
 
   const tone = recommendation?.priority === 'high' ? 'var(--neg)' : recommendation?.priority === 'medium' ? 'var(--accent)' : 'var(--pos)'
+  const plainRecommendation = recommendation ? simplifyInsightCopy(recommendation) : null
+  const userName = String(settings?.username ?? 'Boss').trim() || 'Boss'
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const greeting = useMemo(() => {
+    const hour = now.getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }, [now])
+
+  const vibeLine = useMemo(() => {
+    const dayLines = [
+      'Money check-in made simple. Pick one question and we will break it down.',
+      'Quick pulse check: ask one thing, get a clear next move.',
+      'You are in control. Ask anything about your money in plain English.',
+      'Small questions, clear answers, better decisions.',
+      'Your numbers are here. Let us make them make sense.',
+      'No jargon. Just what is happening and what to do next.',
+      'One smart question can save months of confusion.',
+      'Clarity first, strategy second. Ask away.',
+    ]
+    const eveningLines = [
+      'Evening check-in: one smart question now, calmer tomorrow.',
+      'Wrap the day with one clear money move.',
+      'Night mode: simple answers, zero jargon.',
+      'End the day with clarity on your next financial step.',
+    ]
+    const pool = now.getHours() >= 18 ? eveningLines : dayLines
+    return pool[Math.floor(Math.random() * pool.length)]
+  }, [now])
+
+  const promptPills = [
+    'What should I focus on this week?',
+    'Am I taking too much risk right now?',
+    'What is the fastest win in my finances?',
+    'Where is money leaking right now?',
+  ]
+
+  async function submitOverviewChat(message?: string) {
+    const text = (message ?? chatInput).trim()
+    if (!text || chatLoading) return
+    setChatError('')
+    setChatReply('')
+    setChatLoading(true)
+    try {
+      const { reply } = await api.post<{ reply: string }>('/insights/chat', { message: text })
+      setChatReply(reply)
+      setChatInput('')
+    } catch (e: any) {
+      setChatError(e.message?.includes('400') ? 'Claude API key not configured. Add it in Settings.' : e.message)
+    } finally {
+      setChatLoading(false)
+    }
+  }
 
   const historyReady = history && history.length > 0
   const netWorthLoading = nwLoading && !nw
@@ -139,13 +219,13 @@ export default function Dashboard() {
           </div>
 
           {recommendation ? (
-            <div style={{ borderLeft: `2px solid ${tone}`, paddingLeft: 'var(--s-4)', marginBottom: 0 }}>
+            <div className="dashboard-top-insight" style={{ borderLeftColor: tone }}>
               <div className="flex-between" style={{ alignItems: 'start', gap: 'var(--s-2)' }}>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div className="section-label mb-8">Top insight</div>
-                  <div style={{ fontWeight: 500, fontSize: 'var(--fs-md)', marginBottom: 6 }}>{recommendation.title}</div>
-                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>{recommendation.description}</div>
-                  <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>{recommendation.action}</div>
+                  <div style={{ fontWeight: 500, fontSize: 'var(--fs-md)', marginBottom: 6 }}>{plainRecommendation?.title ?? recommendation.title}</div>
+                  <div style={{ color: 'var(--text-2)', fontSize: 'var(--fs-sm)', lineHeight: 1.55 }}>{plainRecommendation?.description ?? recommendation.description}</div>
+                  <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--text-3)', lineHeight: 1.5 }}>{plainRecommendation?.action ?? recommendation.action}</div>
                 </div>
                 <button
                   className="btn btn-sm"
@@ -165,6 +245,52 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      <section className="overview-chat-stage mb-24">
+        <div className="overview-chat-center">
+          <h2 className="overview-chat-greeting">{greeting}, {userName}</h2>
+          <p className="overview-chat-sub">{vibeLine}</p>
+          <div className="overview-chat-prompts">
+            {promptPills.map((prompt) => (
+              <button
+                key={prompt}
+                className="overview-chat-prompt"
+                onClick={() => { setChatInput(prompt); void submitOverviewChat(prompt) }}
+                disabled={chatLoading}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+          {chatReply && (
+            <div className="overview-chat-reply">
+              {chatReply}
+            </div>
+          )}
+          {chatError && (
+            <div className="overview-chat-error">
+              {chatError}
+            </div>
+          )}
+        </div>
+
+        <form
+          className="overview-chat-composer"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void submitOverviewChat()
+          }}
+        >
+          <input
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Ask a question about your finances..."
+          />
+          <button className="btn btn-primary" type="submit" disabled={chatLoading || !chatInput.trim()}>
+            {chatLoading ? 'Thinking...' : 'Ask Claude'}
+          </button>
+        </form>
+      </section>
 
       <div className="dashboard-top-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--s-5)', marginBottom: 24 }}>
         <div className="card">

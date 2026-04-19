@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import type { Insight } from '../types'
+import { simplifyInsightCardCopy } from '../utils/insightCopy'
 
 const CAT_CLASS: Record<string, string> = {
   Risk: 'risk', Performance: 'perf', Allocation: 'alloc',
@@ -100,29 +101,18 @@ export default function InsightsPage() {
                 })
                 .map((ins, i) => {
                   const cls = CAT_CLASS[ins.category] ?? 'info'
+                  const plain = simplifyInsightCardCopy(ins)
                   return (
                     <div key={i} className={`insight-card ${cls}`}>
                       <div className="flex-between mb-8">
                         <div className="insight-cat">{ins.category}</div>
-                        <span style={{
-                          fontSize: 'var(--fs-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
-                          color: PRIORITY_COLOR[ins.priority] ?? 'var(--text-3)',
-                        }}>
+                        <span className={`insight-priority insight-priority-${ins.priority}`}>
                           {ins.priority}
                         </span>
                       </div>
-                      <div className="insight-title">{ins.title}</div>
-                      <div className="insight-desc">{ins.description}</div>
-                      {ins.action && (
-                        <div style={{
-                          marginTop: 10, padding: '8px 10px',
-                          background: 'var(--bg-2)', borderLeft: '2px solid var(--accent)',
-                          borderRadius: 'var(--r)', fontSize: 'var(--fs-sm)', color: 'var(--text-2)', lineHeight: 1.5,
-                        }}>
-                          {ins.action}
-                        </div>
-                      )}
-                      <div className="insight-why">{ins.why}</div>
+                      <div className="insight-title">{plain.title}</div>
+                      <div className="insight-line">{plain.summary}</div>
+                      <div className="insight-line insight-action">Do: {plain.action}</div>
                     </div>
                   )
                 })}
