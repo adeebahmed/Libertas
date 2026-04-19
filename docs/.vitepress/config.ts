@@ -54,6 +54,10 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/adeebahmed/Libertas' },
     ],
 
+    darkModeSwitchLabel: 'Theme',
+    lightModeSwitchTitle: 'Switch to Onyx',
+    darkModeSwitchTitle: 'Switch to Retro',
+
     footer: {
       message: 'Privacy as a feature. Local-first by default.',
     },
