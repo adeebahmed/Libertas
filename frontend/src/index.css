@@ -603,6 +603,10 @@ button {
   padding: 36px 0 28px;
   border-bottom: 1px solid var(--border);
   overflow-anchor: none;
+  transition:
+    min-height 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding-top 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding-bottom 340ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .overview-chat-stage.is-expanded {
