@@ -16,8 +16,7 @@ type Props = {
 }
 
 type TapeEntry =
-  | { kind: 'news'; id: string; item: DashboardTapeNewsItem }
-  | { kind: 'ticker'; id: string; item: DashboardTapeTickerItem }
+  | { kind: 'pair'; id: string; ticker: DashboardTapeTickerItem; news: DashboardTapeNewsItem; pairTone: number | null }
   | { kind: 'personal'; id: string; item: DashboardTapePersonalItem }
 
 const EMPTY_TAPE: DashboardTape = {
@@ -37,6 +36,26 @@ function formatPrice(value: number | null | undefined) {
     currency: 'USD',
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function performanceEmoji(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '➖'
+  if (value > 0.1) return '📈'
+  if (value < -0.1) return '📉'
+  return '➖'
+}
+
+function performanceDirection(value: number | null | undefined): 'up' | 'down' | 'flat' {
+  if (value == null || Number.isNaN(value)) return 'flat'
+  if (value > 0.1) return 'up'
+  if (value < -0.1) return 'down'
+  return 'flat'
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '0.0%'
+  const sign = value > 0.1 ? '+' : ''
+  return `${sign}${value.toFixed(1)}%`
 }
 
 function normalizeTape(data: DashboardTape | null): DashboardTape {
@@ -66,17 +85,28 @@ function buildEntries(data: DashboardTape): TapeEntry[] {
   const sourceSequence = data.sequence.length > 0 ? data.sequence : fallbackSequence
 
   const entries: TapeEntry[] = []
-  for (const block of sourceSequence) {
+  let pairIndex = 0
+  for (let i = 0; i < sourceSequence.length; i += 1) {
+    const block = sourceSequence[i]
     const kind = block.kind as MarketTapeKind
-    if (kind === 'news') {
-      const item = newsById.get(block.ref_id)
-      if (item) entries.push({ kind: 'news', id: `${block.ref_id}-${entries.length}`, item })
-      continue
-    }
     if (kind === 'ticker') {
-      const item = tickerById.get(block.ref_id)
-      if (item) entries.push({ kind: 'ticker', id: `${block.ref_id}-${entries.length}`, item })
-      continue
+      const next = sourceSequence[i + 1]
+      if (next && (next.kind as MarketTapeKind) === 'news') {
+        const ticker = tickerById.get(block.ref_id)
+        const news = newsById.get(next.ref_id)
+        if (ticker && news) {
+          entries.push({
+            kind: 'pair',
+            id: `${block.ref_id}-${next.ref_id}-${entries.length}`,
+            ticker,
+            news,
+            pairTone: pairIndex % 6,
+          })
+          pairIndex += 1
+          i += 1
+          continue
+        }
+      }
     }
     if (kind === 'personal') {
       const item = personalById.get(block.ref_id)
@@ -86,9 +116,17 @@ function buildEntries(data: DashboardTape): TapeEntry[] {
 
   // Guard against malformed sequence IDs by rendering directly from available segments.
   if (entries.length > 0) return entries
+  const fallbackPairs = data.segments.tickers
+    .slice(0, data.segments.news.length)
+    .map((ticker, idx) => ({
+      kind: 'pair' as const,
+      id: `${ticker.id}-${data.segments.news[idx].id}-fallback-${idx}`,
+      ticker,
+      news: data.segments.news[idx],
+      pairTone: idx % 6,
+    }))
   return [
-    ...data.segments.news.map((item, idx) => ({ kind: 'news' as const, id: `${item.id}-fallback-${idx}`, item })),
-    ...data.segments.tickers.map((item, idx) => ({ kind: 'ticker' as const, id: `${item.id}-fallback-${idx}`, item })),
+    ...fallbackPairs,
     ...data.segments.personal.map((item, idx) => ({ kind: 'personal' as const, id: `${item.id}-fallback-${idx}`, item })),
   ]
 }
@@ -97,37 +135,28 @@ function TapeRun({ entries, onNavigate, clone = false }: { entries: TapeEntry[];
   return (
     <div className={`dashboard-market-tape-run${clone ? ' is-clone' : ''}`} aria-hidden={clone}>
       {entries.map((entry) => {
-        if (entry.kind === 'news') {
+        if (entry.kind === 'pair') {
+          const pairClass = entry.pairTone != null ? ` pair-tone-${entry.pairTone}` : ''
+          const emoji = performanceEmoji(entry.ticker.performance_pct)
+          const moveClass = performanceDirection(entry.ticker.performance_pct)
           return (
-            <span key={entry.id} className="dashboard-market-tape-token news" data-testid="market-tape-item-news">
-              <span className="dashboard-market-tape-tag">NEWS</span>
+            <span key={entry.id} className={`dashboard-market-tape-token news${pairClass}`} data-testid="market-tape-item-news">
               <a
-                href={entry.item.url}
+                href={entry.news.url}
                 target="_blank"
                 rel="noreferrer"
                 className="dashboard-market-tape-link"
                 data-testid="market-tape-news-link"
               >
-                {entry.item.label}
+                <span>{emoji}</span>
+                <span className="dashboard-market-tape-ticker-strong">
+                  <span className="dashboard-market-tape-ticker-symbol">{entry.ticker.symbol}</span>
+                  <span className={`dashboard-market-tape-ticker-price is-${moveClass}`}>{formatPrice(entry.ticker.price)}</span>
+                  <span className={`dashboard-market-tape-ticker-change is-${moveClass}`}>{formatPercent(entry.ticker.performance_pct)}</span>
+                </span>
+                <span>-</span>
+                <span>{entry.news.label}</span>
               </a>
-              {entry.item.source ? <span className="dashboard-market-tape-meta">{entry.item.source}</span> : null}
-            </span>
-          )
-        }
-
-        if (entry.kind === 'ticker') {
-          return (
-            <span key={entry.id} className="dashboard-market-tape-token ticker" data-testid="market-tape-item-ticker">
-              <span className="dashboard-market-tape-tag">TICKER</span>
-              <button
-                type="button"
-                className="dashboard-market-tape-btn"
-                onClick={() => onNavigate('/accounts')}
-              >
-                <span className="dashboard-market-tape-symbol">{entry.item.symbol}</span>
-                <span className="dashboard-market-tape-meta">{formatPrice(entry.item.price)}</span>
-                <span className="dashboard-market-tape-meta">{entry.item.portfolio_weight_pct.toFixed(1)}%</span>
-              </button>
             </span>
           )
         }
@@ -161,7 +190,7 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
   })
   const normalized = useMemo(() => normalizeTape(data), [data])
   const entries = useMemo(() => buildEntries(normalized), [normalized])
-  const durationSeconds = Math.max(34, entries.length * 4.5)
+  const durationSeconds = Math.max(82, entries.length * 9.8)
   const trackStyle = { '--tape-duration': `${durationSeconds}s` } as CSSProperties
 
   useEffect(() => {

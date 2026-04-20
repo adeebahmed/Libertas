@@ -241,6 +241,7 @@ export interface DashboardTapeTickerItem {
   price: number | null
   market_value: number
   portfolio_weight_pct: number
+  performance_pct: number | null
   last_updated: string | null
 }
 

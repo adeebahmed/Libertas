@@ -1,26 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 import re
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Account, DebtDetail, Holding, Setting
-from ..services.snapshots import compute_account_balance
-from .insights import _generate_insights
+from ..models import Holding, RealEstate
 from .news import _build_ranked_payload
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-MAX_NEWS_ITEMS = 80
-MAX_TICKERS = 5
-MAX_PERSONAL = 5
-NEWS_BLOCK_SIZE = 8
-PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+MAX_NEWS_ITEMS = 120
+MAX_TICKERS = 20
+
 TICKER_ALIASES = {
     "AAPL": ["apple", "iphone", "ipad", "mac"],
     "MSFT": ["microsoft", "azure", "windows"],
@@ -35,21 +29,40 @@ TICKER_ALIASES = {
     "JPM": ["jpmorgan", "jp morgan"],
     "BAC": ["bank of america"],
     "BRK.B": ["berkshire", "warren buffett"],
+    "BTC": ["bitcoin", "bitcoin etf"],
+    "ETH": ["ethereum", "ethereum etf"],
+    "SOL": ["solana"],
+    "VTI": ["vanguard total stock market", "total stock market", "us equities"],
+    "VOO": ["vanguard s&p 500", "s&p 500", "sp500", "large cap"],
+    "FXAIX": ["fidelity 500", "s&p 500", "sp500", "large cap"],
+    "SPY": ["spy etf", "s&p 500", "sp500", "large cap"],
+    "QQQ": ["nasdaq 100", "qqq etf", "large cap growth", "tech stocks"],
 }
 
+BROAD_MARKET_SYMBOLS = {"VTI", "VOO", "FXAIX", "SPY", "QQQ", "IVV", "DIA"}
+BROAD_MARKET_KEYWORDS = {
+    "stock market", "s&p 500", "sp500", "nasdaq", "dow",
+    "treasury yields", "federal reserve", "inflation", "earnings",
+}
 
-def _get_setting(db: Session, key: str, default):
-    row = db.query(Setting).get(key)
-    if not row or row.value is None:
-        return default
-    try:
-        return json.loads(row.value)
-    except Exception:
-        return row.value
+STATE_NAMES = {
+    "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california",
+    "CO": "colorado", "CT": "connecticut", "DE": "delaware", "FL": "florida", "GA": "georgia",
+    "HI": "hawaii", "ID": "idaho", "IL": "illinois", "IN": "indiana", "IA": "iowa",
+    "KS": "kansas", "KY": "kentucky", "LA": "louisiana", "ME": "maine", "MD": "maryland",
+    "MA": "massachusetts", "MI": "michigan", "MN": "minnesota", "MS": "mississippi", "MO": "missouri",
+    "MT": "montana", "NE": "nebraska", "NV": "nevada", "NH": "new hampshire", "NJ": "new jersey",
+    "NM": "new mexico", "NY": "new york", "NC": "north carolina", "ND": "north dakota", "OH": "ohio",
+    "OK": "oklahoma", "OR": "oregon", "PA": "pennsylvania", "RI": "rhode island", "SC": "south carolina",
+    "SD": "south dakota", "TN": "tennessee", "TX": "texas", "UT": "utah", "VT": "vermont",
+    "VA": "virginia", "WA": "washington", "WV": "west virginia", "WI": "wisconsin", "WY": "wyoming",
+}
 
-
-def _pct(value: float) -> str:
-    return f"{'+' if value >= 0 else ''}{value:.1f}%"
+REAL_ESTATE_POLICY_KEYWORDS = {
+    "property tax", "tax credit", "tax law", "state tax", "depreciation",
+    "bonus depreciation", "section 179", "housing law", "zoning",
+    "landlord", "rental law", "homestead", "assessment", "parcel tax",
+}
 
 
 def _build_news_segment(db: Session) -> list[dict]:
@@ -77,32 +90,42 @@ def _build_news_segment(db: Session) -> list[dict]:
     return items
 
 
-def _build_ticker_segment(db: Session) -> list[dict]:
-    rows = db.query(Holding).all()
-    if not rows:
-        return []
+def _extract_state_code(address: str) -> str | None:
+    addr = (address or "").strip()
+    if not addr:
+        return None
 
+    # Typical US format: "... City, ST 12345"
+    m = re.search(r",\s*([A-Z]{2})\s+\d{5}(?:-\d{4})?\b", addr.upper())
+    if m and m.group(1) in STATE_NAMES:
+        return m.group(1)
+
+    lower_addr = addr.lower()
+    for code, state_name in STATE_NAMES.items():
+        if state_name in lower_addr:
+            return code
+    return None
+
+
+def _build_ticker_segment(db: Session) -> list[dict]:
     symbols: dict[str, dict] = {}
-    for holding in rows:
+
+    for holding in db.query(Holding).all():
         symbol = str(holding.symbol or "").strip().upper()
         if not symbol:
             continue
+
         quantity = float(holding.quantity or 0.0)
-        if holding.last_price is not None:
-            market_value = float(holding.last_price) * quantity
-        else:
-            market_value = float(holding.cost_basis or 0.0)
+        market_value = float(holding.last_price or 0.0) * quantity if holding.last_price is not None else float(holding.cost_basis or 0.0)
+        if market_value <= 0:
+            continue
 
         agg = symbols.setdefault(
             symbol,
-            {
-                "symbol": symbol,
-                "market_value": 0.0,
-                "price": None,
-                "last_updated": None,
-            },
+            {"symbol": symbol, "market_value": 0.0, "cost_basis_total": 0.0, "price": None, "last_updated": None},
         )
         agg["market_value"] += market_value
+        agg["cost_basis_total"] += float(holding.cost_basis or 0.0)
 
         if holding.last_price is not None:
             current_ts = agg["last_updated"]
@@ -111,18 +134,34 @@ def _build_ticker_segment(db: Session) -> list[dict]:
                 agg["price"] = float(holding.last_price)
                 agg["last_updated"] = incoming_ts
 
-    all_positive = [entry for entry in symbols.values() if entry["market_value"] > 0]
-    ordered = sorted(
-        all_positive,
-        key=lambda entry: (-entry["market_value"], entry["symbol"]),
-    )[:MAX_TICKERS]
+    # Add real-estate state buckets so state/local law headlines can be paired.
+    for prop in db.query(RealEstate).all():
+        state_code = _extract_state_code(str(prop.address or "")) or "US"
+        symbol = f"RE-{state_code}"
+        effective_value = float(prop.manual_override if prop.manual_override is not None else (prop.zillow_estimate if prop.zillow_estimate is not None else (prop.purchase_price or 0.0)))
+        equity = effective_value - float(prop.mortgage_balance or 0.0)
+        if equity <= 0:
+            continue
 
-    portfolio_total = sum(entry["market_value"] for entry in all_positive)
-    if portfolio_total <= 0:
-        portfolio_total = 0.0
+        agg = symbols.setdefault(
+            symbol,
+            {"symbol": symbol, "market_value": 0.0, "price": None, "last_updated": None},
+        )
+        agg["market_value"] += equity
+        if prop.last_updated is not None:
+            current_ts = agg["last_updated"]
+            if current_ts is None or prop.last_updated > current_ts:
+                agg["last_updated"] = prop.last_updated
+
+    all_entries = [entry for entry in symbols.values() if entry["market_value"] > 0]
+    all_entries.sort(key=lambda entry: (-entry["market_value"], entry["symbol"]))
+    top_entries = all_entries[:MAX_TICKERS]
+
+    portfolio_total = sum(entry["market_value"] for entry in all_entries)
+    portfolio_total = portfolio_total if portfolio_total > 0 else 0.0
 
     items: list[dict] = []
-    for entry in ordered:
+    for entry in top_entries:
         weight = (entry["market_value"] / portfolio_total * 100.0) if portfolio_total > 0 else 0.0
         last_updated = entry["last_updated"].isoformat() if entry["last_updated"] else None
         items.append(
@@ -132,131 +171,31 @@ def _build_ticker_segment(db: Session) -> list[dict]:
                 "price": round(entry["price"], 4) if entry["price"] is not None else None,
                 "market_value": round(entry["market_value"], 2),
                 "portfolio_weight_pct": round(weight, 2),
+                "performance_pct": round(((entry["market_value"] - entry["cost_basis_total"]) / entry["cost_basis_total"] * 100.0), 2)
+                if entry.get("cost_basis_total", 0) and entry["cost_basis_total"] > 0
+                else None,
                 "last_updated": last_updated,
             }
         )
     return items
 
 
-def _build_position_signals(ticker_items: list[dict]) -> list[dict]:
-    items: list[dict] = []
-    for ticker in ticker_items[:MAX_PERSONAL]:
-        symbol = str(ticker.get("symbol") or "").strip().upper()
-        if not symbol:
-            continue
-
-        weight = float(ticker.get("portfolio_weight_pct") or 0.0)
-        last_updated_raw = ticker.get("last_updated")
-        stale_days = None
-        if isinstance(last_updated_raw, str) and last_updated_raw:
-            try:
-                ts = datetime.fromisoformat(last_updated_raw.replace("Z", "+00:00"))
-                now = datetime.now(ts.tzinfo or timezone.utc)
-                stale_days = max(0, (now - ts).days)
-            except Exception:
-                stale_days = None
-
-        if stale_days is not None and stale_days >= 3:
-            tone = "negative"
-            label = f"{symbol} signal: price is {stale_days}d old. Action: refresh pricing before making moves."
-        elif weight >= 20:
-            tone = "negative"
-            label = f"{symbol} signal: {weight:.1f}% concentration. Action: consider trimming or rebalancing."
-        elif weight >= 10:
-            tone = "neutral"
-            label = f"{symbol} signal: {weight:.1f}% core position. Action: monitor catalyst risk around headlines."
-        else:
-            tone = "positive"
-            label = f"{symbol} signal: {weight:.1f}% position sizing is controlled. Action: stay disciplined on entries."
-
-        items.append(
-            {
-                "id": f"p-pos-{symbol}",
-                "symbol": symbol,
-                "label": label,
-                "tone": tone,
-                "route": "/accounts",
-            }
-        )
-    return items
-
-
-def _build_personal_segment(db: Session, ticker_items: list[dict]) -> list[dict]:
-    accounts = db.query(Account).all()
-    items: list[dict] = _build_position_signals(ticker_items)
-
-    if items:
-        return items[:MAX_PERSONAL]
-
-    # Fallback when no invested symbols are available.
-    insights = _generate_insights(db)
-    if insights:
-        top = sorted(
-            insights,
-            key=lambda insight: PRIORITY_ORDER.get(str(insight.get("priority")), 3),
-        )[0]
-        insight_title = str(top.get("title") or "").strip()
-        insight_priority = str(top.get("priority") or "medium")
-        if insight_title:
-            tone = "negative" if insight_priority == "high" else ("neutral" if insight_priority == "medium" else "positive")
-            items.append(
-                {
-                    "id": "p-top-insight",
-                    "label": f"Insight: {insight_title}",
-                    "tone": tone,
-                    "route": "/insights",
-                }
-            )
-
-    monthly_expenses = float(_get_setting(db, "monthly_expenses", 5000) or 5000)
-    monthly_expenses = monthly_expenses if monthly_expenses > 0 else 5000.0
-    liquid_assets = sum(
-        compute_account_balance(db, account)
-        for account in accounts
-        if account.type in {"checking", "savings"}
-    )
-    runway = liquid_assets / monthly_expenses if monthly_expenses > 0 else 0.0
-
-    income_w2 = float(_get_setting(db, "income_w2", 0) or 0)
-    income_1099 = float(_get_setting(db, "income_1099", 0) or 0)
-    monthly_income = (income_w2 + income_1099) / 12.0 if (income_w2 + income_1099) > 0 else 0.0
-    min_payments = float(db.query(func.coalesce(func.sum(DebtDetail.minimum_payment), 0.0)).scalar() or 0.0)
-    dti_pct = (min_payments / monthly_income * 100.0) if monthly_income > 0 else None
-
-    if runway < 3:
-        nudge_label = f"Emergency runway: {runway:.1f} months. Target 3-6 months of expenses."
-        nudge_tone = "negative"
-    elif dti_pct is not None and dti_pct > 36:
-        nudge_label = f"Debt load check: minimum payments are {_pct(dti_pct)} of monthly income."
-        nudge_tone = "negative"
-    elif runway < 6:
-        nudge_label = f"Emergency runway: {runway:.1f} months. Build toward a 6-month cushion."
-        nudge_tone = "neutral"
-    else:
-        nudge_label = f"Liquidity looks healthy at {runway:.1f} months of expenses."
-        nudge_tone = "positive"
-
-    items.append(
-        {
-            "id": "p-liquidity-debt",
-            "label": nudge_label,
-            "tone": nudge_tone,
-            "route": "/insights",
-        }
-    )
-
-    return items[:MAX_PERSONAL]
-
-
 def _symbol_news_keywords(symbol: str) -> list[str]:
     normalized = symbol.strip().upper()
-    keys = [normalized.lower(), normalized.replace(".", "").lower()]
-    for alias in TICKER_ALIASES.get(normalized, []):
-        keys.append(alias.lower())
-    # Keep deterministic order while removing duplicates.
+
+    if normalized.startswith("RE-"):
+        state_code = normalized.split("-", 1)[1]
+        state_name = STATE_NAMES.get(state_code, "")
+        keys = [state_code.lower(), state_name]
+        keys.extend(REAL_ESTATE_POLICY_KEYWORDS)
+    else:
+        keys = [normalized.lower(), normalized.replace(".", "").lower()]
+        keys.extend(TICKER_ALIASES.get(normalized, []))
+
     deduped: list[str] = []
     seen = set()
     for key in keys:
+        key = str(key or "").strip().lower()
         if key and key not in seen:
             seen.add(key)
             deduped.append(key)
@@ -266,20 +205,46 @@ def _symbol_news_keywords(symbol: str) -> list[str]:
 def _news_relevance_score(symbol: str, news_item: dict) -> int:
     text = f"{news_item.get('label') or ''} {news_item.get('summary') or ''}".lower()
     score = 0
-    for kw in _symbol_news_keywords(symbol):
-        # Use boundary checks for short tokens like ticker symbols.
+    keys = _symbol_news_keywords(symbol)
+
+    if symbol.startswith("RE-"):
+        has_state = False
+        has_policy = False
+        for kw in keys:
+            if kw in REAL_ESTATE_POLICY_KEYWORDS:
+                if kw in text:
+                    has_policy = True
+                    score += 4
+                continue
+
+            if len(kw) <= 2:
+                pattern = rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])"
+                if re.search(pattern, text):
+                    has_state = True
+                    score += 6
+            elif kw in text:
+                has_state = True
+                score += 6
+
+        if has_state and has_policy:
+            score += 8
+        elif has_state or has_policy:
+            score += 1
+        return score
+
+    for kw in keys:
         if len(kw) <= 5:
             pattern = rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])"
             if re.search(pattern, text):
-                score += 6
+                score += 7
         elif kw in text:
-            score += 3
+            score += 4
     return score
 
 
 def _pick_news_for_symbol(symbol: str, news_items: list[dict], used_news_ids: set[str]) -> str | None:
-    best_id = None
-    best_score = -1
+    best_id: str | None = None
+    best_score = 0
     for news in news_items:
         news_id = str(news.get("id") or "")
         if not news_id or news_id in used_news_ids:
@@ -289,58 +254,52 @@ def _pick_news_for_symbol(symbol: str, news_items: list[dict], used_news_ids: se
             best_score = score
             best_id = news_id
 
-    # Fallback to next available headline if no explicit match.
-    if best_id is None:
+    if best_score > 0:
+        return best_id
+
+    # Fallback for broad-market ETFs/funds when symbol-specific mentions are sparse.
+    if symbol in BROAD_MARKET_SYMBOLS:
+        broad_id: str | None = None
+        broad_score = 0
         for news in news_items:
             news_id = str(news.get("id") or "")
-            if news_id and news_id not in used_news_ids:
-                return news_id
-    return best_id
+            if not news_id or news_id in used_news_ids:
+                continue
+            text = f"{news.get('label') or ''} {news.get('summary') or ''}".lower()
+            score = sum(1 for kw in BROAD_MARKET_KEYWORDS if kw in text)
+            if score > broad_score:
+                broad_score = score
+                broad_id = news_id
+        if broad_score > 0:
+            return broad_id
+
+    return None
 
 
-def _build_sequence(news_items: list[dict], ticker_items: list[dict], personal_items: list[dict]) -> list[dict]:
-    ticker_by_symbol = {
-        str(item.get("symbol") or "").strip().upper(): item
-        for item in ticker_items
-    }
-    personal_by_symbol = {
-        str(item.get("symbol") or "").strip().upper(): item
-        for item in personal_items
-        if item.get("symbol")
-    }
-
+def _build_sequence(news_items: list[dict], ticker_items: list[dict]) -> list[dict]:
     sequence: list[dict] = []
     used_news_ids: set[str] = set()
 
-    for symbol in [str(item.get("symbol") or "").strip().upper() for item in ticker_items]:
-        ticker = ticker_by_symbol.get(symbol)
-        if not ticker:
-            continue
+    for ticker in ticker_items:
+        symbol = str(ticker.get("symbol") or "").strip().upper()
         ticker_id = str(ticker.get("id") or "")
-        if not ticker_id:
+        if not symbol or not ticker_id:
             continue
-
-        sequence.append({"kind": "ticker", "ref_id": ticker_id})
 
         news_id = _pick_news_for_symbol(symbol, news_items, used_news_ids)
-        if news_id:
-            used_news_ids.add(news_id)
-            sequence.append({"kind": "news", "ref_id": news_id})
+        if not news_id:
+            continue
 
-        personal = personal_by_symbol.get(symbol)
-        if personal:
-            personal_id = str(personal.get("id") or "")
-            if personal_id:
-                sequence.append({"kind": "personal", "ref_id": personal_id})
+        used_news_ids.add(news_id)
+        sequence.append({"kind": "ticker", "ref_id": ticker_id})
+        sequence.append({"kind": "news", "ref_id": news_id})
 
-    # Fallback when no ticker-specific groups could be built.
+    # Fallback: keep stream alive with top-ranked pairs if relevance matching is sparse.
     if not sequence:
-        for item in news_items[:NEWS_BLOCK_SIZE]:
-            sequence.append({"kind": "news", "ref_id": item["id"]})
-        for item in ticker_items:
-            sequence.append({"kind": "ticker", "ref_id": item["id"]})
-        for item in personal_items:
-            sequence.append({"kind": "personal", "ref_id": item["id"]})
+        pair_count = min(len(ticker_items), len(news_items))
+        for idx in range(pair_count):
+            sequence.append({"kind": "ticker", "ref_id": ticker_items[idx]["id"]})
+            sequence.append({"kind": "news", "ref_id": news_items[idx]["id"]})
 
     return sequence
 
@@ -349,15 +308,14 @@ def _build_sequence(news_items: list[dict], ticker_items: list[dict], personal_i
 def get_dashboard_tape(db: Session = Depends(get_db)):
     news_items = _build_news_segment(db)
     ticker_items = _build_ticker_segment(db)
-    personal_items = _build_personal_segment(db, ticker_items)
-    sequence = _build_sequence(news_items, ticker_items, personal_items)
+    sequence = _build_sequence(news_items, ticker_items)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "segments": {
             "news": news_items,
             "tickers": ticker_items,
-            "personal": personal_items,
+            "personal": [],
         },
         "sequence": sequence,
     }
