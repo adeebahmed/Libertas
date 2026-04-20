@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
@@ -196,6 +196,118 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
   const durationSeconds = Math.max(82, entries.length * 9.8)
   const trackStyle = { '--tape-duration': `${durationSeconds}s` } as CSSProperties
 
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const drag = useRef({
+    active: false,
+    startX: 0,
+    startOffset: 0,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+    rafId: 0,
+  })
+
+  const getContentWidth = useCallback(() => {
+    const track = trackRef.current
+    if (!track) return 0
+    return track.scrollWidth / 2
+  }, [])
+
+  const getCurrentOffset = useCallback(() => {
+    const track = trackRef.current
+    if (!track) return 0
+    const matrix = new DOMMatrix(window.getComputedStyle(track).transform)
+    return matrix.m41
+  }, [])
+
+  const normalizeOffset = useCallback((offset: number, contentWidth: number) => {
+    if (contentWidth === 0) return 0
+    let n = offset % contentWidth
+    if (n > 0) n -= contentWidth
+    return n
+  }, [])
+
+  const resumeAnimation = useCallback((offset: number) => {
+    const track = trackRef.current
+    const viewport = viewportRef.current
+    if (!track) return
+    const contentWidth = getContentWidth()
+    const progress = contentWidth > 0 ? Math.abs(offset % contentWidth) / contentWidth : 0
+    track.style.transform = ''
+    track.style.animationDelay = `${-(progress * durationSeconds)}s`
+    track.style.animationPlayState = ''
+    viewport?.removeAttribute('data-dragging')
+  }, [durationSeconds, getContentWidth])
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (reduceMotion) return
+    const track = trackRef.current
+    if (!track) return
+    cancelAnimationFrame(drag.current.rafId)
+    const offset = getCurrentOffset()
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startOffset: offset,
+      lastX: e.clientX,
+      lastTime: performance.now(),
+      velocity: 0,
+      rafId: 0,
+    }
+    track.style.animationPlayState = 'paused'
+    track.style.animationDelay = '0s'
+    track.style.transform = `translateX(${offset}px)`
+    viewportRef.current?.setAttribute('data-dragging', 'true')
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }, [reduceMotion, getCurrentOffset])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current.active) return
+    const track = trackRef.current
+    if (!track) return
+    const now = performance.now()
+    const dt = now - drag.current.lastTime
+    if (dt > 0) drag.current.velocity = (e.clientX - drag.current.lastX) / dt
+    drag.current.lastX = e.clientX
+    drag.current.lastTime = now
+    const contentWidth = getContentWidth()
+    const raw = drag.current.startOffset + (e.clientX - drag.current.startX)
+    const offset = normalizeOffset(raw, contentWidth)
+    track.style.transform = `translateX(${offset}px)`
+  }, [getContentWidth, normalizeOffset])
+
+  const handlePointerUp = useCallback((_e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current.active) return
+    drag.current.active = false
+    const track = trackRef.current
+    if (!track) return
+    const contentWidth = getContentWidth()
+    const matrix = new DOMMatrix(window.getComputedStyle(track).transform)
+    let offset = matrix.m41
+    // px-per-frame velocity (≈16ms frame)
+    let velocity = drag.current.velocity * 16
+    const friction = 0.92
+    const minV = 0.3
+
+    if (Math.abs(velocity) < minV) {
+      resumeAnimation(offset)
+      return
+    }
+
+    const tick = () => {
+      velocity *= friction
+      offset = normalizeOffset(offset + velocity, contentWidth)
+      track.style.transform = `translateX(${offset}px)`
+      if (Math.abs(velocity) > minV) {
+        drag.current.rafId = requestAnimationFrame(tick)
+      } else {
+        resumeAnimation(offset)
+      }
+    }
+    drag.current.rafId = requestAnimationFrame(tick)
+  }, [getContentWidth, normalizeOffset, resumeAnimation])
+
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
     const sync = () => setReduceMotion(media.matches)
@@ -210,6 +322,10 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
     }
     legacyMedia.addListener?.(sync)
     return () => legacyMedia.removeListener?.(sync)
+  }, [])
+
+  useEffect(() => {
+    return () => { cancelAnimationFrame(drag.current.rafId) }
   }, [])
 
   if (!visible) return null
@@ -232,8 +348,16 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
 
   return (
     <div className="dashboard-market-tape" data-testid="dashboard-market-tape">
-      <div className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}`}>
+      <div
+        ref={viewportRef}
+        className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <div
+          ref={trackRef}
           className={`dashboard-market-tape-track${reduceMotion ? ' is-reduced-motion' : ''}`}
           style={trackStyle}
         >
