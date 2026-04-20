@@ -95,7 +95,7 @@
 
 [data-theme="retro"] .sidebar-logo {
   font-family: var(--font-serif);
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.025em;
 }
@@ -824,6 +824,106 @@ button {
   to {
     transform: translateX(-50%);
   }
+}
+
+/* ── Drag interaction ──────────────────────────────────── */
+.dashboard-market-tape-viewport {
+  cursor: grab;
+  user-select: none;
+}
+
+.dashboard-market-tape-viewport[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+/* ── Onyx theme: NASDAQ neon trader aesthetic ──────────── */
+[data-theme="onyx"] .dashboard-market-tape-viewport {
+  background: linear-gradient(90deg, #050505, #0a0a0a);
+  border-color: color-mix(in srgb, #00e676 28%, #1a1a1a);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #00e676 12%, transparent),
+    0 0 12px color-mix(in srgb, #00e676 8%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-ticker-symbol {
+  font-family: var(--font-mono);
+  color: #e8f5e9;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+[data-theme="onyx"] .dashboard-market-tape-ticker-price.is-up {
+  color: #00e676;
+  text-shadow: 0 0 8px color-mix(in srgb, #00e676 60%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-ticker-change.is-up {
+  color: #69f0ae;
+  text-shadow: 0 0 6px color-mix(in srgb, #69f0ae 50%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-ticker-price.is-down {
+  color: #ff1744;
+  text-shadow: 0 0 8px color-mix(in srgb, #ff1744 55%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-ticker-change.is-down {
+  color: #ff5252;
+  text-shadow: 0 0 6px color-mix(in srgb, #ff5252 45%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token:not(:last-child)::after {
+  content: '|';
+  color: color-mix(in srgb, #00e676 35%, #333);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+[data-theme="onyx"] .dashboard-market-tape-tag {
+  color: color-mix(in srgb, #00e676 70%, var(--text-2));
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-0 {
+  background: color-mix(in srgb, #00e676 6%, transparent);
+  border-color: color-mix(in srgb, #00e676 30%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #00e676 10%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-1 {
+  background: color-mix(in srgb, #00e5ff 6%, transparent);
+  border-color: color-mix(in srgb, #00e5ff 28%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #00e5ff 10%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-2 {
+  background: color-mix(in srgb, #ffea00 5%, transparent);
+  border-color: color-mix(in srgb, #ffea00 26%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffea00 8%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-3 {
+  background: color-mix(in srgb, #e040fb 6%, transparent);
+  border-color: color-mix(in srgb, #e040fb 28%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e040fb 10%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-4 {
+  background: color-mix(in srgb, #ff1744 6%, transparent);
+  border-color: color-mix(in srgb, #ff1744 28%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff1744 10%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-token.pair-tone-5 {
+  background: color-mix(in srgb, #40c4ff 6%, transparent);
+  border-color: color-mix(in srgb, #40c4ff 28%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #40c4ff 10%, transparent);
+}
+
+[data-theme="onyx"] .dashboard-market-tape-link:hover,
+[data-theme="onyx"] .dashboard-market-tape-btn:hover {
+  color: #00e676;
 }
 
 .dashboard-hero-summary {
