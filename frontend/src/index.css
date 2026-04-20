@@ -826,14 +826,9 @@ button {
   }
 }
 
-/* ── Drag interaction ──────────────────────────────────── */
-.dashboard-market-tape-viewport {
-  cursor: grab;
-  user-select: none;
-}
-
-.dashboard-market-tape-viewport[data-dragging="true"] {
-  cursor: grabbing;
+/* ── Speed-up indicator ────────────────────────────────── */
+.dashboard-market-tape-viewport.is-fast {
+  outline: 1px solid color-mix(in srgb, currentColor 20%, transparent);
 }
 
 /* ── Onyx theme: NASDAQ neon trader aesthetic ──────────── */
