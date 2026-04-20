@@ -11,14 +11,14 @@ Libertas is a self-hosted personal finance dashboard built for people who want t
   &nbsp;
   <img src="docs/public/screenshots/overview-retro.png" width="48%" alt="Retro theme" />
 </p>
-<p align="center"><em>✦ Onyx (left) · Retro (right) — both include the live ticker -> news -> signal tape on collapsed Overview ✦</em></p>
+<p align="center"><em>✦ Onyx (left) · Retro (right) — live market tape with drag-to-scroll, throw momentum, and NASDAQ-style neon ticker on Onyx ✦</em></p>
 
 ---
 
 ## ✨ What you get
 
 - 📊 **Net worth dashboard** — history, range controls, 30-day delta, account drill-in
-- 📰 **Live market tape** — collapsed Overview cycles ticker -> related headline -> position signal
+- 📰 **Live market tape** — NASDAQ-style neon ticker on Onyx; drag to scroll, throw to fling with momentum
 - 🏦 **Full account coverage** — brokerages, banks, crypto, real estate, debt, retirement
 - 🧠 **Insights engine** — 15 deterministic rules, runs 100% offline, no AI required
 - 🔥 **Retirement planner** — 5 FIRE types, projections, contribution tracking
