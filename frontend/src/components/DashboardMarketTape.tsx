@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
@@ -193,120 +193,15 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
   })
   const normalized = useMemo(() => normalizeTape(data), [data])
   const entries = useMemo(() => buildEntries(normalized), [normalized])
+  const [speedUp, setSpeedUp] = useState(false)
+  const trackRef = useRef<HTMLDivElement>(null)
   const durationSeconds = Math.max(82, entries.length * 9.8)
   const trackStyle = { '--tape-duration': `${durationSeconds}s` } as CSSProperties
+  // Keep duration accessible in rAF loop without re-creating the effect
+  const durationRef = useRef(durationSeconds)
+  durationRef.current = durationSeconds
 
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const drag = useRef({
-    active: false,
-    startX: 0,
-    startOffset: 0,
-    lastX: 0,
-    lastTime: 0,
-    velocity: 0,
-    rafId: 0,
-  })
-
-  const getContentWidth = useCallback(() => {
-    const track = trackRef.current
-    if (!track) return 0
-    return track.scrollWidth / 2
-  }, [])
-
-  const getCurrentOffset = useCallback(() => {
-    const track = trackRef.current
-    if (!track) return 0
-    const matrix = new DOMMatrix(window.getComputedStyle(track).transform)
-    return matrix.m41
-  }, [])
-
-  const normalizeOffset = useCallback((offset: number, contentWidth: number) => {
-    if (contentWidth === 0) return 0
-    let n = offset % contentWidth
-    if (n > 0) n -= contentWidth
-    return n
-  }, [])
-
-  const resumeAnimation = useCallback((offset: number) => {
-    const track = trackRef.current
-    const viewport = viewportRef.current
-    if (!track) return
-    const contentWidth = getContentWidth()
-    const progress = contentWidth > 0 ? Math.abs(offset % contentWidth) / contentWidth : 0
-    track.style.transform = ''
-    track.style.animationDelay = `${-(progress * durationSeconds)}s`
-    track.style.animationPlayState = ''
-    viewport?.removeAttribute('data-dragging')
-  }, [durationSeconds, getContentWidth])
-
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (reduceMotion) return
-    const track = trackRef.current
-    if (!track) return
-    cancelAnimationFrame(drag.current.rafId)
-    const offset = getCurrentOffset()
-    drag.current = {
-      active: true,
-      startX: e.clientX,
-      startOffset: offset,
-      lastX: e.clientX,
-      lastTime: performance.now(),
-      velocity: 0,
-      rafId: 0,
-    }
-    track.style.animationPlayState = 'paused'
-    track.style.animationDelay = '0s'
-    track.style.transform = `translateX(${offset}px)`
-    viewportRef.current?.setAttribute('data-dragging', 'true')
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }, [reduceMotion, getCurrentOffset])
-
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!drag.current.active) return
-    const track = trackRef.current
-    if (!track) return
-    const now = performance.now()
-    const dt = now - drag.current.lastTime
-    if (dt > 0) drag.current.velocity = (e.clientX - drag.current.lastX) / dt
-    drag.current.lastX = e.clientX
-    drag.current.lastTime = now
-    const contentWidth = getContentWidth()
-    const raw = drag.current.startOffset + (e.clientX - drag.current.startX)
-    const offset = normalizeOffset(raw, contentWidth)
-    track.style.transform = `translateX(${offset}px)`
-  }, [getContentWidth, normalizeOffset])
-
-  const handlePointerUp = useCallback((_e: React.PointerEvent<HTMLDivElement>) => {
-    if (!drag.current.active) return
-    drag.current.active = false
-    const track = trackRef.current
-    if (!track) return
-    const contentWidth = getContentWidth()
-    const matrix = new DOMMatrix(window.getComputedStyle(track).transform)
-    let offset = matrix.m41
-    // px-per-frame velocity (≈16ms frame)
-    let velocity = drag.current.velocity * 16
-    const friction = 0.92
-    const minV = 0.3
-
-    if (Math.abs(velocity) < minV) {
-      resumeAnimation(offset)
-      return
-    }
-
-    const tick = () => {
-      velocity *= friction
-      offset = normalizeOffset(offset + velocity, contentWidth)
-      track.style.transform = `translateX(${offset}px)`
-      if (Math.abs(velocity) > minV) {
-        drag.current.rafId = requestAnimationFrame(tick)
-      } else {
-        resumeAnimation(offset)
-      }
-    }
-    drag.current.rafId = requestAnimationFrame(tick)
-  }, [getContentWidth, normalizeOffset, resumeAnimation])
+  const animRef = useRef({ offset: 0, speed: 1, targetSpeed: 1, lastTime: 0, rafId: 0 })
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -324,9 +219,61 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
     return () => legacyMedia.removeListener?.(sync)
   }, [])
 
+  // rAF-driven scroll — replaces CSS animation so speed lerps smoothly.
+  // Depends on entries.length so it (re)starts once the track DOM node is mounted.
   useEffect(() => {
-    return () => { cancelAnimationFrame(drag.current.rafId) }
-  }, [])
+    if (reduceMotion) return
+    const track = trackRef.current
+    if (!track) return
+
+    const state = animRef.current
+    cancelAnimationFrame(state.rafId)
+    track.style.animation = 'none'
+    if (state.offset === 0) state.speed = 1
+    state.lastTime = performance.now()
+
+    const tick = (now: number) => {
+      const dt = Math.min((now - state.lastTime) / 1000, 0.05)
+      state.lastTime = now
+      const el = trackRef.current
+      if (el) {
+        const contentWidth = el.scrollWidth / 2
+        if (contentWidth > 0) {
+          state.speed += (state.targetSpeed - state.speed) * 0.08
+          state.offset -= (contentWidth / durationRef.current) * dt * state.speed
+          if (state.offset <= -contentWidth) state.offset += contentWidth
+          el.style.transform = `translateX(${state.offset}px)`
+        }
+      }
+      state.rafId = requestAnimationFrame(tick)
+    }
+    state.rafId = requestAnimationFrame(tick)
+
+    return () => {
+      cancelAnimationFrame(state.rafId)
+    }
+  }, [reduceMotion, entries.length])
+
+  // Key handlers — toggle speed on ArrowRight, reset on blur
+  useEffect(() => {
+    if (reduceMotion) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowRight' || e.repeat) return
+      const next = animRef.current.targetSpeed === 1 ? 3 : 1
+      animRef.current.targetSpeed = next
+      setSpeedUp(next === 3)
+    }
+    const onBlur = () => {
+      animRef.current.targetSpeed = 1
+      setSpeedUp(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [reduceMotion])
 
   if (!visible) return null
 
@@ -349,12 +296,7 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
   return (
     <div className="dashboard-market-tape" data-testid="dashboard-market-tape">
       <div
-        ref={viewportRef}
-        className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}${speedUp ? ' is-fast' : ''}`}
       >
         <div
           ref={trackRef}
