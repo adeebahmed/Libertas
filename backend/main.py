@@ -85,6 +85,8 @@ async def on_startup():
     db = SessionLocal()
     try:
         load_key_on_startup(db)
+        loaded = dashboard.load_quote_cache(db)
+        logger.info(f"Startup quote cache load: {loaded}")
     finally:
         db.close()
     is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
@@ -102,6 +104,7 @@ async def on_startup():
         app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
     # Refresh prices and snapshot after startup ingest (runs in background)
     asyncio.ensure_future(_post_startup_refresh())
+    asyncio.ensure_future(_market_tape_refresh_loop())
     if not disable_scheduler:
         asyncio.ensure_future(daily_sync_loop())
 
@@ -117,11 +120,78 @@ async def _post_startup_refresh():
             record_snapshots(db)
             import logging
             logging.getLogger(__name__).info(f"Startup price refresh: {updated} prices updated")
+
+        # Warm all quote cache rows (stocks + crypto) and persist into SQLite-backed cache.
+        quote_cache = dashboard.refresh_quote_cache(db, only="all")
+        logging.getLogger(__name__).info(f"Startup quote cache warmup: {quote_cache}")
+        try:
+            news._trigger_async_refresh()
+        except Exception:
+            pass
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Startup price refresh failed: {e}")
     finally:
         db.close()
+
+
+async def _market_tape_refresh_loop():
+    """
+    Lightweight live-refresh loop for tape freshness.
+    - Quote cache refresh cadence derives from provider rate limits.
+    - News refresh remains async and lock-protected.
+    """
+    news_interval_seconds = int(os.getenv("LIBERTAS_NEWS_REFRESH_INTERVAL_SECONDS", "900"))
+    sleep_tick_seconds = 15
+    last_stock_refresh_ts = 0.0
+    last_crypto_refresh_ts = 0.0
+    last_news_ts = 0.0
+
+    await asyncio.sleep(20)
+    while True:
+        now = asyncio.get_running_loop().time()
+        db = SessionLocal()
+        try:
+            plan = dashboard.quote_refresh_plan(db)
+            stock_interval_seconds = max(60, int(plan.get("stock_interval_seconds", 900)))
+            crypto_interval_seconds = max(30, int(plan.get("crypto_interval_seconds", 60)))
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Quote refresh plan computation failed: {e}")
+            stock_interval_seconds = 900
+            crypto_interval_seconds = 60
+        finally:
+            db.close()
+
+        if now - last_stock_refresh_ts >= stock_interval_seconds:
+            db = SessionLocal()
+            try:
+                result = dashboard.refresh_quote_cache(db, only="stocks")
+                logging.getLogger(__name__).info(f"Background stock quote cache refresh: {result}")
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Background stock quote cache refresh failed: {e}")
+            finally:
+                db.close()
+            last_stock_refresh_ts = now
+
+        if now - last_crypto_refresh_ts >= crypto_interval_seconds:
+            db = SessionLocal()
+            try:
+                result = dashboard.refresh_quote_cache(db, only="crypto")
+                logging.getLogger(__name__).info(f"Background crypto quote cache refresh: {result}")
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Background crypto quote cache refresh failed: {e}")
+            finally:
+                db.close()
+            last_crypto_refresh_ts = now
+
+        if now - last_news_ts >= max(news_interval_seconds, 300):
+            try:
+                news._trigger_async_refresh()
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Background news refresh trigger failed: {e}")
+            last_news_ts = now
+
+        await asyncio.sleep(sleep_tick_seconds)
 
 
 def _bootstrap_demo_data_if_empty():

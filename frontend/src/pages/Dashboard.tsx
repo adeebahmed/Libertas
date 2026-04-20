@@ -86,7 +86,7 @@ export default function Dashboard() {
   const { data: accounts, loading: accountsLoading, error: accountsError } = useApi<Account[]>(() => api.get('/accounts'), [])
   const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
   const { data: settings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
-  const { data: tape, loading: tapeLoading } = useApi<DashboardTape>(() => api.get('/dashboard/tape'), [])
+  const { data: tape, loading: tapeLoading, refetch: refetchTape } = useApi<DashboardTape>(() => api.get('/dashboard/tape'), [])
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -121,6 +121,13 @@ export default function Dashboard() {
     const id = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      refetchTape()
+    }, 30_000)
+    return () => window.clearInterval(id)
+  }, [refetchTape])
 
   const greeting = useMemo(() => {
     const hour = now.getHours()

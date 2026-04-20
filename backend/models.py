@@ -209,6 +209,17 @@ class NewsCache(Base):
     category = Column(Text)
 
 
+class QuoteCache(Base):
+    __tablename__ = "quote_cache"
+
+    symbol = Column(Text, primary_key=True)
+    price = Column(Float)
+    day_change_pct = Column(Float)
+    source = Column(Text)
+    fetched_at = Column(DateTime, server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime)
+
+
 class IntegrationConnection(Base):
     __tablename__ = "integration_connections"
 

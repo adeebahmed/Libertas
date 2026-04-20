@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -7,12 +8,21 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Account, Institution, Setting, Backup
+from ..database import DB_PATH, get_db
+from ..models import Account, Backup, Institution, NewsCache, QuoteCache, Setting
 
 router = APIRouter(prefix="/api/backups", tags=["backups"])
 
 BACKUP_DIR = Path(__file__).parent.parent.parent / "data" / "backups"
+
+
+def _safe_parse_setting(raw: str | None):
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return raw
 
 
 @router.get("")
@@ -31,12 +41,14 @@ def list_backups(db: Session = Depends(get_db)):
 
 @router.post("")
 def create_backup(db: Session = Depends(get_db)):
-    """Create a JSON backup of accounts, institutions, and settings."""
+    """Create a JSON backup + SQLite snapshot (includes caches)."""
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     accounts = db.query(Account).all()
     institutions = db.query(Institution).all()
     settings = db.query(Setting).all()
+    news_cache = db.query(NewsCache).order_by(NewsCache.fetched_at.desc()).limit(2000).all()
+    quote_cache = db.query(QuoteCache).all()
 
     data = {
         "created_at": datetime.utcnow().isoformat(),
@@ -56,7 +68,33 @@ def create_backup(db: Session = Depends(get_db)):
             }
             for a in accounts
         ],
-        "settings": {s.key: json.loads(s.value) if s.value else None for s in settings},
+        "settings": {s.key: _safe_parse_setting(s.value) for s in settings},
+        "cache": {
+            "news": [
+                {
+                    "id": n.id,
+                    "source": n.source,
+                    "title": n.title,
+                    "url": n.url,
+                    "published_at": n.published_at.isoformat() if n.published_at else None,
+                    "fetched_at": n.fetched_at.isoformat() if n.fetched_at else None,
+                    "summary": n.summary,
+                    "category": n.category,
+                }
+                for n in news_cache
+            ],
+            "quotes": [
+                {
+                    "symbol": q.symbol,
+                    "price": q.price,
+                    "day_change_pct": q.day_change_pct,
+                    "source": q.source,
+                    "fetched_at": q.fetched_at.isoformat() if q.fetched_at else None,
+                    "expires_at": q.expires_at.isoformat() if q.expires_at else None,
+                }
+                for q in quote_cache
+            ],
+        },
     }
 
     filename = f"libertas-backup-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.json"
@@ -64,13 +102,24 @@ def create_backup(db: Session = Depends(get_db)):
     content = json.dumps(data, indent=2)
     filepath.write_text(content)
 
-    size = len(content.encode())
+    # DB-level snapshot backup so the full SQLite state persists and is recoverable.
+    sqlite_filename = f"libertas-db-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.sqlite3"
+    sqlite_path = BACKUP_DIR / sqlite_filename
+    src = sqlite3.connect(DB_PATH)
+    dst = sqlite3.connect(str(sqlite_path))
+    try:
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+
+    size = len(content.encode()) + (sqlite_path.stat().st_size if sqlite_path.exists() else 0)
     record = Backup(filename=filename, size_bytes=size)
     db.add(record)
     db.commit()
     db.refresh(record)
 
-    return {"id": record.id, "filename": filename, "size_bytes": size}
+    return {"id": record.id, "filename": filename, "sqlite_filename": sqlite_filename, "size_bytes": size}
 
 
 @router.get("/{backup_id}/download")
