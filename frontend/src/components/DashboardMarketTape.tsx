@@ -47,15 +47,15 @@ function performanceEmoji(value: number | null | undefined) {
 
 function performanceDirection(value: number | null | undefined): 'up' | 'down' | 'flat' {
   if (value == null || Number.isNaN(value)) return 'flat'
-  if (value > 0.1) return 'up'
-  if (value < -0.1) return 'down'
+  if (value > 0.01) return 'up'
+  if (value < -0.01) return 'down'
   return 'flat'
 }
 
 function formatPercent(value: number | null | undefined) {
-  if (value == null || Number.isNaN(value)) return '0.0%'
-  const sign = value > 0.1 ? '+' : ''
-  return `${sign}${value.toFixed(1)}%`
+  if (value == null || Number.isNaN(value)) return '—'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(2)}%`
 }
 
 function normalizeTape(data: DashboardTape | null): DashboardTape {
@@ -139,6 +139,7 @@ function TapeRun({ entries, onNavigate, clone = false }: { entries: TapeEntry[];
           const pairClass = entry.pairTone != null ? ` pair-tone-${entry.pairTone}` : ''
           const emoji = performanceEmoji(entry.ticker.performance_pct)
           const moveClass = performanceDirection(entry.ticker.performance_pct)
+          const changeText = formatPercent(entry.ticker.performance_pct)
           return (
             <span key={entry.id} className={`dashboard-market-tape-token news${pairClass}`} data-testid="market-tape-item-news">
               <a
@@ -152,7 +153,9 @@ function TapeRun({ entries, onNavigate, clone = false }: { entries: TapeEntry[];
                 <span className="dashboard-market-tape-ticker-strong">
                   <span className="dashboard-market-tape-ticker-symbol">{entry.ticker.symbol}</span>
                   <span className={`dashboard-market-tape-ticker-price is-${moveClass}`}>{formatPrice(entry.ticker.price)}</span>
-                  <span className={`dashboard-market-tape-ticker-change is-${moveClass}`}>{formatPercent(entry.ticker.performance_pct)}</span>
+                  {changeText !== '—' ? (
+                    <span className={`dashboard-market-tape-ticker-change is-${moveClass}`}>{changeText}</span>
+                  ) : null}
                 </span>
                 <span>-</span>
                 <span>{entry.news.label}</span>

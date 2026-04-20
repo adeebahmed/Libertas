@@ -34,6 +34,9 @@ export default function Settings() {
   const [claudeKey, setClaudeKey] = useState('')
   const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
   const [newsApiKey, setNewsApiKey] = useState('')
+  const [fmpApiKey, setFmpApiKey] = useState('')
+  const [stockRph, setStockRph] = useState('4')
+  const [cryptoRpm, setCryptoRpm] = useState('6')
   const [plaidClientId, setPlaidClientId] = useState('')
   const [plaidSecret, setPlaidSecret] = useState('')
   const [plaidEnv, setPlaidEnv] = useState('sandbox')
@@ -50,6 +53,9 @@ export default function Settings() {
     setClaudeKey(String(settings.claude_api_key ?? ''))
     setClaudeModel(String(settings.claude_model ?? 'claude-sonnet-4-6'))
     setNewsApiKey(String(settings.news_api_key ?? ''))
+    setFmpApiKey(String(settings.fmp_api_key ?? settings.stock_data_api_key ?? ''))
+    setStockRph(String(settings.stock_data_requests_per_hour ?? '4'))
+    setCryptoRpm(String(settings.crypto_data_requests_per_minute ?? '6'))
     setPlaidClientId(String(settings.plaid_client_id ?? ''))
     setPlaidSecret(String(settings.plaid_secret ?? ''))
     setPlaidEnv(String(settings.plaid_env ?? 'sandbox'))
@@ -119,6 +125,46 @@ export default function Settings() {
             <ApiKeyLabel label="News API key (optional)" href="https://newsapi.org/account" />
             <input type="password" value={newsApiKey} onChange={e => setNewsApiKey(e.target.value)}
               onBlur={() => saveSetting('news_api_key', newsApiKey)} placeholder="NewsAPI key" />
+          </div>
+          <div className="field">
+            <ApiKeyLabel label="FMP API key (stocks/tape)" href="https://site.financialmodelingprep.com/developer/docs/quickstart" />
+            <input
+              type="password"
+              value={fmpApiKey}
+              onChange={e => setFmpApiKey(e.target.value)}
+              onBlur={() => saveSetting('fmp_api_key', fmpApiKey)}
+              placeholder="FMP API key"
+            />
+          </div>
+          <div className="field">
+            <label>Stock API budget (requests/hour)</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={stockRph}
+              onChange={e => setStockRph(e.target.value)}
+              onBlur={() => {
+                const parsed = Number.parseInt(stockRph || '4', 10)
+                saveSetting('stock_data_requests_per_hour', Number.isFinite(parsed) && parsed > 0 ? parsed : 4)
+              }}
+              placeholder="4"
+            />
+          </div>
+          <div className="field">
+            <label>Crypto API budget (requests/min)</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={cryptoRpm}
+              onChange={e => setCryptoRpm(e.target.value)}
+              onBlur={() => {
+                const parsed = Number.parseInt(cryptoRpm || '6', 10)
+                saveSetting('crypto_data_requests_per_minute', Number.isFinite(parsed) && parsed > 0 ? parsed : 6)
+              }}
+              placeholder="6"
+            />
           </div>
         </div>
 
