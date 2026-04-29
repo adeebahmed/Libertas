@@ -102,8 +102,20 @@ _quote_cache: dict[str, tuple[float | None, float | None, float]] = {}
 _fmp_limit_cooldown_until = 0.0
 _recent_tape_lock = threading.Lock()
 _recent_news_ids: deque[str] = deque(maxlen=RECENT_NEWS_MEMORY)
+_tape_cache_lock = threading.Lock()
+_tape_cache_payload: dict[str, Any] | None = None
+_tape_cache_generated_at_ts = 0.0
 
 CRYPTO_SYMBOLS = {"BTC", "ETH", "SOL", "ADA", "DOT", "DOGE", "AVAX", "MATIC", "LINK", "UNI", "XRP", "LTC", "ATOM", "ALGO", "USDC", "USDT"}
+
+
+def _dashboard_tape_cache_ttl_seconds() -> int:
+    raw = str(os.getenv("LIBERTAS_DASHBOARD_TAPE_CACHE_TTL_SECONDS", "30")).strip()
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = 30
+    return max(5, min(parsed, 300))
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -1365,14 +1377,12 @@ def _build_sequence(news_items: list[dict], ticker_items: list[dict], rng: rando
     return sequence
 
 
-@router.get("/tape")
-def get_dashboard_tape(db: Session = Depends(get_db)):
-    # Randomize order on each request while still honoring relevance + recent-memory guards.
+def _build_dashboard_tape_payload(db: Session) -> dict[str, Any]:
+    # Randomize order on refresh while still honoring relevance + recent-memory guards.
     rng = random.SystemRandom()
     news_items = _build_news_segment(db)
     ticker_items = _build_ticker_segment(db)
     sequence = _build_sequence(news_items, ticker_items, rng)
-
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "segments": {
@@ -1382,3 +1392,26 @@ def get_dashboard_tape(db: Session = Depends(get_db)):
         },
         "sequence": sequence,
     }
+
+
+@router.get("/tape")
+def get_dashboard_tape(db: Session = Depends(get_db)):
+    global _tape_cache_payload, _tape_cache_generated_at_ts
+    now_ts = time.time()
+    ttl_seconds = _dashboard_tape_cache_ttl_seconds()
+
+    with _tape_cache_lock:
+        cache_is_fresh = (
+            _tape_cache_payload is not None
+            and (now_ts - _tape_cache_generated_at_ts) < ttl_seconds
+        )
+        if cache_is_fresh:
+            return _tape_cache_payload
+
+    payload = _build_dashboard_tape_payload(db)
+
+    with _tape_cache_lock:
+        _tape_cache_payload = payload
+        _tape_cache_generated_at_ts = now_ts
+
+    return payload

@@ -191,10 +191,12 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   })
+  const [refreshPulse, setRefreshPulse] = useState(false)
   const normalized = useMemo(() => normalizeTape(data), [data])
   const entries = useMemo(() => buildEntries(normalized), [normalized])
   const [speedUp, setSpeedUp] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
+  const lastGeneratedAtRef = useRef('')
   const durationSeconds = Math.max(82, entries.length * 9.8)
   const trackStyle = { '--tape-duration': `${durationSeconds}s` } as CSSProperties
   // Keep duration accessible in rAF loop without re-creating the effect
@@ -218,6 +220,16 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
     legacyMedia.addListener?.(sync)
     return () => legacyMedia.removeListener?.(sync)
   }, [])
+
+  useEffect(() => {
+    if (!normalized.generated_at) return
+    const previous = lastGeneratedAtRef.current
+    lastGeneratedAtRef.current = normalized.generated_at
+    if (!previous || previous === normalized.generated_at) return
+    setRefreshPulse(true)
+    const timeoutId = window.setTimeout(() => setRefreshPulse(false), reduceMotion ? 1 : 1100)
+    return () => window.clearTimeout(timeoutId)
+  }, [normalized.generated_at, reduceMotion])
 
   // rAF-driven scroll — replaces CSS animation so speed lerps smoothly.
   // Depends on entries.length so it (re)starts once the track DOM node is mounted.
@@ -294,9 +306,12 @@ export default function DashboardMarketTape({ data, loading, visible }: Props) {
   }
 
   return (
-    <div className="dashboard-market-tape" data-testid="dashboard-market-tape">
+    <div className={`dashboard-market-tape${refreshPulse ? ' is-refreshing' : ''}`} data-testid="dashboard-market-tape">
+      <div className="dashboard-market-tape-refresh-indicator" aria-live="polite">
+        <span className={`dashboard-market-tape-refresh-dot${refreshPulse ? ' is-active' : ''}`} />
+      </div>
       <div
-        className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}${speedUp ? ' is-fast' : ''}`}
+        className={`dashboard-market-tape-viewport${reduceMotion ? ' is-reduced-motion' : ''}${speedUp ? ' is-fast' : ''}${refreshPulse ? ' is-refresh-pulse' : ''}`}
       >
         <div
           ref={trackRef}
