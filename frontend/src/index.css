@@ -882,7 +882,6 @@ button {
       0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
   }
 }
-
 /* ── Speed-up indicator ────────────────────────────────── */
 .dashboard-market-tape-viewport.is-fast {
   outline: 1px solid color-mix(in srgb, currentColor 20%, transparent);
