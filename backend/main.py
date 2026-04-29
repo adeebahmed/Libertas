@@ -97,7 +97,8 @@ async def on_startup():
             start_watcher(str(WATCH_FOLDER))
         except Exception as e:
             logger.warning(f"File watcher disabled due to startup error: {e}")
-    _bootstrap_demo_data_if_empty()
+    if os.getenv("LIBERTAS_SKIP_DEMO_BOOTSTRAP") != "1":
+        _bootstrap_demo_data_if_empty()
     # Mount built frontend AFTER all API routes are registered
     frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():

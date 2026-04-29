@@ -26,6 +26,32 @@ const GROUPS: Array<{ title: string; types: string[] }> = [
   { title: 'Other', types: ['other'] },
 ]
 
+const DASHBOARD_TAPE_CACHE_KEY = 'libertas.dashboard.tape.v1'
+
+function readTapeCache(): DashboardTape | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(DASHBOARD_TAPE_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as DashboardTape
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.generated_at !== 'string') return null
+    if (!parsed.segments || !Array.isArray(parsed.segments.news) || !Array.isArray(parsed.segments.tickers) || !Array.isArray(parsed.segments.personal)) return null
+    if (!Array.isArray(parsed.sequence)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeTapeCache(tape: DashboardTape) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(DASHBOARD_TAPE_CACHE_KEY, JSON.stringify(tape))
+  } catch {
+    // Ignore localStorage failures (private mode, quota issues).
+  }
+}
+
 function usd(n: number, compact = false) {
   if (compact) {
     const abs = Math.abs(n)
@@ -87,6 +113,7 @@ export default function Dashboard() {
   const { data: insights, loading: insightsLoading } = useApi<Insight[]>(() => api.get('/insights'), [])
   const { data: settings } = useApi<Record<string, unknown>>(() => api.get('/settings'), [])
   const { data: tape, loading: tapeLoading, refetch: refetchTape } = useApi<DashboardTape>(() => api.get('/dashboard/tape'), [])
+  const [cachedTape, setCachedTape] = useState<DashboardTape | null>(() => readTapeCache())
 
   const groupedAccounts = useMemo(() => {
     const source = [...(accounts ?? [])].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))
@@ -128,6 +155,12 @@ export default function Dashboard() {
     }, 30_000)
     return () => window.clearInterval(id)
   }, [refetchTape])
+
+  useEffect(() => {
+    if (!tape) return
+    setCachedTape(tape)
+    writeTapeCache(tape)
+  }, [tape])
 
   const greeting = useMemo(() => {
     const hour = now.getHours()
@@ -186,6 +219,8 @@ export default function Dashboard() {
   const historyInitialLoading = historyLoading && !history
   const accountsInitialLoading = accountsLoading && !accounts
   const insightsInitialLoading = insightsLoading && !insights
+  const effectiveTape = tape ?? cachedTape
+  const effectiveTapeLoading = tapeLoading && !effectiveTape
   return (
     <div>
       <div
@@ -203,7 +238,7 @@ export default function Dashboard() {
         >
           {heroCollapsed ? '▾' : '▴'}
         </button>
-        <DashboardMarketTape data={tape} loading={tapeLoading} visible={heroCollapsed} />
+        <DashboardMarketTape data={effectiveTape} loading={effectiveTapeLoading} visible={heroCollapsed} />
         <div className="dashboard-hero-grid">
           <div className="dashboard-hero-summary">
             <div className="section-label mb-8">Total net worth</div>
