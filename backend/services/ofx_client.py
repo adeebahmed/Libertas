@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime
 import logging
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import Any, Optional
 
 from ofxtools.Client import OFXClient, StmtRq, InvStmtRq
@@ -33,7 +32,7 @@ class OFXConnectionConfig:
     broker_id: Optional[str]   # required for investment accounts
 
 
-def _fetch_raw_ofx(cfg: OFXConnectionConfig, username: str, password: str, dtstart: datetime.datetime):
+def _fetch_raw_ofx(cfg: OFXConnectionConfig, username: str, password: str, dtstart: datetime.datetime) -> Any:
     client = OFXClient(
         cfg.url,
         org=cfg.org,
@@ -76,7 +75,7 @@ def fetch_ofx_statement(
     results: list[dict[str, Any]] = []
     for stmt in ofx.statements:
         for tx in stmt.transactions:
-            amount = float(tx.trnamt) if isinstance(tx.trnamt, Decimal) else float(tx.trnamt or 0)
+            amount = float(tx.trnamt)
             description = tx.name or tx.memo or ""
             results.append(
                 {
@@ -85,7 +84,7 @@ def fetch_ofx_statement(
                     "amount": amount,
                     "description": description,
                     "trntype": getattr(tx, "trntype", "other"),
-                    "memo": getattr(tx, "memo", None),
+                    "memo": tx.memo,
                 }
             )
     return results

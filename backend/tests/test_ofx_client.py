@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from backend.services.ofx_client import OFXConnectionConfig, fetch_ofx_statement
 
@@ -17,7 +16,7 @@ def test_ofx_connection_config_fields():
     assert cfg.is_investment is True
 
 
-def test_fetch_ofx_statement_bank(tmp_path):
+def test_fetch_ofx_statement_bank():
     from decimal import Decimal
     import datetime
     from ofxtools.utils import UTC
