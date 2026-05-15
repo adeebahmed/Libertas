@@ -14,7 +14,8 @@ SOURCE_PRIORITY = {
     "sheets": 2,
     "csv": 3,
     "excel": 3,
-    "plaid": 4,
+    "ofx": 4,
+    "plaid": 5,
 }
 
 
@@ -35,6 +36,8 @@ def canonical_key_for(
 ) -> str:
     if source_kind == "plaid" and external_id:
         return f"plaid:{external_id}"
+    if source_kind == "ofx" and external_id:
+        return f"ofx:{external_id}"
     if source_kind in {"csv", "excel"} and import_hash:
         return f"file:{import_hash}"
     if source_kind == "sheets" and source_record_id:
