@@ -1,4 +1,3 @@
-import pytest
 from datetime import date
 from backend.services.source_ingest import source_priority, canonical_key_for
 
@@ -9,6 +8,10 @@ def test_ofx_source_priority_higher_than_sheets():
 
 def test_ofx_source_priority_lower_than_plaid():
     assert source_priority("ofx") < source_priority("plaid")
+
+
+def test_ofx_source_priority_higher_than_csv():
+    assert source_priority("ofx") > source_priority("csv")
 
 
 def test_canonical_key_for_ofx_uses_fitid():
