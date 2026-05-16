@@ -6,17 +6,7 @@ import os
 
 os.environ.setdefault("PYTEST_CURRENT_TEST", "1")
 
-from backend.database import Base, engine, SessionLocal
 from backend.models import IntegrationConnection, IntegrationRun, Account, Transaction, Institution
-
-
-@pytest.fixture()
-def db():
-    Base.metadata.create_all(bind=engine)
-    session = SessionLocal()
-    yield session
-    session.close()
-    Base.metadata.drop_all(bind=engine)
 
 
 def _make_ofx_connection(db, account_id: int) -> IntegrationConnection:
