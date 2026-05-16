@@ -20,6 +20,7 @@ from .routers import accounts, imports, prices, real_estate, snapshots, insights
 from .routers import retirement, taxes, news, backups
 from .routers import integrations
 from .routers import dashboard
+from .routers import ofx as ofx_router
 from .routers.prices import refresh_prices
 from .routers.snapshots import record_snapshots
 from .services.integration_scheduler import daily_sync_loop
@@ -57,6 +58,7 @@ app.include_router(news.router)
 app.include_router(backups.router)
 app.include_router(integrations.router)
 app.include_router(dashboard.router)
+app.include_router(ofx_router.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
 DEMO_FILENAMES = [
