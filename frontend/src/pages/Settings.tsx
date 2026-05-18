@@ -3,7 +3,6 @@ import { useApi } from '../hooks/useApi'
 import { api } from '../api/client'
 import Confirm from '../components/Confirm'
 import { useTheme, type Theme } from '../theme'
-import { ofxApi, KNOWN_INSTITUTIONS, type OFXConnection, type OFXConnectionCreate } from '../api/ofx'
 
 type SeedDemoResponse = {
   ok: boolean
@@ -46,32 +45,8 @@ export default function Settings() {
   const [passphraseConfirm, setPassphraseConfirm] = useState('')
   const [passphraseSet, setPassphraseSet] = useState(false)
 
-  const [ofxConnections, setOfxConnections] = useState<OFXConnection[]>([])
-  const [ofxSyncing, setOfxSyncing] = useState(false)
-  const [ofxSyncError, setOfxSyncError] = useState<string | null>(null)
-  const [showOFXForm, setShowOFXForm] = useState(false)
-  const [ofxForm, setOfxForm] = useState<Partial<OFXConnectionCreate>>({
-    is_investment: false,
-    broker_id: null,
-  })
-  const [ofxFormError, setOfxFormError] = useState<string | null>(null)
-  const [ofxFormSubmitting, setOfxFormSubmitting] = useState(false)
-
   const [confirmPending, setConfirmPending] = useState<{ message: string; detail?: string; onConfirm: () => void } | null>(null)
   const [toast, setToast] = useState('')
-
-  const loadOFXConnections = async () => {
-    try {
-      const conns = await ofxApi.listConnections()
-      setOfxConnections(conns)
-    } catch {
-      // non-fatal
-    }
-  }
-
-  useEffect(() => {
-    loadOFXConnections()
-  }, [])
 
   useEffect(() => {
     if (!settings) return
@@ -110,49 +85,6 @@ export default function Settings() {
   }
 
   const { theme, setTheme } = useTheme()
-
-  const handleOFXSyncAll = async () => {
-    setOfxSyncing(true)
-    setOfxSyncError(null)
-    try {
-      const result = await ofxApi.syncAll()
-      if (result.errors && result.errors.length > 0) {
-        setOfxSyncError(result.errors.map(e => `${e.name}: ${e.error}`).join('; '))
-      }
-      await loadOFXConnections()
-    } catch (e: unknown) {
-      setOfxSyncError(e instanceof Error ? e.message : 'Sync failed')
-    } finally {
-      setOfxSyncing(false)
-    }
-  }
-
-  const handleOFXDelete = async (id: number) => {
-    await ofxApi.deleteConnection(id)
-    setOfxConnections(prev => prev.filter(c => c.id !== id))
-  }
-
-  const handleOFXFormSubmit = async () => {
-    setOfxFormError(null)
-    const required: (keyof OFXConnectionCreate)[] = ['name', 'url', 'fi_id', 'org', 'account_number', 'account_type', 'account_id', 'username', 'password']
-    for (const field of required) {
-      if (!ofxForm[field] && ofxForm[field] !== 0) {
-        setOfxFormError(`${field} is required`)
-        return
-      }
-    }
-    setOfxFormSubmitting(true)
-    try {
-      const conn = await ofxApi.addConnection(ofxForm as OFXConnectionCreate)
-      setOfxConnections(prev => [...prev, conn])
-      setShowOFXForm(false)
-      setOfxForm({ is_investment: false, broker_id: null })
-    } catch (e: unknown) {
-      setOfxFormError(e instanceof Error ? e.message : 'Failed to add connection')
-    } finally {
-      setOfxFormSubmitting(false)
-    }
-  }
 
   return (
     <div>
@@ -345,125 +277,6 @@ export default function Settings() {
         }}>
           Create backup
         </button>
-      </div>
-
-      {/* ── OFX Direct Connect ── */}
-      <div className="section-label mb-16">OFX Direct Connect</div>
-      <div className="card mb-32">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 'var(--fs-sm)' }}>
-            Connect directly to your financial institution using the OFX protocol for automatic transaction sync.
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
-            <button className="btn" onClick={handleOFXSyncAll} disabled={ofxSyncing}>
-              {ofxSyncing ? 'Syncing…' : 'Sync Now'}
-            </button>
-            <button className="btn btn-primary" onClick={() => setShowOFXForm(v => !v)}>
-              {showOFXForm ? 'Cancel' : '+ Add Account'}
-            </button>
-          </div>
-        </div>
-
-        {ofxSyncError && (
-          <div style={{ color: 'var(--neg)', marginBottom: 8, fontSize: 'var(--fs-sm)' }}>{ofxSyncError}</div>
-        )}
-
-        {ofxConnections.length === 0 && !showOFXForm && (
-          <p style={{ color: 'var(--text-3)', fontSize: 'var(--fs-sm)', margin: '8px 0 0' }}>
-            No OFX accounts configured. Add one to enable automatic transaction sync.
-          </p>
-        )}
-
-        {ofxConnections.map(conn => (
-          <div key={conn.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <span style={{ fontWeight: 500 }}>{conn.name}</span>
-              <span style={{ marginLeft: 10, fontSize: 'var(--fs-xs)', color: conn.status === 'active' ? 'var(--pos)' : 'var(--neg)' }}>
-                ● {conn.status}
-              </span>
-              {conn.last_sync_at && (
-                <span style={{ marginLeft: 10, fontSize: 'var(--fs-xs)', color: 'var(--text-3)' }}>
-                  Last sync: {new Date(conn.last_sync_at).toLocaleString()}
-                </span>
-              )}
-              {conn.last_error && (
-                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--neg)', marginTop: 2 }}>{conn.last_error}</div>
-              )}
-            </div>
-            <button
-              className="btn"
-              onClick={() => handleOFXDelete(conn.id)}
-              style={{ fontSize: 'var(--fs-xs)', color: 'var(--neg)', border: '1px solid var(--neg)', background: 'transparent' }}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-
-        {showOFXForm && (
-          <div style={{ marginTop: 16, padding: 16, background: 'var(--surface-2)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 12 }}>Add OFX Account</div>
-            {ofxFormError && <div style={{ color: 'var(--neg)', marginBottom: 8, fontSize: 'var(--fs-sm)' }}>{ofxFormError}</div>}
-
-            <div className="grid-2">
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Preset institution</label>
-                <select
-                  onChange={e => {
-                    const preset = KNOWN_INSTITUTIONS[e.target.value]
-                    if (preset) setOfxForm(prev => ({ ...prev, ...preset }))
-                  }}
-                >
-                  <option value="">-- Select institution or enter manually --</option>
-                  <option value="fidelity">Fidelity Investments</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-
-              {(['name', 'url', 'fi_id', 'org', 'account_number', 'account_type', 'username'] as const).map(field => (
-                <div key={field} className="field">
-                  <label>{field.replace(/_/g, ' ')}</label>
-                  <input
-                    value={(ofxForm[field] as string) ?? ''}
-                    onChange={e => setOfxForm(prev => ({ ...prev, [field]: e.target.value }))}
-                  />
-                </div>
-              ))}
-
-              <div className="field">
-                <label>password</label>
-                <input
-                  type="password"
-                  value={(ofxForm.password as string) ?? ''}
-                  onChange={e => setOfxForm(prev => ({ ...prev, password: e.target.value }))}
-                />
-              </div>
-
-              <div className="field">
-                <label>Linked account ID</label>
-                <input
-                  type="number"
-                  value={ofxForm.account_id ?? ''}
-                  onChange={e => setOfxForm(prev => ({ ...prev, account_id: parseInt(e.target.value) }))}
-                />
-              </div>
-            </div>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={ofxForm.is_investment ?? false}
-                onChange={e => setOfxForm(prev => ({ ...prev, is_investment: e.target.checked }))}
-                style={{ accentColor: 'var(--accent)' }}
-              />
-              <span style={{ fontSize: 'var(--fs-sm)' }}>Investment account (brokerage/IRA)</span>
-            </label>
-
-            <button className="btn btn-primary" onClick={handleOFXFormSubmit} disabled={ofxFormSubmitting}>
-              {ofxFormSubmitting ? 'Saving…' : 'Save Account'}
-            </button>
-          </div>
-        )}
       </div>
 
       {confirmPending && (
