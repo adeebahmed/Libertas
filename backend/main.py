@@ -110,6 +110,21 @@ async def on_startup():
     asyncio.ensure_future(_market_tape_refresh_loop())
     if not disable_scheduler:
         asyncio.ensure_future(daily_sync_loop())
+        asyncio.ensure_future(_startup_ofx_sync())
+
+
+async def _startup_ofx_sync():
+    """Run OFX sync shortly after startup so balances are fresh on first load."""
+    await asyncio.sleep(5)
+    from .services.ofx_sync import sync_all_ofx
+    db = SessionLocal()
+    try:
+        result = await sync_all_ofx(db, trigger="startup")
+        logger.info("Startup OFX sync: %s", result)
+    except Exception as e:
+        logger.warning("Startup OFX sync failed: %s", e)
+    finally:
+        db.close()
 
 
 async def _post_startup_refresh():
