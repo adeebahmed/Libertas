@@ -20,7 +20,6 @@ from .routers import accounts, imports, prices, real_estate, snapshots, insights
 from .routers import retirement, taxes, news, backups
 from .routers import integrations
 from .routers import dashboard
-from .routers import ofx as ofx_router
 from .routers.prices import refresh_prices
 from .routers.snapshots import record_snapshots
 from .services.integration_scheduler import daily_sync_loop
@@ -58,7 +57,6 @@ app.include_router(news.router)
 app.include_router(backups.router)
 app.include_router(integrations.router)
 app.include_router(dashboard.router)
-app.include_router(ofx_router.router)
 
 WATCH_FOLDER = Path(__file__).parent.parent / "data" / "watch"
 DEMO_FILENAMES = [
@@ -110,21 +108,6 @@ async def on_startup():
     asyncio.ensure_future(_market_tape_refresh_loop())
     if not disable_scheduler:
         asyncio.ensure_future(daily_sync_loop())
-        asyncio.ensure_future(_startup_ofx_sync())
-
-
-async def _startup_ofx_sync():
-    """Run OFX sync shortly after startup so balances are fresh on first load."""
-    await asyncio.sleep(5)
-    from .services.ofx_sync import sync_all_ofx
-    db = SessionLocal()
-    try:
-        result = await sync_all_ofx(db, trigger="startup")
-        logger.info("Startup OFX sync: %s", result)
-    except Exception as e:
-        logger.warning("Startup OFX sync failed: %s", e)
-    finally:
-        db.close()
 
 
 async def _post_startup_refresh():

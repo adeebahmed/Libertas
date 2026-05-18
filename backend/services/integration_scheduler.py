@@ -4,7 +4,6 @@ import asyncio
 import logging
 
 from ..database import SessionLocal
-from .ofx_sync import sync_all_ofx
 from .plaid_sync import sync_all_plaid
 from .sheets_sync import sync_all_sheets
 
@@ -16,8 +15,7 @@ async def run_daily_sync_once(trigger: str = "scheduled") -> dict:
     try:
         plaid = await sync_all_plaid(db, trigger=trigger)
         sheets = await sync_all_sheets(db, trigger=trigger)
-        ofx = await sync_all_ofx(db, trigger=trigger)
-        return {"plaid": plaid, "sheets": sheets, "ofx": ofx}
+        return {"plaid": plaid, "sheets": sheets}
     finally:
         db.close()
 
